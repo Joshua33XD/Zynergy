@@ -654,10 +654,14 @@ async function saveWorkoutViaWger() {
   const sets = Number(document.getElementById("wgerSets")?.value || 0);
   const reps = Number(document.getElementById("wgerReps")?.value || 0);
   const intensityRaw = document.getElementById("wgerWorkoutIntensity")?.value || "moderate";
-  const energyRaw = Number(document.getElementById("wgerWorkoutEnergy")?.value || 3);
+  const weightKg = Number(document.getElementById("wgerWorkoutWeight")?.value || 0);
 
   if (!exerciseSelect?.value || exerciseSelect.value === "") {
     alert("Please search for and select an exercise first.");
+    return;
+  }
+  if (weightKg <= 0) {
+    alert("Please enter a top set weight greater than 0 kg.");
     return;
   }
   if (sets <= 0 || reps <= 0) {
@@ -676,16 +680,23 @@ async function saveWorkoutViaWger() {
   const intensity = capitalizeFirst(intensityRaw);
   const { user_id, username } = userInfo;
 
+  // Derive a safe energy_level value from intensity so we still satisfy
+  // the workout_daily check constraint without asking the user.
+  const energy_level =
+    intensityRaw === "light" ? 4 :
+    intensityRaw === "intense" ? 2 :
+    3;
+
   const { error } = await upsertWithFallback(
     "workout_daily",
     {
       user_id,
       username,
       date,
-      workout_status: `Wger log: ${exerciseName} (${sets}x${reps})`,
+      workout_status: `Wger log: ${exerciseName} (${sets}x${reps} @ ${weightKg}kg)`,
       workout_intensity: intensity,
       muscle_groups: muscleFocus ? [wgerState.muscleLookup[muscleFocus] || muscleFocus] : [],
-      energy_level: energyRaw,
+      energy_level,
     },
     "user_id,date"
   );
@@ -819,7 +830,6 @@ async function getValues() {
   const intensityRaw = document.getElementById("workout-intensity")?.value;
   const mg1Raw = document.getElementById("muscle-group")?.value;
   const mg2Raw = document.getElementById("muscle-group2")?.value;
-  const energyRaw = document.getElementById("energy-level")?.value;
   const workout_intensity = intensityRaw
     ? intensityRaw[0].toUpperCase() + intensityRaw.slice(1).toLowerCase()
     : null;
@@ -830,19 +840,14 @@ async function getValues() {
   const mg1 = mg1Raw ? muscleMap[mg1Raw] ?? null : null;
   const mg2 = mg2Raw ? muscleMap[mg2Raw] ?? null : null;
   const muscle_groups = [mg1, mg2].filter(Boolean);
-  const energy_level = energyRaw != null ? parseInt(energyRaw, 10) : null;
   const date = new Date().toISOString().split("T")[0];
 
-  let validationError = null;
-  if (workout_intensity && energy_level != null) {
-    if (workout_intensity === "Light" && (energy_level < 3 || energy_level > 5))
-      validationError = `Light workouts require energy level 3-5, but you selected ${energy_level}`;
-    else if (workout_intensity === "Moderate" && (energy_level < 2 || energy_level > 4))
-      validationError = `Moderate workouts require energy level 2-4, but you selected ${energy_level}`;
-    else if (workout_intensity === "Intense" && (energy_level < 1 || energy_level > 2))
-      validationError = `Intense workouts require energy level 1-2, but you selected ${energy_level}`;
-  }
-  if (validationError) { alert("Validation failed: " + validationError); return; }
+  // Auto-pick an energy_level based on intensity so the DB check constraint
+  // is satisfied without showing the field in the UI.
+  let energy_level = null;
+  if (intensityRaw === "light") energy_level = 4;
+  else if (intensityRaw === "intense") energy_level = 2;
+  else if (intensityRaw === "moderate") energy_level = 3;
 
   const { data, error } = await upsertWithFallback(
     "workout_daily",
@@ -1074,7 +1079,6 @@ function setupWorkoutShortcuts() {
   const intensity = document.getElementById("workout-intensity");
   const muscle1 = document.getElementById("muscle-group");
   const muscle2 = document.getElementById("muscle-group2");
-  const energy = document.getElementById("energy-level");
 
   const addSet = () => {
     uiState.setCount += 1;
@@ -1100,7 +1104,6 @@ function setupWorkoutShortcuts() {
       if (intensity && value.intensity) intensity.value = value.intensity;
       if (muscle1 && value.muscle1) muscle1.value = value.muscle1;
       if (muscle2 && value.muscle2) muscle2.value = value.muscle2;
-      if (energy && value.energy) energy.value = value.energy;
       if (weightInput && value.weight) weightInput.value = value.weight;
       showXpPop("Preset loaded");
     } catch { /* ignore */ }
@@ -1116,7 +1119,7 @@ function setupWorkoutShortcuts() {
   workoutPage.addEventListener("click", () => {
     const payload = {
       intensity: intensity?.value, muscle1: muscle1?.value,
-      muscle2: muscle2?.value, energy: energy?.value, weight: weightInput?.value,
+      muscle2: muscle2?.value, weight: weightInput?.value,
     };
     localStorage.setItem("lastWorkoutPreset", JSON.stringify(payload));
   });

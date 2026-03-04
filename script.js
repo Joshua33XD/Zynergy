@@ -105,6 +105,16 @@ const uiState = {
   sessionXp: 0,
 };
 
+const wgerState = {
+  exercises: [],
+  ingredients: [],
+  filteredExercises: [],
+  filteredIngredients: [],
+  muscleLookup: {},
+  workoutReady: false,
+  nutritionReady: false,
+};
+
 function showXpPop(text) {
   const xpPop = document.getElementById("xpPop");
   if (!xpPop) return;
@@ -141,6 +151,14 @@ function animateNumber(id, target) {
 function maybeNotify(title, body) {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   new Notification(title, { body });
+}
+
+function applyTheme(themeName) {
+  if (!themeName || themeName === "default") {
+    document.body.removeAttribute("data-theme");
+    return;
+  }
+  document.body.setAttribute("data-theme", themeName);
 }
 
 async function getValues() {
@@ -495,19 +513,708 @@ function setupNotifications() {
   });
 }
 
+function setupThemeToggle() {
+  const themeBtn = document.getElementById("themeToggleBtn");
+  const rawTheme = localStorage.getItem("zynergyTheme") || "default";
+  const savedTheme = rawTheme === "ion" ? "ion" : "default";
+  applyTheme(savedTheme);
+
+  if (!themeBtn) return;
+
+  const labelMap = {
+    default: "Theme: Black",
+    ion: "Theme: Blue",
+  };
+  themeBtn.textContent = labelMap[savedTheme] || labelMap.default;
+  themeBtn.addEventListener("click", () => {
+    const current = document.body.getAttribute("data-theme") || "default";
+    const next = current === "default" ? "ion" : "default";
+    localStorage.setItem("zynergyTheme", next);
+    applyTheme(next);
+    themeBtn.textContent = labelMap[next] || labelMap.default;
+    showXpPop("Theme switched");
+  });
+}
+
+function setupMissionBoard() {
+  const missionList = document.getElementById("missionList");
+  if (!missionList) return;
+
+  const missionButtons = missionList.querySelectorAll(".mission-toggle");
+  const missionPct = document.getElementById("missionPct");
+  const updateMissionProgress = () => {
+    const done = missionList.querySelectorAll("li.done").length;
+    const total = missionButtons.length;
+    const percent = Math.round((done / total) * 100);
+    if (missionPct) missionPct.textContent = `${percent}%`;
+    animateMeterById("missionMeter", percent);
+  };
+
+  missionButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const item = btn.closest("li");
+      if (!item) return;
+      const nowDone = !item.classList.contains("done");
+      item.classList.toggle("done", nowDone);
+      btn.textContent = nowDone ? "Done" : "Pending";
+      const xpReward = Number(btn.dataset.xp || "10");
+      if (nowDone) {
+        const xpNode = document.getElementById("xpValue");
+        const currentXp = Number(xpNode?.textContent || "0");
+        animateNumber("xpValue", currentXp + xpReward);
+        showXpPop(`+${xpReward} XP`);
+      }
+      updateMissionProgress();
+    });
+  });
+
+  updateMissionProgress();
+}
+
+function setupLeaderboardRefresh() {
+  const list = document.getElementById("leaderboardList");
+  const refreshBtn = document.getElementById("refreshBoardBtn");
+  if (!list || !refreshBtn) return;
+
+  refreshBtn.addEventListener("click", () => {
+    const entries = Array.from(list.querySelectorAll("li"));
+    for (let i = entries.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [entries[i], entries[j]] = [entries[j], entries[i]];
+    }
+    list.replaceChildren(...entries);
+    showXpPop("Board refreshed");
+  });
+}
+
+function stripHtml(input) {
+  if (!input) return "";
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(input, "text/html");
+  return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+function formatMacro(label, value) {
+  if (typeof value !== "number" || Number.isNaN(value)) return null;
+  return `${label}: ${value}g`;
+}
+
+function renderApiError(statusEl, listEl, message) {
+  if (statusEl) statusEl.textContent = message;
+  if (listEl) listEl.replaceChildren();
+}
+
+function setSourceMode({
+  ready,
+  wgerCardId,
+  manualCardId,
+  statusId,
+  manualToggleId,
+  readyText,
+  fallbackText,
+}) {
+  const wgerCard = document.getElementById(wgerCardId);
+  const manualCard = document.getElementById(manualCardId);
+  const status = document.getElementById(statusId);
+  const toggleBtn = document.getElementById(manualToggleId);
+
+  if (status) status.textContent = ready ? readyText : fallbackText;
+
+  if (!wgerCard || !manualCard) return;
+
+  if (ready) {
+    wgerCard.classList.remove("hidden");
+    manualCard.classList.add("hidden");
+    if (toggleBtn) {
+      toggleBtn.textContent = "Use Manual Logger";
+    }
+    return;
+  }
+
+  // Automatic failover: manual logger becomes the primary visible UI.
+  wgerCard.classList.add("hidden");
+  manualCard.classList.remove("hidden");
+}
+
+function setupManualToggles() {
+  const workoutManualToggle = document.getElementById("workoutManualToggle");
+  const nutritionManualToggle = document.getElementById("nutritionManualToggle");
+
+  workoutManualToggle?.addEventListener("click", () => {
+    const manualCard = document.getElementById("manualWorkoutCard");
+    if (!manualCard) return;
+    const showing = !manualCard.classList.contains("hidden");
+    manualCard.classList.toggle("hidden", showing);
+    workoutManualToggle.textContent = showing ? "Use Manual Logger" : "Hide Manual Logger";
+  });
+
+  nutritionManualToggle?.addEventListener("click", () => {
+    const manualCard = document.getElementById("manualNutritionCard");
+    if (!manualCard) return;
+    const showing = !manualCard.classList.contains("hidden");
+    manualCard.classList.toggle("hidden", showing);
+    nutritionManualToggle.textContent = showing ? "Use Manual Logger" : "Hide Manual Logger";
+  });
+}
+
+function normalizeWgerExercise(exercise) {
+  const translations = Array.isArray(exercise.translations) ? exercise.translations : [];
+  const translated =
+    translations.find((item) => item.language === 2 && (item.name || item.description)) ||
+    translations.find((item) => item.name || item.description) ||
+    null;
+
+  return {
+    id: exercise.id ?? exercise.uuid,
+    name:
+      translated?.name ||
+      exercise.name ||
+      exercise.exercise_base_name ||
+      exercise.uuid ||
+      "Unnamed exercise",
+    description: stripHtml(translated?.description || exercise.description || ""),
+  };
+}
+
+function fillWgerExerciseSelect(exercises) {
+  const select = document.getElementById("wgerExerciseSelect");
+  if (!select) return;
+
+  select.replaceChildren();
+  if (!exercises.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No exercises for this muscle group";
+    select.appendChild(option);
+    return;
+  }
+
+  exercises.forEach((exercise, idx) => {
+    const option = document.createElement("option");
+    option.value = String(exercise.id ?? idx);
+    option.textContent = exercise.name;
+    if (idx === 0) option.selected = true;
+    select.appendChild(option);
+  });
+}
+
+function fillWgerIngredientSelect(ingredients) {
+  const select = document.getElementById("wgerIngredientSelect");
+  if (!select) return;
+
+  select.replaceChildren();
+  if (!ingredients.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No ingredients for this nutrition focus";
+    select.appendChild(option);
+    return;
+  }
+
+  ingredients.forEach((ingredient, idx) => {
+    const option = document.createElement("option");
+    option.value = String(ingredient.id ?? idx);
+    option.textContent = ingredient.name || "Unnamed ingredient";
+    if (idx === 0) option.selected = true;
+    select.appendChild(option);
+  });
+}
+
+function extractIdArray(input) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .map((item) => {
+      if (typeof item === "number") return item;
+      if (item && typeof item.id === "number") return item.id;
+      return null;
+    })
+    .filter((id) => Number.isFinite(id));
+}
+
+function fillWgerMuscleSelect(exercises, lookup) {
+  const select = document.getElementById("wgerMuscleFocus");
+  if (!select) return;
+
+  const ids = new Set();
+  exercises.forEach((exercise) => {
+    (exercise.muscleIds || []).forEach((id) => ids.add(id));
+  });
+
+  const previous = select.value || "";
+  select.replaceChildren();
+
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Select muscle group";
+  placeholder.selected = true;
+  select.appendChild(placeholder);
+
+  Array.from(ids)
+    .sort((a, b) => a - b)
+    .forEach((id) => {
+      const option = document.createElement("option");
+      option.value = String(id);
+      option.textContent = lookup[id] || `Muscle ${id}`;
+      if (previous && previous === option.value) option.selected = true;
+      select.appendChild(option);
+    });
+}
+
+function applyExerciseFilterByMuscle() {
+  const muscleSelect = document.getElementById("wgerMuscleFocus");
+  if (!muscleSelect) return;
+
+  const muscleId = Number(muscleSelect.value);
+  if (!muscleId) {
+    wgerState.filteredExercises = [];
+    fillWgerExerciseSelect([]);
+    return;
+  }
+
+  const filtered = wgerState.exercises.filter((exercise) =>
+    (exercise.muscleIds || []).includes(muscleId)
+  );
+  wgerState.filteredExercises = filtered;
+  fillWgerExerciseSelect(filtered);
+}
+
+function applyNutritionFocusFilter() {
+  const focusSelect = document.getElementById("wgerFoodFocus");
+  if (!focusSelect) return;
+
+  const focus = focusSelect.value;
+  if (!focus) {
+    wgerState.filteredIngredients = [];
+    fillWgerIngredientSelect([]);
+    return;
+  }
+
+  const scored = [...wgerState.ingredients].map((ingredient) => {
+    const protein = Number(ingredient.protein || 0);
+    const carbs = Number(ingredient.carbohydrates || 0);
+    const fat = Number(ingredient.fat || 0);
+    const total = protein + carbs + fat;
+
+    let score = 0;
+    if (focus === "protein") score = protein;
+    if (focus === "carbs") score = carbs;
+    if (focus === "fat") score = fat;
+    if (focus === "balanced") {
+      const p = total ? protein / total : 0;
+      const c = total ? carbs / total : 0;
+      const f = total ? fat / total : 0;
+      score = 1 - (Math.abs(p - 0.33) + Math.abs(c - 0.33) + Math.abs(f - 0.34));
+    }
+
+    return { ingredient, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const filtered = scored.slice(0, 25).map((entry) => entry.ingredient);
+  wgerState.filteredIngredients = filtered;
+  fillWgerIngredientSelect(filtered);
+}
+
+async function loadWgerExercises() {
+  const listEl = document.getElementById("exercise-list");
+  const statusEl = document.getElementById("exerciseStatus");
+  if (!listEl) return false;
+
+  if (statusEl) statusEl.textContent = "Loading exercises...";
+
+  try {
+    const [exerciseResponse, muscleResponse] = await Promise.all([
+      fetch("https://wger.de/api/v2/exerciseinfo/?language=2&limit=60"),
+      fetch("https://wger.de/api/v2/muscle/?language=2&limit=200"),
+    ]);
+
+    if (!exerciseResponse.ok) {
+      throw new Error(`HTTP ${exerciseResponse.status}`);
+    }
+
+    const data = await exerciseResponse.json();
+    let muscleLookup = {};
+    if (muscleResponse.ok) {
+      const muscleData = await muscleResponse.json();
+      const muscleResults = Array.isArray(muscleData.results) ? muscleData.results : [];
+      muscleLookup = muscleResults.reduce((acc, item) => {
+        const id = item?.id;
+        const name = item?.name_en || item?.name || item?.muscle || "";
+        if (typeof id === "number" && name) acc[id] = name;
+        return acc;
+      }, {});
+    }
+
+    const results = Array.isArray(data.results) ? data.results : [];
+    const exercises = results.map((exercise) => ({
+      ...normalizeWgerExercise(exercise),
+      muscleIds: [
+        ...extractIdArray(exercise.muscles),
+        ...extractIdArray(exercise.muscles_secondary),
+      ],
+    }));
+
+    wgerState.exercises = exercises;
+    wgerState.muscleLookup = muscleLookup;
+    fillWgerMuscleSelect(exercises, muscleLookup);
+    fillWgerExerciseSelect([]);
+
+    listEl.replaceChildren();
+    exercises.forEach((exercise) => {
+      const card = document.createElement("article");
+      card.className = "api-item";
+
+      const title = document.createElement("h3");
+      title.textContent = exercise.name;
+
+      const description = document.createElement("p");
+      description.textContent = exercise.description || "No description available.";
+
+      card.append(title, description);
+      listEl.appendChild(card);
+    });
+
+    if (statusEl) {
+      statusEl.textContent = results.length
+        ? `Loaded ${results.length} exercises from Wger.`
+        : "No exercises found from Wger.";
+    }
+
+    return results.length > 0;
+  } catch (error) {
+    renderApiError(statusEl, listEl, "Could not load exercises from Wger right now.");
+    console.error("Wger exercise fetch failed:", error);
+    fillWgerMuscleSelect([], {});
+    fillWgerExerciseSelect([]);
+    return false;
+  }
+}
+
+async function loadWgerNutrition() {
+  const listEl = document.getElementById("nutrition-list");
+  const statusEl = document.getElementById("nutritionStatus");
+  if (!listEl) return false;
+
+  if (statusEl) statusEl.textContent = "Loading nutrition data...";
+
+  try {
+    const response = await fetch("https://wger.de/api/v2/ingredient/?language=2&limit=8");
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const results = Array.isArray(data.results) ? data.results : [];
+    wgerState.ingredients = results;
+    fillWgerIngredientSelect([]);
+
+    listEl.replaceChildren();
+    results.forEach((ingredient) => {
+      const card = document.createElement("article");
+      card.className = "api-item";
+
+      const title = document.createElement("h3");
+      title.textContent = ingredient.name || "Unnamed ingredient";
+
+      const detail = document.createElement("p");
+      detail.textContent = `Energy: ${ingredient.energy ?? "?"} kcal / 100g`;
+
+      const pills = document.createElement("div");
+      pills.className = "api-pill-row";
+
+      const values = [
+        formatMacro("Protein", ingredient.protein),
+        formatMacro("Carbs", ingredient.carbohydrates),
+        formatMacro("Fat", ingredient.fat),
+      ].filter(Boolean);
+
+      if (!values.length) {
+        const fallback = document.createElement("span");
+        fallback.className = "api-pill";
+        fallback.textContent = "Macros unavailable";
+        pills.appendChild(fallback);
+      } else {
+        values.forEach((value) => {
+          const pill = document.createElement("span");
+          pill.className = "api-pill";
+          pill.textContent = value;
+          pills.appendChild(pill);
+        });
+      }
+
+      card.append(title, detail, pills);
+      listEl.appendChild(card);
+    });
+
+    if (statusEl) {
+      statusEl.textContent = results.length
+        ? `Loaded ${results.length} nutrition items from Wger.`
+        : "No nutrition items found from Wger.";
+    }
+
+    return results.length > 0;
+  } catch (error) {
+    renderApiError(statusEl, listEl, "Could not load nutrition data from Wger right now.");
+    console.error("Wger nutrition fetch failed:", error);
+    fillWgerIngredientSelect([]);
+    return false;
+  }
+}
+
+function setupWgerFilters() {
+  const muscleSelect = document.getElementById("wgerMuscleFocus");
+  const foodFocusSelect = document.getElementById("wgerFoodFocus");
+  muscleSelect?.addEventListener("change", applyExerciseFilterByMuscle);
+  foodFocusSelect?.addEventListener("change", applyNutritionFocusFilter);
+}
+
+function capitalizeFirst(text) {
+  if (!text) return "";
+  return text[0].toUpperCase() + text.slice(1).toLowerCase();
+}
+
+async function saveWorkoutViaWger() {
+  const userInfo = await getUserInfo();
+  if (!userInfo) {
+    alert("You must be logged in to save workouts. Please log in first.");
+    return;
+  }
+
+  const muscleFocus = document.getElementById("wgerMuscleFocus")?.value || "";
+  const exerciseSelect = document.getElementById("wgerExerciseSelect");
+  const sets = Number(document.getElementById("wgerSets")?.value || 0);
+  const reps = Number(document.getElementById("wgerReps")?.value || 0);
+  const intensityRaw = document.getElementById("wgerWorkoutIntensity")?.value || "moderate";
+  const energyRaw = Number(document.getElementById("wgerWorkoutEnergy")?.value || 3);
+
+  if (!muscleFocus) {
+    alert("Choose a muscle group first.");
+    return;
+  }
+  if (!exerciseSelect?.value) {
+    alert("Please select an exercise from Wger.");
+    return;
+  }
+  if (sets <= 0 || reps <= 0) {
+    alert("Sets and reps must be greater than 0.");
+    return;
+  }
+
+  const exercise = wgerState.exercises.find((item) => String(item.id) === exerciseSelect.value);
+  const exerciseName = exercise?.name || exerciseSelect.options[exerciseSelect.selectedIndex]?.text || "Exercise";
+  const date = new Date().toISOString().split("T")[0];
+  const intensity = capitalizeFirst(intensityRaw);
+
+  const { user_id, username } = userInfo;
+  const { error } = await upsertWithFallback(
+    "workout_daily",
+    {
+      user_id,
+      username,
+      date,
+      workout_status: `Wger log: ${exerciseName} (${sets}x${reps})`,
+      workout_intensity: intensity,
+      muscle_groups: [],
+      energy_level: energyRaw,
+    },
+    "user_id,date"
+  );
+
+  if (error) {
+    alert(handleError(error, "workout_daily", user_id, date));
+    return;
+  }
+
+  uiState.sessionXp += 30;
+  animateNumber("sessionXp", uiState.sessionXp);
+  animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
+  showXpPop("+30 XP");
+  maybeNotify("Workout saved", `${exerciseName} saved through Wger.`);
+  alert("Workout saved successfully via Wger!");
+}
+
+async function saveNutritionViaWger() {
+  const userInfo = await getUserInfo();
+  if (!userInfo) {
+    alert("You must be logged in to save nutrition data. Please log in first.");
+    return;
+  }
+
+  const foodFocus = document.getElementById("wgerFoodFocus")?.value || "";
+  const ingredientSelect = document.getElementById("wgerIngredientSelect");
+  const grams = Number(document.getElementById("wgerGrams")?.value || 0);
+  const mealType = document.getElementById("wgerMealType")?.value || "snacks";
+  const hydration = document.getElementById("wgerHydration")?.checked || false;
+  const protein = document.getElementById("wgerProtein")?.checked || false;
+  const balancedMeal = document.getElementById("wgerBalancedMeal")?.checked || false;
+
+  if (!foodFocus) {
+    alert("Choose nutrition focus first.");
+    return;
+  }
+  if (!ingredientSelect?.value) {
+    alert("Please select an ingredient from Wger.");
+    return;
+  }
+  if (grams <= 0) {
+    alert("Amount must be greater than 0 grams.");
+    return;
+  }
+
+  const ingredient = wgerState.ingredients.find((item) => String(item.id) === ingredientSelect.value);
+  const ingredientName =
+    ingredient?.name || ingredientSelect.options[ingredientSelect.selectedIndex]?.text || "Ingredient";
+  const entryText = `${ingredientName} (${grams}g)`;
+
+  const meals = {
+    breakfast: "-",
+    lunch: "-",
+    dinner: "-",
+    snacks: "-",
+  };
+  meals[mealType] = entryText;
+
+  const notes = [
+    `Wger item: ${entryText}`,
+    ingredient?.energy != null ? `Energy: ${ingredient.energy} kcal/100g` : null,
+    ingredient?.protein != null ? `Protein: ${ingredient.protein}g/100g` : null,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+
+  const entry_date = new Date().toISOString().split("T")[0];
+  const { user_id, username } = userInfo;
+
+  const { error } = await upsertWithFallback(
+    "daily_nutrition",
+    {
+      user_id,
+      username,
+      entry_date,
+      breakfast: meals.breakfast,
+      lunch: meals.lunch,
+      dinner: meals.dinner,
+      snacks: meals.snacks,
+      hydration_goal_met: hydration ? "Yes" : "No",
+      protein_goal_met: protein ? "Yes" : "No",
+      balanced_meal_goal_met: balancedMeal ? "Yes" : "No",
+      notes_or_regrets: notes || null,
+    },
+    "user_id,entry_date"
+  );
+
+  if (error) {
+    alert(handleError(error, "daily_nutrition", user_id, entry_date));
+    return;
+  }
+
+  const proteinPct = protein ? 82 : 48;
+  const caloriePct = balancedMeal ? 65 : 40;
+  const recoveryPct = hydration ? 78 : 52;
+  animateMeterById("proteinMeter", proteinPct);
+  animateMeterById("calorieMeter", caloriePct);
+  animateMeterById("recoveryMeter", recoveryPct);
+  const proteinText = document.getElementById("proteinPct");
+  const calorieText = document.getElementById("caloriePct");
+  const recoveryText = document.getElementById("recoveryPct");
+  if (proteinText) proteinText.textContent = `${proteinPct}%`;
+  if (calorieText) calorieText.textContent = `${caloriePct}%`;
+  if (recoveryText) recoveryText.textContent = `${recoveryPct}%`;
+  showXpPop("+15 XP");
+  maybeNotify("Nutrition saved", `${ingredientName} logged through Wger.`);
+  alert("Nutrition data saved successfully via Wger!");
+}
+
+function setupWgerPrimaryLoggers() {
+  const workoutSaveBtn = document.getElementById("wgerWorkoutSaveBtn");
+  const nutritionSaveBtn = document.getElementById("wgerNutritionSaveBtn");
+  workoutSaveBtn?.addEventListener("click", saveWorkoutViaWger);
+  nutritionSaveBtn?.addEventListener("click", saveNutritionViaWger);
+}
+
+async function setupWgerFeeds() {
+  const [workoutReady, nutritionReady] = await Promise.all([
+    loadWgerExercises(),
+    loadWgerNutrition(),
+  ]);
+
+  wgerState.workoutReady = workoutReady;
+  wgerState.nutritionReady = nutritionReady;
+
+  setSourceMode({
+    ready: workoutReady,
+    wgerCardId: "wgerWorkoutCard",
+    manualCardId: "manualWorkoutCard",
+    statusId: "workoutSourceStatus",
+    manualToggleId: "workoutManualToggle",
+    readyText: "Wger available. Logging through Wger flow.",
+    fallbackText: "Wger unavailable. Manual workout logger enabled as fallback.",
+  });
+
+  setSourceMode({
+    ready: nutritionReady,
+    wgerCardId: "wgerNutritionCard",
+    manualCardId: "manualNutritionCard",
+    statusId: "nutritionSourceStatus",
+    manualToggleId: "nutritionManualToggle",
+    readyText: "Wger available. Logging through Wger flow.",
+    fallbackText: "Wger unavailable. Manual nutrition logger enabled as fallback.",
+  });
+}
+
+function setupScrollReveal() {
+  const revealNodes = [
+    ...document.querySelectorAll("header"),
+    ...document.querySelectorAll(".card"),
+  ];
+  if (!revealNodes.length) return;
+
+  revealNodes.forEach((node, index) => {
+    node.classList.add("reveal-up");
+    node.style.animationDelay = `${Math.min(index * 0.06, 0.32)}s`;
+  });
+
+  if (!("IntersectionObserver" in window)) {
+    revealNodes.forEach((node) => node.classList.add("in-view"));
+    return;
+  }
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("in-view");
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.15, rootMargin: "0px 0px -30px 0px" }
+  );
+
+  revealNodes.forEach((node) => observer.observe(node));
+}
+
 async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   try {
-    await navigator.serviceWorker.register("./sw.js");
+    await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
   } catch {
     // Ignore service worker registration errors in local file contexts
   }
 }
 
 function initUI() {
+  setupThemeToggle();
+  setupMissionBoard();
+  setupLeaderboardRefresh();
   setupWorkoutShortcuts();
   setupShareActions();
   setupNotifications();
+  setupManualToggles();
+  setupWgerFilters();
+  setupWgerPrimaryLoggers();
+  setupWgerFeeds();
+  setupScrollReveal();
   registerServiceWorker();
 }
 

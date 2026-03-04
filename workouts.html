@@ -35,6 +35,7 @@
           <li><span>Repeat Last</span><kbd>R</kbd></li>
         </ul>
       </section>
+      <button id="themeToggleBtn" type="button">Switch Theme</button>
       <div class="sidebar-meta">Target: log each set in under 5 seconds</div>
     </aside>
 
@@ -46,8 +47,64 @@
 
       <main>
         <div class="dashboard-grid">
-          <section class="card col-8 workout-form">
+          <section class="card col-8 workout-form" id="wgerWorkoutCard">
+            <h2>Wger Workout Logger (Primary)</h2>
+            <p class="muted" id="workoutSourceStatus">Wger available. Logging through Wger flow.</p>
+
+            <div class="form-row">
+              <label for="wgerMuscleFocus">Muscle Group (Choose first)</label>
+              <select id="wgerMuscleFocus">
+                <option value="" selected>Select muscle group</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label for="wgerExerciseSelect">Exercise</label>
+              <select id="wgerExerciseSelect">
+                <option value="">Select a muscle group first</option>
+              </select>
+            </div>
+
+            <div class="dual-row">
+              <div class="form-row">
+                <label for="wgerSets">Sets</label>
+                <input type="number" id="wgerSets" min="1" value="3">
+              </div>
+              <div class="form-row">
+                <label for="wgerReps">Reps</label>
+                <input type="number" id="wgerReps" min="1" value="10">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label for="wgerWorkoutIntensity">Intensity</label>
+              <select name="workout-intensity" id="wgerWorkoutIntensity">
+                <option value="light">Light</option>
+                <option value="moderate" selected>Moderate</option>
+                <option value="intense">Intense</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label for="wgerWorkoutEnergy">Energy Level (1-5)</label>
+              <select name="energy-level" id="wgerWorkoutEnergy">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3" selected>3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </div>
+
+            <div class="action-row">
+              <button id="wgerWorkoutSaveBtn" type="button">Save Wger Workout</button>
+              <button id="workoutManualToggle" type="button">Use Manual Logger</button>
+            </div>
+          </section>
+
+          <section class="card col-8 workout-form hidden" id="manualWorkoutCard">
             <h2>Workout Logger</h2>
+            <p class="muted">Fallback logger when Wger is unavailable.</p>
 
             <div class="form-row">
               <label for="workout-intensity">Intensity</label>
@@ -115,6 +172,13 @@
               <span id="sessionXpMeter" style="width: 0%"></span>
             </div>
             <p class="muted" id="setCounter">Sets logged: 0</p>
+          </section>
+
+          <section class="card col-12">
+            <h2>Wger Exercise Library</h2>
+            <p class="muted">Pulled live from Wger to help you discover moves quickly.</p>
+            <p class="muted" id="exerciseStatus">Loading exercises...</p>
+            <div id="exercise-list" class="api-grid"></div>
           </section>
         </div>
       </main>

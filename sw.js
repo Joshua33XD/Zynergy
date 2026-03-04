@@ -1,4 +1,4 @@
-const CACHE_NAME = "zynergy-cache-v1";
+const CACHE_NAME = "zynergy-cache-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -32,7 +32,18 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  // Cache-first for offline, but refresh cache in background so updates (like CSS theme changes) appear.
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    caches.match(event.request).then((cached) => {
+      const fetchPromise = fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy)).catch(() => {});
+          return response;
+        })
+        .catch(() => cached);
+
+      return cached || fetchPromise;
+    })
   );
 });

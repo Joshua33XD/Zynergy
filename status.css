@@ -5,6 +5,10 @@
   gap: var(--spacing-xs);
 }
 
+#refreshBoardBtn {
+  margin-bottom: var(--spacing-sm);
+}
+
 .leaderboard li {
   display: flex;
   justify-content: space-between;

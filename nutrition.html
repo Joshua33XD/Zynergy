@@ -26,6 +26,7 @@
           <li><a href="status.html">Leaderboard</a></li>
         </ul>
       </nav>
+      <button id="themeToggleBtn" type="button">Switch Theme</button>
       <div class="sidebar-meta">Visual meters update as goals are checked</div>
     </aside>
 
@@ -37,8 +38,61 @@
 
       <main>
         <div class="dashboard-grid">
-          <section class="card col-8">
+          <section class="card col-8" id="wgerNutritionCard">
+            <h2>Wger Nutrition Logger (Primary)</h2>
+            <p class="muted" id="nutritionSourceStatus">Wger available. Logging through Wger flow.</p>
+
+            <div class="nutrition-form">
+              <div class="form-row">
+                <label for="wgerFoodFocus">Nutrition Focus (Choose first)</label>
+                <select id="wgerFoodFocus">
+                  <option value="" selected>Select nutrition focus</option>
+                  <option value="protein">High Protein</option>
+                  <option value="carbs">High Carbs</option>
+                  <option value="fat">High Fat</option>
+                  <option value="balanced">Balanced</option>
+                </select>
+              </div>
+
+              <div class="form-row">
+                <label for="wgerIngredientSelect">Ingredient</label>
+                <select id="wgerIngredientSelect">
+                  <option value="">Select nutrition focus first</option>
+                </select>
+              </div>
+
+              <div class="dual-row">
+                <div class="form-row">
+                  <label for="wgerGrams">Amount (g)</label>
+                  <input type="number" id="wgerGrams" min="1" value="150">
+                </div>
+                <div class="form-row">
+                  <label for="wgerMealType">Meal Type</label>
+                  <select id="wgerMealType">
+                    <option value="breakfast">Breakfast</option>
+                    <option value="lunch">Lunch</option>
+                    <option value="dinner">Dinner</option>
+                    <option value="snacks">Snack</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="goal-list">
+                <label><input type="checkbox" id="wgerHydration">Hydration</label>
+                <label><input type="checkbox" id="wgerProtein">Protein</label>
+                <label><input type="checkbox" id="wgerBalancedMeal">Balanced Meal</label>
+              </div>
+
+              <div class="action-row">
+                <button id="wgerNutritionSaveBtn" type="button">Save Wger Nutrition</button>
+                <button id="nutritionManualToggle" type="button">Use Manual Logger</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="card col-8 hidden" id="manualNutritionCard">
             <h2>Meal Log</h2>
+            <p class="muted">Fallback logger when Wger is unavailable.</p>
             <form class="nutrition-form" onsubmit="event.preventDefault(); saveNutritionData();">
               <div class="form-row">
                 <label for="breakfast">Breakfast</label>
@@ -83,6 +137,13 @@
               <span>Recovery Score <strong id="recoveryPct">78%</strong></span>
               <div class="meter"><span id="recoveryMeter" style="width: 78%"></span></div>
             </div>
+          </section>
+
+          <section class="card col-12">
+            <h2>Wger Nutrition Picks</h2>
+            <p class="muted">Live ingredient data from Wger for meal ideas and macros.</p>
+            <p class="muted" id="nutritionStatus">Loading nutrition data...</p>
+            <div id="nutrition-list" class="api-grid"></div>
           </section>
         </div>
       </main>

@@ -19,11 +19,26 @@
 }
 
 .action-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-xs);
-  margin-top: var(--spacing-xs);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
 }
+
+.action-row button {
+  width: 100%;
+}
+
+.workout-form .form-row,
+.workout-form .dual-row,
+.workout-form .action-row {
+  animation: formRise 0.45s ease both;
+}
+
+.workout-form .form-row:nth-child(2) { animation-delay: 0.05s; }
+.workout-form .dual-row { animation-delay: 0.1s; }
+.workout-form .form-row:nth-child(4) { animation-delay: 0.15s; }
+.workout-form .form-row:nth-child(5) { animation-delay: 0.2s; }
+.workout-form .action-row { animation-delay: 0.25s; }
 
 .shortcut-card {
   padding: var(--spacing-sm);
@@ -36,5 +51,26 @@
 @media (max-width: 1024px) {
   .dual-row {
     grid-template-columns: 1fr;
+  }
+
+  .action-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .action-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@keyframes formRise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

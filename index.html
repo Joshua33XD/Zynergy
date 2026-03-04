@@ -37,6 +37,7 @@
           <button id="logout" type="button">Logout</button>
         </div>
       </div>
+      <button id="themeToggleBtn" type="button">Switch Theme</button>
       <div class="sidebar-meta">Daily mission board active</div>
     </aside>
 
@@ -59,11 +60,15 @@
 
           <section class="card col-5">
             <h2>Today's Missions</h2>
-            <ul class="mission-list">
-              <li><span>Hit chest</span><span class="pill">Done</span></li>
-              <li><span>120g protein</span><span class="pill">Pending</span></li>
-              <li><span>Beat last bench PR</span><span class="pill">Pending</span></li>
+            <ul class="mission-list" id="missionList">
+              <li class="done"><span>Hit chest</span><button class="mission-toggle" data-xp="15" type="button">Done</button></li>
+              <li><span>120g protein</span><button class="mission-toggle" data-xp="20" type="button">Pending</button></li>
+              <li><span>Beat last bench PR</span><button class="mission-toggle" data-xp="30" type="button">Pending</button></li>
             </ul>
+            <div class="meter-row" style="margin-top: 12px;">
+              <span>Mission Completion <strong id="missionPct">33%</strong></span>
+              <div class="meter"><span id="missionMeter" style="width: 33%"></span></div>
+            </div>
           </section>
 
           <section class="card col-6">

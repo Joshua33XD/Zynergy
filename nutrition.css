@@ -13,17 +13,21 @@
 }
 
 .goal-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-sm);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .goal-list label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-weight: bold;
   color: var(--text-color);
+  border: 1px solid var(--line-color);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 input[type="checkbox"] {
@@ -31,3 +35,42 @@ input[type="checkbox"] {
   height: 18px;
   accent-color: var(--accent-color);
 }
+
+.nutrition-form .form-row,
+.nutrition-form .goal-list,
+.nutrition-form input[type="submit"] {
+  animation: formRise 0.45s ease both;
+}
+
+.nutrition-form .form-row:nth-child(1) { animation-delay: 0.03s; }
+.nutrition-form .form-row:nth-child(2) { animation-delay: 0.08s; }
+.nutrition-form .form-row:nth-child(3) { animation-delay: 0.13s; }
+.nutrition-form .form-row:nth-child(4) { animation-delay: 0.18s; }
+.nutrition-form .goal-list { animation-delay: 0.23s; }
+.nutrition-form .form-row:nth-child(6) { animation-delay: 0.28s; }
+.nutrition-form input[type="submit"] { animation-delay: 0.33s; }
+
+@media (max-width: 920px) {
+  .goal-list {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .goal-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@keyframes formRise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Wger-specific styles removed */

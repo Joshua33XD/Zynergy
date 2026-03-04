@@ -1,0 +1,102 @@
+/* Typography */
+h1 { 
+  font-size: 2.5rem; 
+  font-weight: bold; 
+  color: var(--accent-color);
+}
+
+h2 { 
+  font-size: 2rem; 
+  color: var(--accent-color);
+}
+
+h3 { 
+  font-size: 1.5rem; 
+  color: var(--accent-color);
+}
+header {
+  background-color: var(--primary-bg);
+  color: var(--accent-color);
+  padding: var(--spacing-lg);
+  font-size: large;
+  font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+  text-align: center;
+  font-weight: bold;
+}
+
+.sleeph {
+  font-size: large;
+  font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+  font-weight: bold;
+  margin-bottom: var(--spacing-lg);
+  color: var(--accent-color);
+  text-align: center;
+}
+
+/* Input styles */
+input[type="number"] {
+  background-color: var(--primary-bg);
+  color: var(--accent-color);
+  border: 1px solid var(--accent-color);
+  padding: var(--spacing-xs);
+  border-radius: 4px;
+  width: 100%;
+  max-width: 300px;
+}
+
+input:invalid {
+  border-color: #ff4444;
+}
+
+input:valid {
+  border-color: var(--accent-color);
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 8px rgba(41, 255, 55, 0.5);
+}
+
+/* Select styles */
+select {
+  background-color: var(--primary-bg);
+  color: var(--accent-color);
+  padding: var(--spacing-xs);
+  border: 1px solid var(--accent-color);
+  border-radius: 4px;
+  appearance: none;
+  background-image: url("data:image/svg+xml...");
+  padding-right: 30px;
+  width: 100%;
+  max-width: 300px;
+}
+
+select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 8px rgba(41, 255, 55, 0.5);
+}
+
+/* Button styles */
+button {
+  background-color: var(--primary-bg);
+  color: var(--accent-color);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--accent-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: bold;
+}
+
+button:hover {
+  background-color: var(--accent-color);
+  color: var(--primary-bg);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(41, 255, 55, 0.3);
+}
+
+button:active {
+  transform: translateY(0);
+}

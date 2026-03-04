@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Nutrition</title>
+  <link rel="stylesheet" type="text/css" href="common.css">
+  <link rel="stylesheet" type="text/css" href="nutrition.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="script.js" type="module"></script>
+</head>
+<body class="bodyn">
+    <header>NUTRITION PAGE</header>
+    <nav>
+      <!-- Navigation links -->
+        <ul>
+            <li><a href="index.html">Home</a></li>
+          <li><a href="workouts.html">Workouts</a></li>
+            <li><a href="sleep.html">Sleep</a></li>
+            <li><a href="status.html">Status</a></li>
+        </ul>
+    </nav>
+    <h1>What did u eat today???</h1>
+    <form onsubmit="event.preventDefault(); saveNutritionData();">
+        <label for ="breakfast">Breakfast</label><br>
+        <input type="text" id="breakfast" name="breakfast" required><br><br>
+        <label for ="lunch">Lunch</label><br>
+        <input type="text" id="lunch" name="lunch" required><br>
+
+        <label for ="dinner">Dinner</label><br>
+        <input type="text" id="dinner" name="dinner" required><br><br>
+        <label for ="snacks">Snacks</label><br> 
+        <input type="text" id="snacks" name="snacks" required><br><br>
+        <input type="submit" value="Submit">
+    </form>
+    <h2>Did you meet your daily goals???</h2>
+    <input type="checkbox" value="hydration" id="hydration" name="hydration"><label for="hydration">Hydration</label><br>
+    <input type="checkbox" value="protein" id="protein" name="protein"><label for="protein">Protein</label><br>
+    <input type="checkbox" value="balanced meal" id="balanced_meal" name="balanced_meal"><label for="balanced_meal">Balanced Meal</label>
+    <br><br>
+    <h3>Quick notes or regrets</h3>
+    <textarea id="notes" name="notes" rows="4" cols="50" placeholder="Write your notes here..."></textarea><br><br>
+    <button type="button" onclick="saveNutritionData()">Submit Goals</button>
+  </body>
+</html>

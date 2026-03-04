@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Sleep</title>
+  <link rel="stylesheet" type="text/css" href="common.css">
+  <link rel="stylesheet" type="text/css" href="sleep.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="script.js" type="module"></script>
+</head>
+<body>
+  <header>SLEEP PAGE</header>
+  <nav>
+      <!-- Navigation links -->
+        <ul>
+            <li><a href="index.html">Home</a></li>
+          <li><a href="workouts.html">Workouts</a></li>
+            <li><a href="nutrition.html">Nutrition</a></li>
+            <li><a href="status.html">Status</a></li>
+        </ul>
+    </nav>
+    <h1>How did u sleep today???</h1>
+    <h2>Enter hours slept(Approx)</h2>
+    <input type="number" id="sleepInput" placeholder="Enter hours slept(Approx)" min="0" max="10"></input><br><br>
+    <h3>How did u feel when u woke up??</h3>
+    <select id="emojiSelect">
+    <option value="emoji1">😴🛌💤</option>
+    <option value="emoji2">😃☀️🌞</option>
+    <option value="emoji3">😬☕🥱</option>
+    <option value="emoji4">😡⏰😒</option>
+    <option value="emoji5">🏃‍♂️💨⏱️</option>
+    </select>
+    <button onclick="saveSleepData()">Save Sleep Data</button>
+  </body>
+</html>

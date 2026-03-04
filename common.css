@@ -1,0 +1,79 @@
+:root {
+  --primary-bg: #000000;
+  --accent-color: #29ff37;
+  --text-color: #ffffff;
+  --spacing-xs: 8px;
+  --spacing-sm: 16px;
+  --spacing-md: 24px;
+  --spacing-lg: 32px;
+  --secondary-accent: #00ff88;
+  --text-muted: #888888;
+  --border-radius: 8px;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a1a 0%, #000000 100%);
+}
+
+nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+nav ul {
+  list-style: none;
+  display: flex;
+  gap: var(--spacing-lg);
+}
+
+nav a {
+  color: #29ff37;
+  text-decoration: none;
+}
+
+nav a:hover {
+  color: var(--accent-color);
+  text-decoration: underline;
+}
+
+nav a:active {
+  color: var(--accent-color);
+  text-decoration: underline;
+}
+
+nav a:visited {
+  color: var(--accent-color);
+  text-decoration: underline;
+}
+
+footer {
+  background-color: var(--primary-bg);
+  color: var(--text-color);
+  padding: var(--spacing-sm);
+  text-align: center;
+  flex:1;
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+}
+
+* {
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+@media (max-width: 768px) {
+  nav ul {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+  main {
+    padding: var(--spacing-sm);
+  }
+}

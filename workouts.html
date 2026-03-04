@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Workouts</title>
+  <link rel="stylesheet" type="text/css" href="common.css">
+  <link rel="stylesheet" type="text/css" href="workouts.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="script.js" type="module"></script>
+</head>
+<body >
+  <header>WORKOUT PAGE</header>
+    <nav> 
+      <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="nutrition.html">Nutrition</a></li>
+          <li><a href="sleep.html">Sleep</a></li>
+            <li><a href="status.html">Status</a></li>
+      </ul>
+  </nav>
+    <h1>How was your workload???</h1>
+    <select name="workout-intensity" id="workout-intensity">
+    <option value="light">light</option>
+        <option value="moderate">moderate</option>
+        <option value="intense">intense</option></select>
+        <br><br>
+
+    <h2>which muscle group did u work out??</h2>
+        <br><br>
+        <select name="muscle-group" id="muscle-group">
+        <option value="chest">chest</option>
+        <option value="back">back</option> 
+        <option value="legs">legs</option>
+        <option value="bicep">bicep</option>
+        <option value="tricep">tricep</option>
+        <option value="shoulders">shoulders</option></select>
+        <div class="muscle-group2">
+          <select name="muscle-group" id="muscle-group2">
+          <option value="chest">chest</option>
+          <option value="back">back</option>
+          <option value="legs">leg</option>
+          <option value="bicep">bicep</option>
+          <option value="tricep">tricep</option>
+          <option value="shoulders">shoulders</option></select>
+        </div>
+        <br><br>
+        <h3>Scale your left energy from 1 to 5</h3>
+        <select name="energy-level" id="energy-level">
+        <option value="1">1</option>
+        <option value="2">2</option>  
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option></select>
+        <br><br>
+        window.getValues=getValues;
+        <button id = "workout" type="submit" onclick="getValues()">Submit</button>
+  
+  <footer>
+    <p>&copy; 2024 ZYNERGY. All rights reserved.</p>
+  </footer>
+</body>
+</html>

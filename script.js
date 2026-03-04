@@ -1057,7 +1057,7 @@ const login = document.getElementById("login");
 async function loginpage() {
   const { data } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: "http://127.0.0.1:5500/" },
+    options: { redirectTo: "https://zynergy.vercel.app/oauth/consent" },
   });
   if (data.url) window.location.href = data.url;
 }

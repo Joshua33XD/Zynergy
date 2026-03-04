@@ -13,9 +13,8 @@
     <aside class="sidebar">
       <h2 class="brand">ZYNERGY</h2>
       <div class="profile-block">
-        <div class="profile-line"><strong>Level:</strong> 12 - Iron Disciple</div>
-        <div class="profile-line"><strong>Streak:</strong> 9 days</div>
-        <div class="profile-line"><strong>Speed Mode:</strong> ON</div>
+        <div class="profile-line"><strong>Level:</strong> <span id="workoutLevelLabel">Loading…</span></div>
+        <div class="profile-line"><strong>Streak:</strong> <span id="workoutStreakLabel">-</span></div>
       </div>
       <nav class="side-nav">
         <ul>
@@ -26,15 +25,6 @@
           <li><a href="status.html">Leaderboard</a></li>
         </ul>
       </nav>
-      <section class="card shortcut-card">
-        <h3>Speed Keys</h3>
-        <ul class="kbd-list">
-          <li><span>Add Set</span><kbd>Space</kbd></li>
-          <li><span>+5kg</span><kbd>Right Arrow</kbd></li>
-          <li><span>Save Workout</span><kbd>Enter</kbd></li>
-          <li><span>Repeat Last</span><kbd>R</kbd></li>
-        </ul>
-      </section>
       <button id="themeToggleBtn" type="button">Switch Theme</button>
       <div class="sidebar-meta">Target: log each set in under 5 seconds</div>
     </aside>
@@ -190,6 +180,36 @@
               <span id="sessionXpMeter" style="width: 0%"></span>
             </div>
             <p class="muted" id="setCounter">Sets logged: 0</p>
+          </section>
+
+          <section class="card col-12" id="challengeCard">
+            <h2>Workout Challenge Board</h2>
+            <p class="muted">Log a standout set (exercise, reps, and weight). The best scores across all users appear on the leaderboard.</p>
+
+            <div class="workout-form">
+              <div class="form-row">
+                <label for="challengeExercise">Exercise Name</label>
+                <input type="text" id="challengeExercise" placeholder="e.g. Bench Press" autocomplete="off">
+                <small class="field-hint">If you logged via Wger above, this will auto-fill when you save.</small>
+              </div>
+
+              <div class="dual-row">
+                <div class="form-row">
+                  <label for="challengeReps">Reps</label>
+                  <input type="number" id="challengeReps" min="1" value="5">
+                </div>
+                <div class="form-row">
+                  <label for="challengeWeight">Weight (kg)</label>
+                  <input type="number" id="challengeWeight" min="1" step="0.5" value="60">
+                </div>
+              </div>
+
+              <div class="action-row">
+                <button id="challengeSubmitBtn" type="button">Post Challenge</button>
+              </div>
+
+              <p class="muted" id="challengeStatus">No challenge posted yet today.</p>
+            </div>
           </section>
 
           <section class="card col-12">

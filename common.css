@@ -318,6 +318,20 @@ main {
   font-size: 0.9rem;
 }
 
+.exercise-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.35), transparent),
+    linear-gradient(135deg, var(--accent-color), var(--secondary-accent));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #000;
+  margin-bottom: 6px;
+}
+
 .api-pill-row {
   display: flex;
   flex-wrap: wrap;
@@ -573,6 +587,52 @@ footer {
 
   .profile-line {
     font-size: 0.9rem;
+  }
+}
+
+/* Extra mobile-only polish */
+@media (max-width: 600px) {
+  body {
+    font-size: 15px;
+  }
+
+  .sidebar {
+    padding: 10px 12px;
+    gap: var(--spacing-xs);
+  }
+
+  .brand {
+    font-size: 1.4rem;
+  }
+
+  header {
+    padding: var(--spacing-sm);
+  }
+
+  header h1 {
+    font-size: 1.4rem;
+  }
+
+  .side-nav ul {
+    gap: 6px;
+  }
+
+  .card {
+    border-radius: 12px;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+  }
+
+  button,
+  input[type="submit"] {
+    font-size: 0.95rem;
+    min-height: 46px;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  textarea,
+  select {
+    font-size: 0.95rem;
   }
 }
 

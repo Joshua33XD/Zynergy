@@ -13,9 +13,8 @@
     <aside class="sidebar">
       <h2 class="brand">ZYNERGY</h2>
       <div class="profile-block">
-        <div class="profile-line"><strong>Global Rank:</strong> #18</div>
-        <div class="profile-line"><strong>Weekly XP:</strong> 420</div>
-        <div class="profile-line"><strong>Friends Online:</strong> 3</div>
+        <div class="profile-line"><strong>Your Rank:</strong> <span id="statusRankLabel">-</span></div>
+        <div class="profile-line"><strong>Your XP:</strong> <span id="statusXpLabel">0</span></div>
       </div>
       <nav class="side-nav">
         <ul>
@@ -41,11 +40,9 @@
         <div class="dashboard-grid">
           <section class="card col-7">
             <h2>Live Leaderboard</h2>
-            <button id="refreshBoardBtn" type="button">Refresh Board</button>
+            <button id="refreshBoardBtn" type="button">Refresh Leaderboard</button>
             <ol class="leaderboard" id="leaderboardList">
-              <li><span>Arjun - Chest Destroyed</span><strong>+160 XP</strong></li>
-              <li><span>Kiran - Leg Day Survivor</span><strong>+148 XP</strong></li>
-              <li><span>You - Warmup Phase</span><strong>+120 XP</strong></li>
+              <!-- Populated from Supabase using real challenge data -->
             </ol>
           </section>
 
@@ -61,16 +58,7 @@
             </div>
           </section>
 
-          <section class="card col-12 share-card" id="shareCard">
-            <h3>NEW PR</h3>
-            <p>Deadlift 140kg</p>
-            <p>Level Up - 15</p>
-            <div class="share-actions">
-              <button id="copyShareBtn" type="button">Copy Link</button>
-              <button id="downloadShareBtn" type="button">Download Card</button>
-              <button id="shareWhatsAppBtn" type="button">Share to WhatsApp</button>
-            </div>
-          </section>
+          <!-- Optional PR share card removed so only real data is shown -->
         </div>
       </main>
 

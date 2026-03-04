@@ -93,6 +93,87 @@ function handleError(error, tableName, user_id, date) {
 
 const uiState = { setCount: 0, sessionXp: 0 };
 
+// Simple client-side level curve based on XP
+function getLevelFromXp(xp) {
+  const thresholds = [
+    { level: 1, name: "Rookie", min: 0 },
+    { level: 5, name: "Grind Starter", min: 250 },
+    { level: 10, name: "Iron Disciple", min: 750 },
+    { level: 15, name: "Plate Stacker", min: 1500 },
+    { level: 20, name: "Volume Slayer", min: 2500 },
+  ];
+  let current = thresholds[0];
+  for (const t of thresholds) {
+    if (xp >= t.min && t.min >= current.min) current = t;
+  }
+  return current;
+}
+
+async function getOrCreateUserProfile() {
+  const userInfo = await getUserInfo();
+  if (!userInfo) return null;
+  const { user_id, username } = userInfo;
+
+  let { data, error } = await supabase
+    .from("user_profile")
+    .select("*")
+    .eq("user_id", user_id)
+    .maybeSingle();
+
+  if (error && error.code !== "PGRST116") {
+    console.error("Profile load failed:", error);
+    return null;
+  }
+
+  if (!data) {
+    const { data: inserted, error: insertError } = await supabase
+      .from("user_profile")
+      .insert({ user_id, username, xp: 0 })
+      .select()
+      .single();
+    if (insertError) {
+      console.error("Profile create failed:", insertError);
+      return null;
+    }
+    data = inserted;
+  }
+
+  return data;
+}
+
+async function addXp(delta) {
+  const userInfo = await getUserInfo();
+  if (!userInfo || !delta) return;
+  const { user_id, username } = userInfo;
+
+  // Load current XP, then upsert with the new total
+  let currentXp = 0;
+  const { data: existing, error: fetchError } = await supabase
+    .from("user_profile")
+    .select("xp")
+    .eq("user_id", user_id)
+    .maybeSingle();
+
+  if (fetchError && fetchError.code !== "PGRST116") {
+    console.error("XP fetch failed:", fetchError);
+    return;
+  }
+
+  if (existing && typeof existing.xp === "number") {
+    currentXp = existing.xp;
+  }
+
+  const { error: upsertError } = await upsertWithFallback(
+    "user_profile",
+    { user_id, username, xp: currentXp + delta },
+    "user_id"
+  );
+
+  if (upsertError) {
+    console.error("XP update failed:", upsertError);
+  }
+}
+
 // ─── wger state ────────────────────────────────────────────────────────────────
 // exercises and ingredients are now populated dynamically via live API search.
 // We cache the last search results so the save buttons can look up details.
@@ -294,17 +375,23 @@ async function runExerciseSearch() {
     wgerState.exercises = exercises;
     fillWgerExerciseSelect(exercises);
 
-    // Render cards
+    // Render cards with a simple visual thumbnail
     if (listEl) {
       listEl.replaceChildren();
       exercises.slice(0, 20).forEach((ex) => {
         const card = document.createElement("article");
         card.className = "api-item";
+
+        const thumb = document.createElement("div");
+        thumb.className = "exercise-thumb";
+        thumb.textContent = (ex.name || "?").charAt(0).toUpperCase();
+
         const title = document.createElement("h3");
         title.textContent = ex.name;
         const desc = document.createElement("p");
         desc.textContent = ex.description || "No description available.";
-        card.append(title, desc);
+
+        card.append(thumb, title, desc);
         listEl.appendChild(card);
       });
     }
@@ -614,6 +701,14 @@ async function saveWorkoutViaWger() {
   showXpPop("+30 XP");
   maybeNotify("Workout saved", `${exerciseName} saved through Wger.`);
   alert("Workout saved successfully via Wger!");
+
+  // Prefill challenge exercise name for quick posting
+  const challengeInput = document.getElementById("challengeExercise");
+  if (challengeInput && !challengeInput.value) {
+    challengeInput.value = exerciseName;
+  }
+
+  addXp(30);
 }
 
 async function saveNutritionViaWger() {
@@ -701,6 +796,7 @@ async function saveNutritionViaWger() {
   showXpPop("+15 XP");
   maybeNotify("Nutrition saved", `${ingredientName} logged through Wger.`);
   alert("Nutrition data saved successfully via Wger!");
+  addXp(15);
 }
 
 function setupWgerPrimaryLoggers() {
@@ -763,6 +859,7 @@ async function getValues() {
     showXpPop("+30 XP");
     maybeNotify("Workout saved", "Mission progress increased.");
     alert("Workout saved successfully!");
+    addXp(30);
   }
 }
 
@@ -839,6 +936,132 @@ async function saveNutritionData() {
 window.getValues = getValues;
 window.saveSleepData = saveSleepData;
 window.saveNutritionData = saveNutritionData;
+
+// ─── WORKOUT CHALLENGES & LEADERBOARD ──────────────────────────────────────────
+async function submitChallenge() {
+  const userInfo = await getUserInfo();
+  if (!userInfo) {
+    alert("You must be logged in to post a challenge.");
+    return;
+  }
+  const { user_id, username } = userInfo;
+
+  const nameInput = document.getElementById("challengeExercise");
+  const repsInput = document.getElementById("challengeReps");
+  const weightInput = document.getElementById("challengeWeight");
+  const statusEl = document.getElementById("challengeStatus");
+
+  const exercise_name = nameInput?.value.trim() || "";
+  const reps = Number(repsInput?.value || 0);
+  const weight = Number(weightInput?.value || 0);
+
+  if (!exercise_name) {
+    alert("Please enter an exercise name for the challenge.");
+    return;
+  }
+  if (reps <= 0 || weight <= 0) {
+    alert("Reps and weight must be greater than 0.");
+    return;
+  }
+
+  const score = reps * weight;
+
+  if (statusEl) statusEl.textContent = "Saving challenge…";
+
+  const { error } = await supabase.from("workout_challenges").insert({
+    user_id,
+    username,
+    exercise_name,
+    reps,
+    weight,
+    score,
+  });
+
+  if (error) {
+    console.error("Challenge save failed:", error);
+    if (statusEl) statusEl.textContent = "Could not save challenge. Please try again.";
+    alert("Challenge save failed: " + error.message);
+    return;
+  }
+
+  if (statusEl) {
+    statusEl.textContent = `Saved: ${exercise_name} – ${reps} reps × ${weight} kg (Score ${score}).`;
+  }
+  showXpPop("+25 XP (Challenge)");
+  addXp(25);
+}
+
+async function loadLeaderboard() {
+  const list = document.getElementById("leaderboardList");
+  if (!list) return;
+
+  list.replaceChildren();
+
+  const { data, error } = await supabase
+    .from("workout_challenges")
+    .select("user_id, username, exercise_name, score")
+    .order("score", { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error("Leaderboard load failed:", error);
+    const li = document.createElement("li");
+    li.textContent = "Could not load leaderboard.";
+    list.appendChild(li);
+    return;
+  }
+
+  const aggregated = new Map();
+  data.forEach((row) => {
+    const key = row.user_id;
+    const current = aggregated.get(key) || {
+      user_id: row.user_id,
+      username: row.username,
+      bestScore: 0,
+      bestExercise: "",
+    };
+    if (row.score > current.bestScore) {
+      current.bestScore = row.score;
+      current.bestExercise = row.exercise_name;
+    }
+    aggregated.set(key, current);
+  });
+
+  const rows = Array.from(aggregated.values()).sort(
+    (a, b) => b.bestScore - a.bestScore
+  );
+
+  const userInfo = await getUserInfo();
+  const myId = userInfo?.user_id;
+  let myRank = null;
+
+  rows.slice(0, 20).forEach((row, index) => {
+    const li = document.createElement("li");
+    const left = document.createElement("span");
+    const right = document.createElement("strong");
+
+    left.textContent = `${index + 1}. ${row.username} – ${row.bestExercise}`;
+    right.textContent = `Score ${row.bestScore}`;
+
+    li.append(left, right);
+    list.appendChild(li);
+
+    if (row.user_id === myId) {
+      myRank = index + 1;
+    }
+  });
+
+  const rankLabel = document.getElementById("statusRankLabel");
+  if (rankLabel) {
+    rankLabel.textContent = myRank ? `#${myRank}` : "Not ranked yet";
+  }
+}
+
+function setupChallengeSection() {
+  document
+    .getElementById("challengeSubmitBtn")
+    ?.addEventListener("click", submitChallenge);
+}
 
 function setupWorkoutShortcuts() {
   const workoutPage = document.getElementById("workout");
@@ -978,18 +1201,13 @@ function setupMissionBoard() {
 }
 
 function setupLeaderboardRefresh() {
-  const list = document.getElementById("leaderboardList");
   const refreshBtn = document.getElementById("refreshBoardBtn");
-  if (!list || !refreshBtn) return;
+  if (!refreshBtn) return;
   refreshBtn.addEventListener("click", () => {
-    const entries = Array.from(list.querySelectorAll("li"));
-    for (let i = entries.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [entries[i], entries[j]] = [entries[j], entries[i]];
-    }
-    list.replaceChildren(...entries);
-    showXpPop("Board refreshed");
+    loadLeaderboard();
+    showXpPop("Leaderboard updated");
   });
+  loadLeaderboard();
 }
 
 function setupManualToggles() {
@@ -1044,6 +1262,7 @@ function initUI() {
   setupWgerFilters();
   setupWgerPrimaryLoggers();
   setupWgerFeeds();
+  setupChallengeSection();
   setupScrollReveal();
   registerServiceWorker();
 }

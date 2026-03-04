@@ -1,149 +1,33 @@
-/* Typography */
-h1 { 
-  font-size: 2.5rem; 
-  font-weight: bold; 
-  color: var(--accent-color);
+.nutrition-form {
+  display: grid;
+  gap: var(--spacing-sm);
 }
 
-h2 { 
-  font-size: 2rem; 
-  color: var(--accent-color);
+.form-row {
+  display: grid;
+  gap: 6px;
 }
 
-h3 { 
-  font-size: 1.5rem; 
-  color: var(--accent-color);
-}
-header {
-  background-color: var(--primary-bg);
-  color: var(--accent-color);
-  padding: var(--spacing-lg);
-  font-size: large;
-  font-family:   'Roboto','Poppins', sans-serif;
-  text-align: center;
+.form-row label {
   font-weight: bold;
 }
 
-.bodyn {
-  font-size: 16px;
-  line-height: 1.5;
-  margin-bottom: var(--spacing-sm);
-  color: var(--accent-color);
-  text-align: left;
-  background-color: var(--primary-bg);
+.goal-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
 }
 
-/* Form styles */
-form {
-  margin-bottom: var(--spacing-md);
-}
-
-.form-group {
-  margin-bottom: var(--spacing-md);
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: var(--spacing-xs);
+.goal-list label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-weight: bold;
-  color: var(--accent-color);
-}
-
-label {
-  color: var(--accent-color);
-  margin-bottom: var(--spacing-xs);
-}
-
-/* Input styles */
-input[type="text"],
-input[type="number"],
-textarea {
-  background-color: var(--primary-bg);
-  color: var(--accent-color);
-  border: 1px solid var(--accent-color);
-  padding: var(--spacing-xs);
-  border-radius: 4px;
-  width: 50%;
-  max-width: 500px;
-}
-
-input:invalid {
-  border-color: #ff4444;
-}
-
-input:valid {
-  border-color: var(--accent-color);
+  color: var(--text-color);
 }
 
 input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   accent-color: var(--accent-color);
-  margin-right: var(--spacing-xs);
-}
-
-input:focus, 
-textarea:focus, 
-select:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 8px rgba(41, 255, 55, 0.5);
-}
-
-/* Select styles */
-select {
-  background-color: var(--primary-bg);
-  color: var(--accent-color);
-  padding: var(--spacing-xs);
-  border: 1px solid var(--accent-color);
-  border-radius: 4px;
-  appearance: none;
-  background-image: url("data:image/svg+xml...");
-  padding-right: 30px;
-}
-
-/* Button styles */
-button {
-  background-color: var(--primary-bg);
-  color: var(--accent-color);
-  padding: var(--spacing-sm) var(--spacing-md);
-  border: 1px solid var(--accent-color);
-  border-radius: var(--border-radius);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-weight: bold;
-}
-
-button:hover {
-  background-color: var(--accent-color);
-  color: var(--primary-bg);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(41, 255, 55, 0.3);
-}
-
-button:active {
-  transform: translateY(0);
-}
-
-input[type="submit"] {
-  background-color: var(--primary-bg);
-  color: var(--accent-color);
-  padding: var(--spacing-sm) var(--spacing-md);
-  border: 1px solid var(--accent-color);
-  border-radius: var(--border-radius);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-weight: bold;
-  width: auto;
-}
-
-input[type="submit"]:hover {
-  background-color: var(--accent-color);
-  color: var(--primary-bg);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(41, 255, 55, 0.3);
-}
-
-input[type="submit"]:active {
-  transform: translateY(0);
 }

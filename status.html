@@ -1,36 +1,84 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <title>Status Page</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" type="text/css" href="common.css">
-    <link rel="stylesheet" type="text/css" href="status.css">
-    <script src="script.js" defer></script>
+  <meta charset="UTF-8">
+  <title>Status Page</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" type="text/css" href="common.css">
+  <link rel="stylesheet" type="text/css" href="status.css">
 </head>
 <body>
-    <header>STATUS PAGE</header>
-    <nav>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <h2 class="brand">ZYNERGY</h2>
+      <div class="profile-block">
+        <div class="profile-line"><strong>Global Rank:</strong> #18</div>
+        <div class="profile-line"><strong>Weekly XP:</strong> 420</div>
+        <div class="profile-line"><strong>Friends Online:</strong> 3</div>
+      </div>
+      <nav class="side-nav">
         <ul>
-            <li><a href="index.html">Home</a></li>
-            <li><a href="workouts.html">Workouts</a></li>
-            <li><a href="nutrition.html">Nutrition</a></li>
-            <li><a href="sleep.html">Sleep</a></li>
+          <li><a href="index.html">Dashboard</a></li>
+          <li><a href="workouts.html">Workouts</a></li>
+          <li><a href="nutrition.html">Nutrition</a></li>
+          <li><a href="sleep.html">Sleep</a></li>
+          <li><a href="status.html" aria-current="page">Leaderboard</a></li>
         </ul>
-    </nav>
-    <header>
-        <h1>training status</h1>
-    </header>
-    <main>
-        <div class="stat-card">
-            <h3>Weekly Workouts</h3>
-            <div class="progress-bar">
-                <div class="progress" style="width: 60%"></div>
+      </nav>
+      <button id="notifyEnableBtn" type="button">Enable Alerts</button>
+      <div class="sidebar-meta">Competition drives consistency</div>
+    </aside>
+
+    <div class="content">
+      <header>
+        <h1>Today's Grind</h1>
+        <p>See where you stand and share your wins.</p>
+      </header>
+
+      <main>
+        <div class="dashboard-grid">
+          <section class="card col-7">
+            <h2>Live Leaderboard</h2>
+            <ol class="leaderboard" id="leaderboardList">
+              <li><span>Arjun - Chest Destroyed</span><strong>+160 XP</strong></li>
+              <li><span>Kiran - Leg Day Survivor</span><strong>+148 XP</strong></li>
+              <li><span>You - Warmup Phase</span><strong>+120 XP</strong></li>
+            </ol>
+          </section>
+
+          <section class="card col-5">
+            <h2>Weekly Progress</h2>
+            <div class="meter-row">
+              <span>Workout Completion 60%</span>
+              <div class="meter"><span id="weeklyWorkoutMeter" style="width: 60%"></span></div>
             </div>
+            <div class="meter-row">
+              <span>Nutrition Consistency 74%</span>
+              <div class="meter"><span id="weeklyNutritionMeter" style="width: 74%"></span></div>
+            </div>
+          </section>
+
+          <section class="card col-12 share-card" id="shareCard">
+            <h3>NEW PR</h3>
+            <p>Deadlift 140kg</p>
+            <p>Level Up - 15</p>
+            <div class="share-actions">
+              <button id="copyShareBtn" type="button">Copy Link</button>
+              <button id="downloadShareBtn" type="button">Download Card</button>
+              <button id="shareWhatsAppBtn" type="button">Share to WhatsApp</button>
+            </div>
+          </section>
         </div>
-    </main>
-    <footer>
+      </main>
+
+      <footer>
         <p>&copy; 2026 ZYNERGY. All rights reserved.</p>
-    </footer>
+      </footer>
+    </div>
+  </div>
+
+  <div class="xp-pop" id="xpPop">+30 XP</div>
+  <script src="script.js" type="module"></script>
 </body>
 </html>

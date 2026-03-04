@@ -3,33 +3,84 @@
 <head>
   <meta charset="UTF-8">
   <title>Sleep</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" type="text/css" href="common.css">
   <link rel="stylesheet" type="text/css" href="sleep.css">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="script.js" type="module"></script>
 </head>
 <body>
-  <header>SLEEP PAGE</header>
-  <nav>
-      <!-- Navigation links -->
+  <div class="app-shell">
+    <aside class="sidebar">
+      <h2 class="brand">ZYNERGY</h2>
+      <div class="profile-block">
+        <div class="profile-line"><strong>Recovery Tier:</strong> B+</div>
+        <div class="profile-line"><strong>Avg Sleep:</strong> 7.2 hrs</div>
+        <div class="profile-line"><strong>Late Nights:</strong> 1 this week</div>
+      </div>
+      <nav class="side-nav">
         <ul>
-            <li><a href="index.html">Home</a></li>
+          <li><a href="index.html">Dashboard</a></li>
           <li><a href="workouts.html">Workouts</a></li>
-            <li><a href="nutrition.html">Nutrition</a></li>
-            <li><a href="status.html">Status</a></li>
+          <li><a href="nutrition.html">Nutrition</a></li>
+          <li><a href="sleep.html" aria-current="page">Sleep</a></li>
+          <li><a href="status.html">Leaderboard</a></li>
         </ul>
-    </nav>
-    <h1>How did u sleep today???</h1>
-    <h2>Enter hours slept(Approx)</h2>
-    <input type="number" id="sleepInput" placeholder="Enter hours slept(Approx)" min="0" max="10"></input><br><br>
-    <h3>How did u feel when u woke up??</h3>
-    <select id="emojiSelect">
-    <option value="emoji1">😴🛌💤</option>
-    <option value="emoji2">😃☀️🌞</option>
-    <option value="emoji3">😬☕🥱</option>
-    <option value="emoji4">😡⏰😒</option>
-    <option value="emoji5">🏃‍♂️💨⏱️</option>
-    </select>
-    <button onclick="saveSleepData()">Save Sleep Data</button>
-  </body>
+      </nav>
+      <div class="sidebar-meta">Recovery score boosts strength XP gains</div>
+    </aside>
+
+    <div class="content">
+      <header>
+        <h1>Recovery Log</h1>
+        <p>Quality sleep keeps strength and mood stable.</p>
+      </header>
+
+      <main>
+        <div class="dashboard-grid">
+          <section class="card col-7 sleep-form">
+            <h2>Sleep Entry</h2>
+            <div class="form-row">
+              <label for="sleepInput">Hours Slept (0-10)</label>
+              <input type="number" id="sleepInput" placeholder="Enter hours slept" min="0" max="10" step="0.5">
+            </div>
+            <div class="form-row">
+              <label for="emojiSelect">Wake-Up Feeling</label>
+              <select id="emojiSelect">
+                <option value="emoji1">Sleepy</option>
+                <option value="emoji2">Fresh</option>
+                <option value="emoji3">Groggy</option>
+                <option value="emoji4">Tired</option>
+                <option value="emoji5">Energized</option>
+              </select>
+            </div>
+            <button type="button" onclick="saveSleepData()">Save Sleep Data</button>
+          </section>
+
+          <section class="card col-5">
+            <h3>Recovery Meters</h3>
+            <div class="meter-row">
+              <span>Sleep Bank 72%</span>
+              <div class="meter"><span id="sleepMeter" style="width: 72%"></span></div>
+            </div>
+            <div class="meter-row">
+              <span>Morning Energy 66%</span>
+              <div class="meter"><span id="morningMeter" style="width: 66%"></span></div>
+            </div>
+            <div class="meter-row">
+              <span>Stress Load 44%</span>
+              <div class="meter"><span id="stressMeter" style="width: 44%"></span></div>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <footer>
+        <p>&copy; 2026 ZYNERGY. All rights reserved.</p>
+      </footer>
+    </div>
+  </div>
+
+  <div class="xp-pop" id="xpPop">+10 XP</div>
+  <script src="script.js" type="module"></script>
+</body>
 </html>

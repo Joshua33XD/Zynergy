@@ -1,0 +1,10 @@
+{
+  "name": "ZYNERGY",
+  "short_name": "ZYNERGY",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "description": "Gamified fitness dashboard for workouts, nutrition, and sleep.",
+  "icons": []
+}

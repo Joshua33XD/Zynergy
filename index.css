@@ -1,141 +1,26 @@
-/* Typography */
-h1 { 
-  font-size: 2.5rem;
-  font-weight: bold; 
-  margin: 0;
-  letter-spacing: 0.02em;
-}
-
-h2 { 
-  font-size: 2rem; 
-  margin: 0;
-}
-
-h3 { 
-  font-size: 1.5rem; 
-  margin-top: 0;
-}
-
-p { 
-  font-size: 1rem; 
-  line-height: 1.6;
-  margin-bottom: 0;
-}
-
-header {
-  background-color: var(--primary-bg);
-  color: var(--accent-color);
-  padding: var(--spacing-md) var(--spacing-lg);
-  border-bottom: 1px solid var(--accent-color);
-}
-
-.header-inner {
-  max-width: 960px;
-  margin: 0 auto var(--spacing-md) auto;
-  text-align: center;
-}
-
-header h2 {
-  margin-top: var(--spacing-xs);
-  font-size: 1.2rem;
-  font-weight: normal;
-}
-
-header nav {
-  justify-content: center;
-}
-
-header nav ul {
-  margin: 0;
-  padding: 0;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-main {
-  padding: var(--spacing-md);
-  color: var(--accent-color);
-  flex: 1;
-  margin-bottom: 100px;
-  max-width: 960px;
-  margin-left: auto;
-  margin-right: auto;
-  width: 100%;
-  display: grid;
-  gap: var(--spacing-md);
-}
-
-/* Hero section styling */
-.hero {
-  text-align: center;
-  padding: calc(var(--spacing-lg) + var(--spacing-xs));
-  margin: 0;
-  border: 1px solid var(--accent-color);
-  border-radius: var(--border-radius);
-}
-
-.hero p {
-  margin-top: var(--spacing-sm);
-}
-
-.about {
-  line-height: 1.7;
-}
-
-.auth-panel {
+.quick-links {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--spacing-md);
-  flex-wrap: wrap;
-}
-
-.login {
-  display: flex;
-  align-items: center;
   gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.quick-links .pill {
+  text-decoration: none;
+}
+
+.profile.hidden {
+  display: none;
 }
 
 .profile {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
 }
 
 #profile-pic {
-  width: 44px;
-  height: 44px;
+  border: 1px solid var(--accent-color);
   border-radius: 50%;
   object-fit: cover;
-  border: 1px solid var(--accent-color);
 }
-
-.hidden {
-  display: none;
-}
-
-@media (max-width: 768px) {
-  .header-inner {
-    text-align: left;
-  }
-
-  h1 {
-    font-size: 2rem;
-  }
-
-  h2 {
-    font-size: 1.4rem;
-  }
-
-  .auth-panel,
-  .login,
-  .profile {
-    width: 100%;
-  }
-
-  .auth-panel {
-    align-items: stretch;
-  }
-}
-
-

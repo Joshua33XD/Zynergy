@@ -100,6 +100,49 @@ function handleError(error, tableName, user_id, date) {
   }
 }
 
+const uiState = {
+  setCount: 0,
+  sessionXp: 0,
+};
+
+function showXpPop(text) {
+  const xpPop = document.getElementById("xpPop");
+  if (!xpPop) return;
+  xpPop.textContent = text;
+  xpPop.classList.remove("show");
+  void xpPop.offsetWidth;
+  xpPop.classList.add("show");
+}
+
+function animateMeterById(id, percent) {
+  const meter = document.getElementById(id);
+  if (!meter) return;
+  const clamped = Math.max(0, Math.min(100, percent));
+  meter.style.width = `${clamped}%`;
+}
+
+function animateNumber(id, target) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const start = Number(el.textContent) || 0;
+  const steps = 15;
+  let count = 0;
+  const delta = (target - start) / steps;
+  const timer = setInterval(() => {
+    count += 1;
+    el.textContent = Math.round(start + delta * count);
+    if (count >= steps) {
+      clearInterval(timer);
+      el.textContent = String(target);
+    }
+  }, 18);
+}
+
+function maybeNotify(title, body) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  new Notification(title, { body });
+}
+
 async function getValues() {
   // Check authentication first (required for RLS)
   const userInfo = await getUserInfo();
@@ -173,6 +216,11 @@ async function getValues() {
   if (error) {
     alert(handleError(error, "workout_daily", user_id, date));
   } else {
+    uiState.sessionXp += 30;
+    animateNumber("sessionXp", uiState.sessionXp);
+    animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
+    showXpPop("+30 XP");
+    maybeNotify("Workout saved", "Mission progress increased.");
     alert("Workout saved successfully!");
   }
 }
@@ -236,6 +284,9 @@ async function saveSleepData() {
   if (error) {
     alert(handleError(error, "daily_sleep", user_id, date));
   } else {
+    showXpPop("+10 XP");
+    animateMeterById("sleepMeter", Math.min(100, hours_slept * 10));
+    maybeNotify("Sleep log saved", `Recovery updated: ${hours_slept}h`);
     alert("Sleep data saved successfully!");
   }
 }
@@ -293,6 +344,20 @@ async function saveNutritionData() {
   if (error) {
     alert(handleError(error, "daily_nutrition", user_id, entry_date));
   } else {
+    const proteinPct = protein ? 82 : 48;
+    const caloriePct = balancedMeal ? 65 : 40;
+    const recoveryPct = hydration ? 78 : 52;
+    animateMeterById("proteinMeter", proteinPct);
+    animateMeterById("calorieMeter", caloriePct);
+    animateMeterById("recoveryMeter", recoveryPct);
+    const proteinText = document.getElementById("proteinPct");
+    const calorieText = document.getElementById("caloriePct");
+    const recoveryText = document.getElementById("recoveryPct");
+    if (proteinText) proteinText.textContent = `${proteinPct}%`;
+    if (calorieText) calorieText.textContent = `${caloriePct}%`;
+    if (recoveryText) recoveryText.textContent = `${recoveryPct}%`;
+    showXpPop("+15 XP");
+    maybeNotify("Nutrition saved", "Fuel goals updated.");
     alert("Nutrition data saved successfully!");
   }
 }
@@ -300,6 +365,153 @@ async function saveNutritionData() {
 window.getValues = getValues;
 window.saveSleepData = saveSleepData;
 window.saveNutritionData = saveNutritionData;
+
+function setupWorkoutShortcuts() {
+  const workoutPage = document.getElementById("workout");
+  if (!workoutPage) return;
+
+  const setCounter = document.getElementById("setCounter");
+  const addSetBtn = document.getElementById("addSetBtn");
+  const addWeightBtn = document.getElementById("addWeightBtn");
+  const repeatWorkoutBtn = document.getElementById("repeatWorkoutBtn");
+  const weightInput = document.getElementById("workout-weight");
+  const intensity = document.getElementById("workout-intensity");
+  const muscle1 = document.getElementById("muscle-group");
+  const muscle2 = document.getElementById("muscle-group2");
+  const energy = document.getElementById("energy-level");
+
+  const addSet = () => {
+    uiState.setCount += 1;
+    uiState.sessionXp += 20;
+    if (setCounter) setCounter.textContent = `Sets logged: ${uiState.setCount}`;
+    animateNumber("sessionXp", uiState.sessionXp);
+    animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
+    showXpPop("+20 XP");
+  };
+
+  addSetBtn?.addEventListener("click", addSet);
+
+  addWeightBtn?.addEventListener("click", () => {
+    if (!weightInput) return;
+    const next = (parseFloat(weightInput.value || "0") || 0) + 5;
+    weightInput.value = String(next);
+    showXpPop("+5kg");
+  });
+
+  repeatWorkoutBtn?.addEventListener("click", () => {
+    const cached = localStorage.getItem("lastWorkoutPreset");
+    if (!cached) return;
+    try {
+      const value = JSON.parse(cached);
+      if (intensity && value.intensity) intensity.value = value.intensity;
+      if (muscle1 && value.muscle1) muscle1.value = value.muscle1;
+      if (muscle2 && value.muscle2) muscle2.value = value.muscle2;
+      if (energy && value.energy) energy.value = value.energy;
+      if (weightInput && value.weight) weightInput.value = value.weight;
+      showXpPop("Preset loaded");
+    } catch {
+      // Ignore invalid cached data
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    const activeTag = document.activeElement?.tagName;
+    const typing = activeTag === "INPUT" || activeTag === "TEXTAREA";
+
+    if (event.code === "Space" && !typing) {
+      event.preventDefault();
+      addSet();
+    }
+    if (event.key === "ArrowRight" && !typing) {
+      event.preventDefault();
+      addWeightBtn?.click();
+    }
+    if (event.key === "Enter" && !typing) {
+      event.preventDefault();
+      workoutPage.click();
+    }
+    if ((event.key === "r" || event.key === "R") && !typing) {
+      event.preventDefault();
+      repeatWorkoutBtn?.click();
+    }
+  });
+
+  workoutPage.addEventListener("click", () => {
+    const payload = {
+      intensity: intensity?.value,
+      muscle1: muscle1?.value,
+      muscle2: muscle2?.value,
+      energy: energy?.value,
+      weight: weightInput?.value,
+    };
+    localStorage.setItem("lastWorkoutPreset", JSON.stringify(payload));
+  });
+}
+
+function setupShareActions() {
+  const copyBtn = document.getElementById("copyShareBtn");
+  const downloadBtn = document.getElementById("downloadShareBtn");
+  const whatsAppBtn = document.getElementById("shareWhatsAppBtn");
+  const shareCard = document.getElementById("shareCard");
+
+  copyBtn?.addEventListener("click", async () => {
+    const text = "NEW PR: Deadlift 140kg. Level Up -> 15";
+    try {
+      await navigator.clipboard.writeText(text);
+      showXpPop("Copied");
+    } catch {
+      alert(text);
+    }
+  });
+
+  downloadBtn?.addEventListener("click", () => {
+    const text = "NEW PR\nDeadlift 140kg\nLevel Up -> 15";
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "zynergy-pr-card.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+    if (shareCard) shareCard.classList.add("shake");
+    setTimeout(() => shareCard?.classList.remove("shake"), 700);
+  });
+
+  whatsAppBtn?.addEventListener("click", () => {
+    const msg = encodeURIComponent("NEW PR! Deadlift 140kg. Level Up to 15.");
+    window.open(`https://wa.me/?text=${msg}`, "_blank");
+  });
+}
+
+function setupNotifications() {
+  const notifyBtn = document.getElementById("notifyEnableBtn");
+  notifyBtn?.addEventListener("click", async () => {
+    if (!("Notification" in window)) return;
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      showXpPop("Alerts on");
+      maybeNotify("ZYNERGY alerts enabled", "You will receive streak reminders.");
+    }
+  });
+}
+
+async function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    await navigator.serviceWorker.register("./sw.js");
+  } catch {
+    // Ignore service worker registration errors in local file contexts
+  }
+}
+
+function initUI() {
+  setupWorkoutShortcuts();
+  setupShareActions();
+  setupNotifications();
+  registerServiceWorker();
+}
+
+initUI();
 
 const profile = document.getElementById("profile");
 const login = document.getElementById("login");

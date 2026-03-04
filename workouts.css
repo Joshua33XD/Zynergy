@@ -1,99 +1,40 @@
-/* Typography */
-h1 { 
-  font-size: 2.5rem; 
-  font-weight: bold; 
-  color: var(--accent-color);
+.workout-form {
+  display: grid;
+  gap: var(--spacing-sm);
 }
 
-h2 { 
-  font-size: 2rem; 
-  color: var(--accent-color);
+.form-row {
+  display: grid;
+  gap: 6px;
 }
 
-h3 { 
-  font-size: 1.5rem; 
-  color: var(--accent-color);
-}
-
-header {
-  background-color: var(--primary-bg);
-  color: var(--accent-color);
-  padding: var(--spacing-lg);
-  font-size: large;
-  font-family: 'Gill Sans', 'Gill Sans MT', 'Gill Sans', 'Poppins', sans-serif;
-  text-align: center;
+.form-row label {
   font-weight: bold;
 }
 
-.workouth {
-  font-size: 24px;
-  font-weight: bold;
-  margin-bottom: var(--spacing-lg);
-  color: var(--accent-color);
-  text-align: center;
+.dual-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-sm);
 }
 
-.bodyw {
-  font-size: 18px;
-  line-height: 3;
-  margin-bottom: var(--spacing-md);
-  color: var(--primary-bg);
-  text-align: center;
-  background-color: var(--accent-color);
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-xs);
 }
 
-.workoutb {
-  font-size: 24px;
-  font-weight: bold;
-  margin-bottom: var(--spacing-lg);
-  background-color: var(--primary-bg);
-  color: var(--accent-color);
-  text-align: center;
+.shortcut-card {
+  padding: var(--spacing-sm);
 }
 
-/* Select styles */
-select {
-  background-color: var(--primary-bg);
-  color: var(--accent-color);
-  padding: var(--spacing-xs);
-  border: 1px solid var(--accent-color);
-  border-radius: 4px;
-  appearance: none;
-  background-image: url("data:image/svg+xml...");
-  padding-right: 30px;
+.shortcut-card h3 {
+  margin: 0 0 var(--spacing-xs);
 }
 
-select:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 8px rgba(41, 255, 55, 0.5);
-}
-
-.muscle-group2 {
-  margin-top: var(--spacing-sm);
-}
-
-/* Button styles */
-button {
-  background-color: var(--primary-bg);
-  color: var(--accent-color);
-  padding: var(--spacing-sm) var(--spacing-md);
-  border: 1px solid var(--accent-color);
-  border-radius: 4px;
-  cursor: pointer;
-  margin-top:20px;
-}
-
-button:hover {
-  background-color: var(--accent-color);
-  color: var(--primary-bg);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(41, 255, 55, 0.3);
-}
-
-button:active {
-  transform: translateY(0);
-}
-body {
-  padding-bottom: 100px;
+@media (max-width: 1024px) {
+  .dual-row {
+    grid-template-columns: 1fr;
+  }
 }

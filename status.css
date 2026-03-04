@@ -1,63 +1,33 @@
-/* Typography */
-h1 { 
-  font-size: 2.5rem; 
-  font-weight: bold; 
-  color: var(--accent-color);
+.leaderboard {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: var(--spacing-xs);
 }
 
-h3 { 
-  font-size: 1.5rem; 
-  color: var(--accent-color);
+.leaderboard li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  border: 1px solid rgba(41, 255, 55, 0.25);
+  border-radius: 6px;
+  padding: 10px;
+  color: var(--text-color);
 }
 
-header {
-  background-color: var(--primary-bg);
-  color: var(--accent-color);
-  padding: var(--spacing-lg);
-  font-size: large;
-  font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+.share-card {
   text-align: center;
-  font-weight: bold;
 }
 
-main {
-  padding: var(--spacing-md);
-  flex: 1;
-  margin-bottom: 100px;
-  max-width: 800px;
-  margin-left: auto;
-  margin-right: auto;
-  width: 100%;
+.share-card p {
+  margin: 6px 0;
+  color: var(--text-color);
 }
 
-/* Progress bar styling */
-.progress-bar {
-  background-color: rgba(41, 255, 55, 0.2);
-  border-radius: 4px;
-  height: 24px;
-  overflow: hidden;
+.share-actions {
   margin-top: var(--spacing-sm);
-}
-
-.progress {
-  background-color: var(--accent-color);
-  height: 100%;
-  transition: width 0.3s ease;
-}
-
-.stat-card {
-  background: rgba(41, 255, 55, 0.1);
-  border: 1px solid var(--accent-color);
-  border-radius: 8px;
-  padding: var(--spacing-md);
-  text-align: center;
-}
-
-.card {
-  background-color: rgba(41, 255, 55, 0.1);
-  border: 1px solid var(--accent-color);
-  border-radius: 8px;
-  padding: var(--spacing-md);
-  margin-bottom: var(--spacing-md);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
 }

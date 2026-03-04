@@ -3,60 +3,129 @@
 <head>
   <meta charset="UTF-8">
   <title>Workouts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" type="text/css" href="common.css">
   <link rel="stylesheet" type="text/css" href="workouts.css">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="script.js" type="module"></script>
 </head>
-<body >
-  <header>WORKOUT PAGE</header>
-    <nav> 
-      <ul>
-          <li><a href="index.html">Home</a></li>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <h2 class="brand">ZYNERGY</h2>
+      <div class="profile-block">
+        <div class="profile-line"><strong>Level:</strong> 12 - Iron Disciple</div>
+        <div class="profile-line"><strong>Streak:</strong> 9 days</div>
+        <div class="profile-line"><strong>Speed Mode:</strong> ON</div>
+      </div>
+      <nav class="side-nav">
+        <ul>
+          <li><a href="index.html">Dashboard</a></li>
+          <li><a href="workouts.html" aria-current="page">Workouts</a></li>
           <li><a href="nutrition.html">Nutrition</a></li>
           <li><a href="sleep.html">Sleep</a></li>
-            <li><a href="status.html">Status</a></li>
-      </ul>
-  </nav>
-    <h1>How was your workload???</h1>
-    <select name="workout-intensity" id="workout-intensity">
-    <option value="light">light</option>
-        <option value="moderate">moderate</option>
-        <option value="intense">intense</option></select>
-        <br><br>
+          <li><a href="status.html">Leaderboard</a></li>
+        </ul>
+      </nav>
+      <section class="card shortcut-card">
+        <h3>Speed Keys</h3>
+        <ul class="kbd-list">
+          <li><span>Add Set</span><kbd>Space</kbd></li>
+          <li><span>+5kg</span><kbd>Right Arrow</kbd></li>
+          <li><span>Save Workout</span><kbd>Enter</kbd></li>
+          <li><span>Repeat Last</span><kbd>R</kbd></li>
+        </ul>
+      </section>
+      <div class="sidebar-meta">Target: log each set in under 5 seconds</div>
+    </aside>
 
-    <h2>which muscle group did u work out??</h2>
-        <br><br>
-        <select name="muscle-group" id="muscle-group">
-        <option value="chest">chest</option>
-        <option value="back">back</option> 
-        <option value="legs">legs</option>
-        <option value="bicep">bicep</option>
-        <option value="tricep">tricep</option>
-        <option value="shoulders">shoulders</option></select>
-        <div class="muscle-group2">
-          <select name="muscle-group" id="muscle-group2">
-          <option value="chest">chest</option>
-          <option value="back">back</option>
-          <option value="legs">leg</option>
-          <option value="bicep">bicep</option>
-          <option value="tricep">tricep</option>
-          <option value="shoulders">shoulders</option></select>
+    <div class="content">
+      <header>
+        <h1>Today's Workout Mission</h1>
+        <p>Log fast, beat PR, and stack XP.</p>
+      </header>
+
+      <main>
+        <div class="dashboard-grid">
+          <section class="card col-8 workout-form">
+            <h2>Workout Logger</h2>
+
+            <div class="form-row">
+              <label for="workout-intensity">Intensity</label>
+              <select name="workout-intensity" id="workout-intensity">
+                <option value="light">Light</option>
+                <option value="moderate">Moderate</option>
+                <option value="intense">Intense</option>
+              </select>
+            </div>
+
+            <div class="dual-row">
+              <div class="form-row">
+                <label for="muscle-group">Primary Muscle Group</label>
+                <select name="muscle-group" id="muscle-group">
+                  <option value="chest">Chest</option>
+                  <option value="back">Back</option>
+                  <option value="legs">Legs</option>
+                  <option value="bicep">Bicep</option>
+                  <option value="tricep">Tricep</option>
+                  <option value="shoulders">Shoulders</option>
+                </select>
+              </div>
+
+              <div class="form-row">
+                <label for="muscle-group2">Secondary Muscle Group</label>
+                <select name="muscle-group" id="muscle-group2">
+                  <option value="chest">Chest</option>
+                  <option value="back">Back</option>
+                  <option value="legs">Leg</option>
+                  <option value="bicep">Bicep</option>
+                  <option value="tricep">Tricep</option>
+                  <option value="shoulders">Shoulders</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label for="energy-level">Energy Level (1-5)</label>
+              <select name="energy-level" id="energy-level">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <label for="workout-weight">Top Set Weight (kg)</label>
+              <input type="number" id="workout-weight" min="0" step="2.5" value="40">
+            </div>
+
+            <div class="action-row">
+              <button id="addSetBtn" type="button">+ Add Set</button>
+              <button id="addWeightBtn" type="button">+5kg</button>
+              <button id="repeatWorkoutBtn" type="button">Repeat Last</button>
+              <button id="workout" type="button" onclick="getValues()">Complete Workout</button>
+            </div>
+          </section>
+
+          <section class="card col-4">
+            <h3>Session XP</h3>
+            <p class="xp-value"><span id="sessionXp">0</span> XP</p>
+            <div class="meter">
+              <span id="sessionXpMeter" style="width: 0%"></span>
+            </div>
+            <p class="muted" id="setCounter">Sets logged: 0</p>
+          </section>
         </div>
-        <br><br>
-        <h3>Scale your left energy from 1 to 5</h3>
-        <select name="energy-level" id="energy-level">
-        <option value="1">1</option>
-        <option value="2">2</option>  
-        <option value="3">3</option>
-        <option value="4">4</option>
-        <option value="5">5</option></select>
-        <br><br>
-        window.getValues=getValues;
-        <button id = "workout" type="submit" onclick="getValues()">Submit</button>
-  
-  <footer>
-    <p>&copy; 2024 ZYNERGY. All rights reserved.</p>
-  </footer>
+      </main>
+
+      <footer>
+        <p>&copy; 2026 ZYNERGY. All rights reserved.</p>
+      </footer>
+    </div>
+  </div>
+
+  <div class="xp-pop" id="xpPop">+20 XP</div>
+  <script src="script.js" type="module"></script>
 </body>
 </html>

@@ -3,42 +3,97 @@
 <head>
   <meta charset="UTF-8">
   <title>Nutrition</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" type="text/css" href="common.css">
   <link rel="stylesheet" type="text/css" href="nutrition.css">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="script.js" type="module"></script>
 </head>
-<body class="bodyn">
-    <header>NUTRITION PAGE</header>
-    <nav>
-      <!-- Navigation links -->
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <h2 class="brand">ZYNERGY</h2>
+      <div class="profile-block">
+        <div class="profile-line"><strong>Protein Goal:</strong> 120g</div>
+        <div class="profile-line"><strong>Current Avg:</strong> 102g</div>
+        <div class="profile-line"><strong>Nutrition XP:</strong> 340</div>
+      </div>
+      <nav class="side-nav">
         <ul>
-            <li><a href="index.html">Home</a></li>
+          <li><a href="index.html">Dashboard</a></li>
           <li><a href="workouts.html">Workouts</a></li>
-            <li><a href="sleep.html">Sleep</a></li>
-            <li><a href="status.html">Status</a></li>
+          <li><a href="nutrition.html" aria-current="page">Nutrition</a></li>
+          <li><a href="sleep.html">Sleep</a></li>
+          <li><a href="status.html">Leaderboard</a></li>
         </ul>
-    </nav>
-    <h1>What did u eat today???</h1>
-    <form onsubmit="event.preventDefault(); saveNutritionData();">
-        <label for ="breakfast">Breakfast</label><br>
-        <input type="text" id="breakfast" name="breakfast" required><br><br>
-        <label for ="lunch">Lunch</label><br>
-        <input type="text" id="lunch" name="lunch" required><br>
+      </nav>
+      <div class="sidebar-meta">Visual meters update as goals are checked</div>
+    </aside>
 
-        <label for ="dinner">Dinner</label><br>
-        <input type="text" id="dinner" name="dinner" required><br><br>
-        <label for ="snacks">Snacks</label><br> 
-        <input type="text" id="snacks" name="snacks" required><br><br>
-        <input type="submit" value="Submit">
-    </form>
-    <h2>Did you meet your daily goals???</h2>
-    <input type="checkbox" value="hydration" id="hydration" name="hydration"><label for="hydration">Hydration</label><br>
-    <input type="checkbox" value="protein" id="protein" name="protein"><label for="protein">Protein</label><br>
-    <input type="checkbox" value="balanced meal" id="balanced_meal" name="balanced_meal"><label for="balanced_meal">Balanced Meal</label>
-    <br><br>
-    <h3>Quick notes or regrets</h3>
-    <textarea id="notes" name="notes" rows="4" cols="50" placeholder="Write your notes here..."></textarea><br><br>
-    <button type="button" onclick="saveNutritionData()">Submit Goals</button>
-  </body>
+    <div class="content">
+      <header>
+        <h1>Nutrition Mission</h1>
+        <p>Hit protein, hydration, and balanced meals for steady gains.</p>
+      </header>
+
+      <main>
+        <div class="dashboard-grid">
+          <section class="card col-8">
+            <h2>Meal Log</h2>
+            <form class="nutrition-form" onsubmit="event.preventDefault(); saveNutritionData();">
+              <div class="form-row">
+                <label for="breakfast">Breakfast</label>
+                <input type="text" id="breakfast" name="breakfast" required>
+              </div>
+              <div class="form-row">
+                <label for="lunch">Lunch</label>
+                <input type="text" id="lunch" name="lunch" required>
+              </div>
+              <div class="form-row">
+                <label for="dinner">Dinner</label>
+                <input type="text" id="dinner" name="dinner" required>
+              </div>
+              <div class="form-row">
+                <label for="snacks">Snacks</label>
+                <input type="text" id="snacks" name="snacks" required>
+              </div>
+              <div class="goal-list">
+                <label><input type="checkbox" id="hydration" name="hydration">Hydration</label>
+                <label><input type="checkbox" id="protein" name="protein">Protein</label>
+                <label><input type="checkbox" id="balanced_meal" name="balanced_meal">Balanced Meal</label>
+              </div>
+              <div class="form-row">
+                <label for="notes">Quick notes or regrets</label>
+                <textarea id="notes" name="notes" rows="3" placeholder="Write your notes here..."></textarea>
+              </div>
+              <input type="submit" value="Save Nutrition">
+            </form>
+          </section>
+
+          <section class="card col-4">
+            <h3>Today's Fuel Meters</h3>
+            <div class="meter-row">
+              <span>Protein <strong id="proteinPct">40%</strong></span>
+              <div class="meter"><span id="proteinMeter" style="width: 40%"></span></div>
+            </div>
+            <div class="meter-row">
+              <span>Calories <strong id="caloriePct">35%</strong></span>
+              <div class="meter"><span id="calorieMeter" style="width: 35%"></span></div>
+            </div>
+            <div class="meter-row">
+              <span>Recovery Score <strong id="recoveryPct">78%</strong></span>
+              <div class="meter"><span id="recoveryMeter" style="width: 78%"></span></div>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <footer>
+        <p>&copy; 2026 ZYNERGY. All rights reserved.</p>
+      </footer>
+    </div>
+  </div>
+
+  <div class="xp-pop" id="xpPop">+15 XP</div>
+  <script src="script.js" type="module"></script>
+</body>
 </html>

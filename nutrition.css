@@ -50,6 +50,14 @@ input[type="checkbox"] {
 .nutrition-form .form-row:nth-child(6) { animation-delay: 0.28s; }
 .nutrition-form input[type="submit"] { animation-delay: 0.33s; }
 
+.compact-search-row .form-row:last-child {
+  align-content: end;
+}
+
+.compact-search-row .form-row:last-child button {
+  width: 100%;
+}
+
 @media (max-width: 920px) {
   .goal-list {
     grid-template-columns: 1fr 1fr;

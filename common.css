@@ -333,6 +333,34 @@ main {
   background: rgba(255, 255, 255, 0.02);
 }
 
+.flow-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 var(--spacing-sm);
+}
+
+.flow-step {
+  border: 1px solid var(--line-color);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.flow-step.active {
+  color: var(--accent-color);
+  border-color: var(--accent-soft-border);
+  background: var(--accent-soft);
+}
+
+.field-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: -2px;
+}
+
 .kbd-list {
   list-style: none;
   margin: 0;

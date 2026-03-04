@@ -50,19 +50,37 @@
           <section class="card col-8 workout-form" id="wgerWorkoutCard">
             <h2>Wger Workout Logger (Primary)</h2>
             <p class="muted" id="workoutSourceStatus">Wger available. Logging through Wger flow.</p>
+            <div class="flow-steps">
+              <span class="flow-step active">1. Choose Muscle</span>
+              <span class="flow-step">2. Search Exercise</span>
+              <span class="flow-step">3. Select + Log</span>
+            </div>
 
             <div class="form-row">
               <label for="wgerMuscleFocus">Muscle Group (Choose first)</label>
               <select id="wgerMuscleFocus">
                 <option value="" selected>Select muscle group</option>
               </select>
+              <small class="field-hint">Pick target muscle to narrow search scope.</small>
             </div>
 
             <div class="form-row">
-              <label for="wgerExerciseSelect">Exercise</label>
+              <label for="wgerExerciseSelect">Exercise Result</label>
               <select id="wgerExerciseSelect">
                 <option value="">Select a muscle group first</option>
               </select>
+              <small class="field-hint">Run search to load matching exercise options.</small>
+            </div>
+
+            <div class="dual-row compact-search-row">
+              <div class="form-row">
+                <label for="wgerExerciseSearch">Search Exercise</label>
+                <input type="text" id="wgerExerciseSearch" placeholder="e.g. press, squat, row">
+              </div>
+              <div class="form-row">
+                <label>&nbsp;</label>
+                <button id="wgerExerciseSearchBtn" type="button">Search Exercises</button>
+              </div>
             </div>
 
             <div class="dual-row">
@@ -97,7 +115,7 @@
             </div>
 
             <div class="action-row">
-              <button id="wgerWorkoutSaveBtn" type="button">Save Wger Workout</button>
+              <button id="wgerWorkoutSaveBtn" type="button">Log Selected Workout</button>
               <button id="workoutManualToggle" type="button">Use Manual Logger</button>
             </div>
           </section>

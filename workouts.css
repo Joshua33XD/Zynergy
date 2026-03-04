@@ -48,6 +48,14 @@
   margin: 0 0 var(--spacing-xs);
 }
 
+.compact-search-row .form-row:last-child {
+  align-content: end;
+}
+
+.compact-search-row .form-row:last-child button {
+  width: 100%;
+}
+
 @media (max-width: 1024px) {
   .dual-row {
     grid-template-columns: 1fr;

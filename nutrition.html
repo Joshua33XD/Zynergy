@@ -41,6 +41,11 @@
           <section class="card col-8" id="wgerNutritionCard">
             <h2>Wger Nutrition Logger (Primary)</h2>
             <p class="muted" id="nutritionSourceStatus">Wger available. Logging through Wger flow.</p>
+            <div class="flow-steps">
+              <span class="flow-step active">1. Choose Focus</span>
+              <span class="flow-step">2. Search Food</span>
+              <span class="flow-step">3. Select + Log</span>
+            </div>
 
             <div class="nutrition-form">
               <div class="form-row">
@@ -52,13 +57,26 @@
                   <option value="fat">High Fat</option>
                   <option value="balanced">Balanced</option>
                 </select>
+                <small class="field-hint">Choose macro priority before searching ingredients.</small>
               </div>
 
               <div class="form-row">
-                <label for="wgerIngredientSelect">Ingredient</label>
+                <label for="wgerIngredientSelect">Ingredient Result</label>
                 <select id="wgerIngredientSelect">
                   <option value="">Select nutrition focus first</option>
                 </select>
+                <small class="field-hint">Use search to load ingredient matches.</small>
+              </div>
+
+              <div class="dual-row compact-search-row">
+                <div class="form-row">
+                  <label for="wgerIngredientSearch">Search Ingredient</label>
+                  <input type="text" id="wgerIngredientSearch" placeholder="e.g. chicken, oats, rice">
+                </div>
+                <div class="form-row">
+                  <label>&nbsp;</label>
+                  <button id="wgerIngredientSearchBtn" type="button">Search Ingredients</button>
+                </div>
               </div>
 
               <div class="dual-row">
@@ -84,7 +102,7 @@
               </div>
 
               <div class="action-row">
-                <button id="wgerNutritionSaveBtn" type="button">Save Wger Nutrition</button>
+                <button id="wgerNutritionSaveBtn" type="button">Log Selected Nutrition</button>
                 <button id="nutritionManualToggle" type="button">Use Manual Logger</button>
               </div>
             </div>

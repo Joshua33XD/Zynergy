@@ -1,4 +1,3 @@
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
 
 const supabase = createClient(
@@ -11,14 +10,15 @@ async function getUserInfo() {
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  
-  if (!session || !session.user) {
-    return null;
-  }
-  
+
+  if (!session || !session.user) return null;
+
   return {
     user_id: session.user.id,
-    username: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "User",
+    username:
+      session.user.user_metadata?.full_name ||
+      session.user.email?.split("@")[0] ||
+      "User",
   };
 }
 
@@ -26,33 +26,26 @@ async function getUserInfo() {
 async function upsertWithFallback(tableName, data, conflictColumns) {
   let { data: result, error } = await supabase.from(tableName).upsert(data);
 
-  // If upsert fails due to onConflict format, try with explicit onConflict
   if (error && error.message?.includes("onConflict")) {
-    const retry = await supabase.from(tableName).upsert(data, {
-      onConflict: conflictColumns,
-    });
+    const retry = await supabase
+      .from(tableName)
+      .upsert(data, { onConflict: conflictColumns });
     result = retry.data;
     error = retry.error;
   }
 
-  // If upsert still fails, try manual check-then-insert-or-update
-  if (error && (error.code === "23505" || error.message?.includes("duplicate"))) {
-    // Parse conflict columns (handle quoted names like "Date")
-    const conflictCols = conflictColumns.split(",").map((col) => {
-      const cleaned = col.trim().replace(/"/g, "");
-      return cleaned;
-    });
-    
-    const conflictConditions = conflictCols.map((col) => {
-      // Try both the cleaned name and the original quoted name
-      const value = data[col] !== undefined ? data[col] : data[`"${col}"`];
-      return {
-        column: col,
-        value: value,
-      };
-    });
+  if (
+    error &&
+    (error.code === "23505" || error.message?.includes("duplicate"))
+  ) {
+    const conflictCols = conflictColumns.split(",").map((col) =>
+      col.trim().replace(/"/g, "")
+    );
+    const conflictConditions = conflictCols.map((col) => ({
+      column: col,
+      value: data[col] !== undefined ? data[col] : data[`"${col}"`],
+    }));
 
-    // Build query to check if row exists
     let query = supabase.from(tableName).select(conflictCols[0]);
     conflictConditions.forEach(({ column, value }) => {
       query = query.eq(column, value);
@@ -60,7 +53,6 @@ async function upsertWithFallback(tableName, data, conflictColumns) {
     const { data: existing } = await query.single();
 
     if (existing) {
-      // Update existing row
       let updateQuery = supabase.from(tableName).update(data);
       conflictConditions.forEach(({ column, value }) => {
         updateQuery = updateQuery.eq(column, value);
@@ -69,7 +61,6 @@ async function upsertWithFallback(tableName, data, conflictColumns) {
       result = updateResult.data;
       error = updateResult.error;
     } else {
-      // Try insert anyway
       const insertResult = await supabase.from(tableName).insert(data);
       result = insertResult.data;
       error = insertResult.error;
@@ -79,42 +70,41 @@ async function upsertWithFallback(tableName, data, conflictColumns) {
   return { data: result, error };
 }
 
-// Helper function for error handling
 function handleError(error, tableName, user_id, date) {
   const isDuplicate =
     error.code === "23505" ||
     error.message?.toLowerCase().includes("duplicate key");
-
   const isRLSError =
     error.message?.toLowerCase().includes("row-level security") ||
     error.message?.toLowerCase().includes("permission denied") ||
     error.code === "42501" ||
-    error.message?.toLowerCase().includes("new row violates row-level security policy");
+    error.message
+      ?.toLowerCase()
+      .includes("new row violates row-level security policy");
 
   if (isDuplicate) {
-    return `Duplicate: you already have an entry for ${date}. The form now uses upsert—if you still see this, an UPDATE policy may be missing for '${tableName}'. Error: ${error.message}`;
+    return `Duplicate: you already have an entry for ${date}. Error: ${error.message}`;
   } else if (isRLSError) {
-    return `RLS Error: ${error.message}\n\nThis usually means:\n1. RLS is enabled but no policy allows INSERT/UPDATE for your user\n2. Your user_id doesn't match the policy conditions\n\nUser ID: ${user_id}\n\nCheck your Supabase RLS policies for the '${tableName}' table.`;
+    return `RLS Error: ${error.message}\n\nUser ID: ${user_id}\n\nCheck your Supabase RLS policies for '${tableName}'.`;
   } else {
     return `Save failed: ${error.message}`;
   }
 }
 
-const uiState = {
-  setCount: 0,
-  sessionXp: 0,
-};
+const uiState = { setCount: 0, sessionXp: 0 };
 
+// ─── wger state ────────────────────────────────────────────────────────────────
+// exercises and ingredients are now populated dynamically via live API search.
+// We cache the last search results so the save buttons can look up details.
 const wgerState = {
-  exercises: [],
-  ingredients: [],
-  filteredExercises: [],
-  filteredIngredients: [],
-  muscleLookup: {},
+  exercises: [],       // last exercise search results
+  ingredients: [],     // last ingredient search results
+  muscleLookup: {},    // id → name, loaded once on init
   workoutReady: false,
   nutritionReady: false,
 };
 
+// ─── UI helpers ────────────────────────────────────────────────────────────────
 function showXpPop(text) {
   const xpPop = document.getElementById("xpPop");
   if (!xpPop) return;
@@ -127,8 +117,7 @@ function showXpPop(text) {
 function animateMeterById(id, percent) {
   const meter = document.getElementById(id);
   if (!meter) return;
-  const clamped = Math.max(0, Math.min(100, percent));
-  meter.style.width = `${clamped}%`;
+  meter.style.width = `${Math.max(0, Math.min(100, percent))}%`;
 }
 
 function animateNumber(id, target) {
@@ -149,7 +138,8 @@ function animateNumber(id, target) {
 }
 
 function maybeNotify(title, body) {
-  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  if (!("Notification" in window) || Notification.permission !== "granted")
+    return;
   new Notification(title, { body });
 }
 
@@ -159,432 +149,6 @@ function applyTheme(themeName) {
     return;
   }
   document.body.setAttribute("data-theme", themeName);
-}
-
-async function getValues() {
-  // Check authentication first (required for RLS)
-  const userInfo = await getUserInfo();
-  if (!userInfo) {
-    alert("You must be logged in to save workouts. Please log in first.");
-    return;
-  }
-
-  const { user_id, username } = userInfo;
-
-  const intensityRaw = document.getElementById("workout-intensity")?.value;
-  const mg1Raw = document.getElementById("muscle-group")?.value;
-  const mg2Raw = document.getElementById("muscle-group2")?.value;
-  const energyRaw = document.getElementById("energy-level")?.value;
-
-  const workout_intensity =
-    intensityRaw != null
-      ? intensityRaw[0].toUpperCase() + intensityRaw.slice(1).toLowerCase()
-      : null;
-
-  const muscleMap = {
-    chest: "Chest",
-    back: "Back",
-    legs: "Leg",
-    leg: "Leg",
-    bicep: "Bicep",
-    tricep: "Tricep",
-    shoulders: "Shoulder",
-    shoulder: "Shoulder",
-  };
-  const mg1 = mg1Raw ? muscleMap[mg1Raw] ?? null : null;
-  const mg2 = mg2Raw ? muscleMap[mg2Raw] ?? null : null;
-  const muscle_groups = [mg1, mg2].filter(Boolean);
-
-  const energy_level = energyRaw != null ? parseInt(energyRaw, 10) : null;
-
-  const date = new Date().toISOString().split("T")[0];
-  const workout_status = "Workout done";
-
-  // Validate intensity/energy combination per workout_daily_check1 constraint
-  let validationError = null;
-  if (workout_intensity && energy_level != null) {
-    if (workout_intensity === "Light" && (energy_level < 3 || energy_level > 5)) {
-      validationError = `Light workouts require energy level 3-5, but you selected ${energy_level}`;
-    } else if (workout_intensity === "Moderate" && (energy_level < 2 || energy_level > 4)) {
-      validationError = `Moderate workouts require energy level 2-4, but you selected ${energy_level}`;
-    } else if (workout_intensity === "Intense" && (energy_level < 1 || energy_level > 2)) {
-      validationError = `Intense workouts require energy level 1-2, but you selected ${energy_level}`;
-    }
-  }
-
-  if (validationError) {
-    alert("Validation failed: " + validationError);
-    return;
-  }
-
-  const { data, error } = await upsertWithFallback(
-    "workout_daily",
-    {
-      user_id,
-      username,
-      date,
-      workout_status,
-      workout_intensity,
-      muscle_groups,
-      energy_level,
-    },
-    "user_id,date"
-  );
-
-  if (error) {
-    alert(handleError(error, "workout_daily", user_id, date));
-  } else {
-    uiState.sessionXp += 30;
-    animateNumber("sessionXp", uiState.sessionXp);
-    animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
-    showXpPop("+30 XP");
-    maybeNotify("Workout saved", "Mission progress increased.");
-    alert("Workout saved successfully!");
-  }
-}
-
-async function saveSleepData() {
-  // Check authentication first (required for RLS)
-  const userInfo = await getUserInfo();
-  if (!userInfo) {
-    alert("You must be logged in to save sleep data. Please log in first.");
-    return;
-  }
-
-  const { user_id, username } = userInfo;
-
-  const hoursSleptRaw = document.getElementById("sleepInput")?.value;
-  const emojiRaw = document.getElementById("emojiSelect")?.value;
-
-  if (!hoursSleptRaw || !emojiRaw) {
-    alert("Please fill in all sleep fields.");
-    return;
-  }
-
-  const hours_slept = parseFloat(hoursSleptRaw);
-  const date = new Date().toISOString().split("T")[0];
-
-  // Map emoji values to actual emoji strings
-  const emojiMap = {
-    emoji1: "😴🛌💤",
-    emoji2: "😃☀️🌞",
-    emoji3: "😬☕🥱",
-    emoji4: "😡⏰😒",
-    emoji5: "🏃‍♂️💨⏱️",
-  };
-  const sleep_emoji = emojiMap[emojiRaw] || emojiRaw;
-
-  // Validate hours_slept constraint (0-12)
-  if (hours_slept < 0 || hours_slept > 12) {
-    alert(`Hours slept must be between 0 and 12, but you entered ${hours_slept}`);
-    return;
-  }
-
-  // Validate sleep_emoji constraint
-  const validEmojis = ["😴🛌💤", "😃☀️🌞", "😬☕🥱", "😡⏰😒", "🏃‍♂️💨⏱️"];
-  if (!validEmojis.includes(sleep_emoji)) {
-    alert(`Invalid sleep emoji. Please select a valid option.`);
-    return;
-  }
-
-  const { data, error } = await upsertWithFallback(
-    "daily_sleep",
-    {
-      user_id,
-      username,
-      Date: date,
-      hours_slept,
-      sleep_emoji,
-    },
-    'user_id,"Date"'
-  );
-
-  if (error) {
-    alert(handleError(error, "daily_sleep", user_id, date));
-  } else {
-    showXpPop("+10 XP");
-    animateMeterById("sleepMeter", Math.min(100, hours_slept * 10));
-    maybeNotify("Sleep log saved", `Recovery updated: ${hours_slept}h`);
-    alert("Sleep data saved successfully!");
-  }
-}
-
-async function saveNutritionData() {
-  // Check authentication first (required for RLS)
-  const userInfo = await getUserInfo();
-  if (!userInfo) {
-    alert("You must be logged in to save nutrition data. Please log in first.");
-    return;
-  }
-
-  const { user_id, username } = userInfo;
-
-  const breakfast = document.getElementById("breakfast")?.value?.trim() || "";
-  const lunch = document.getElementById("lunch")?.value?.trim() || "";
-  const dinner = document.getElementById("dinner")?.value?.trim() || "";
-  const snacks = document.getElementById("snacks")?.value?.trim() || "";
-  const hydration = document.getElementById("hydration")?.checked || false;
-  const protein = document.getElementById("protein")?.checked || false;
-  const balancedMeal = document.getElementById("balanced_meal")?.checked || false;
-  const notes = document.getElementById("notes")?.value?.trim() || null;
-
-  // Validate required fields
-  if (!breakfast || !lunch || !dinner || !snacks) {
-    alert("Please fill in all meal fields (breakfast, lunch, dinner, snacks).");
-    return;
-  }
-
-  const entry_date = new Date().toISOString().split("T")[0];
-
-  // Convert checkboxes to Yes/No format per constraint
-  const hydration_goal_met = hydration ? "Yes" : "No";
-  const protein_goal_met = protein ? "Yes" : "No";
-  const balanced_meal_goal_met = balancedMeal ? "Yes" : "No";
-
-  const { data, error } = await upsertWithFallback(
-    "daily_nutrition",
-    {
-      user_id,
-      username,
-      entry_date,
-      breakfast,
-      lunch,
-      dinner,
-      snacks,
-      hydration_goal_met,
-      protein_goal_met,
-      balanced_meal_goal_met,
-      notes_or_regrets: notes,
-    },
-    "user_id,entry_date"
-  );
-
-  if (error) {
-    alert(handleError(error, "daily_nutrition", user_id, entry_date));
-  } else {
-    const proteinPct = protein ? 82 : 48;
-    const caloriePct = balancedMeal ? 65 : 40;
-    const recoveryPct = hydration ? 78 : 52;
-    animateMeterById("proteinMeter", proteinPct);
-    animateMeterById("calorieMeter", caloriePct);
-    animateMeterById("recoveryMeter", recoveryPct);
-    const proteinText = document.getElementById("proteinPct");
-    const calorieText = document.getElementById("caloriePct");
-    const recoveryText = document.getElementById("recoveryPct");
-    if (proteinText) proteinText.textContent = `${proteinPct}%`;
-    if (calorieText) calorieText.textContent = `${caloriePct}%`;
-    if (recoveryText) recoveryText.textContent = `${recoveryPct}%`;
-    showXpPop("+15 XP");
-    maybeNotify("Nutrition saved", "Fuel goals updated.");
-    alert("Nutrition data saved successfully!");
-  }
-}
-
-window.getValues = getValues;
-window.saveSleepData = saveSleepData;
-window.saveNutritionData = saveNutritionData;
-
-function setupWorkoutShortcuts() {
-  const workoutPage = document.getElementById("workout");
-  if (!workoutPage) return;
-
-  const setCounter = document.getElementById("setCounter");
-  const addSetBtn = document.getElementById("addSetBtn");
-  const addWeightBtn = document.getElementById("addWeightBtn");
-  const repeatWorkoutBtn = document.getElementById("repeatWorkoutBtn");
-  const weightInput = document.getElementById("workout-weight");
-  const intensity = document.getElementById("workout-intensity");
-  const muscle1 = document.getElementById("muscle-group");
-  const muscle2 = document.getElementById("muscle-group2");
-  const energy = document.getElementById("energy-level");
-
-  const addSet = () => {
-    uiState.setCount += 1;
-    uiState.sessionXp += 20;
-    if (setCounter) setCounter.textContent = `Sets logged: ${uiState.setCount}`;
-    animateNumber("sessionXp", uiState.sessionXp);
-    animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
-    showXpPop("+20 XP");
-  };
-
-  addSetBtn?.addEventListener("click", addSet);
-
-  addWeightBtn?.addEventListener("click", () => {
-    if (!weightInput) return;
-    const next = (parseFloat(weightInput.value || "0") || 0) + 5;
-    weightInput.value = String(next);
-    showXpPop("+5kg");
-  });
-
-  repeatWorkoutBtn?.addEventListener("click", () => {
-    const cached = localStorage.getItem("lastWorkoutPreset");
-    if (!cached) return;
-    try {
-      const value = JSON.parse(cached);
-      if (intensity && value.intensity) intensity.value = value.intensity;
-      if (muscle1 && value.muscle1) muscle1.value = value.muscle1;
-      if (muscle2 && value.muscle2) muscle2.value = value.muscle2;
-      if (energy && value.energy) energy.value = value.energy;
-      if (weightInput && value.weight) weightInput.value = value.weight;
-      showXpPop("Preset loaded");
-    } catch {
-      // Ignore invalid cached data
-    }
-  });
-
-  document.addEventListener("keydown", (event) => {
-    const activeTag = document.activeElement?.tagName;
-    const typing = activeTag === "INPUT" || activeTag === "TEXTAREA";
-
-    if (event.code === "Space" && !typing) {
-      event.preventDefault();
-      addSet();
-    }
-    if (event.key === "ArrowRight" && !typing) {
-      event.preventDefault();
-      addWeightBtn?.click();
-    }
-    if (event.key === "Enter" && !typing) {
-      event.preventDefault();
-      workoutPage.click();
-    }
-    if ((event.key === "r" || event.key === "R") && !typing) {
-      event.preventDefault();
-      repeatWorkoutBtn?.click();
-    }
-  });
-
-  workoutPage.addEventListener("click", () => {
-    const payload = {
-      intensity: intensity?.value,
-      muscle1: muscle1?.value,
-      muscle2: muscle2?.value,
-      energy: energy?.value,
-      weight: weightInput?.value,
-    };
-    localStorage.setItem("lastWorkoutPreset", JSON.stringify(payload));
-  });
-}
-
-function setupShareActions() {
-  const copyBtn = document.getElementById("copyShareBtn");
-  const downloadBtn = document.getElementById("downloadShareBtn");
-  const whatsAppBtn = document.getElementById("shareWhatsAppBtn");
-  const shareCard = document.getElementById("shareCard");
-
-  copyBtn?.addEventListener("click", async () => {
-    const text = "NEW PR: Deadlift 140kg. Level Up -> 15";
-    try {
-      await navigator.clipboard.writeText(text);
-      showXpPop("Copied");
-    } catch {
-      alert(text);
-    }
-  });
-
-  downloadBtn?.addEventListener("click", () => {
-    const text = "NEW PR\nDeadlift 140kg\nLevel Up -> 15";
-    const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "zynergy-pr-card.txt";
-    a.click();
-    URL.revokeObjectURL(url);
-    if (shareCard) shareCard.classList.add("shake");
-    setTimeout(() => shareCard?.classList.remove("shake"), 700);
-  });
-
-  whatsAppBtn?.addEventListener("click", () => {
-    const msg = encodeURIComponent("NEW PR! Deadlift 140kg. Level Up to 15.");
-    window.open(`https://wa.me/?text=${msg}`, "_blank");
-  });
-}
-
-function setupNotifications() {
-  const notifyBtn = document.getElementById("notifyEnableBtn");
-  notifyBtn?.addEventListener("click", async () => {
-    if (!("Notification" in window)) return;
-    const permission = await Notification.requestPermission();
-    if (permission === "granted") {
-      showXpPop("Alerts on");
-      maybeNotify("ZYNERGY alerts enabled", "You will receive streak reminders.");
-    }
-  });
-}
-
-function setupThemeToggle() {
-  const themeBtn = document.getElementById("themeToggleBtn");
-  const rawTheme = localStorage.getItem("zynergyTheme") || "default";
-  const savedTheme = rawTheme === "ion" ? "ion" : "default";
-  applyTheme(savedTheme);
-
-  if (!themeBtn) return;
-
-  const labelMap = {
-    default: "Theme: Black",
-    ion: "Theme: Blue",
-  };
-  themeBtn.textContent = labelMap[savedTheme] || labelMap.default;
-  themeBtn.addEventListener("click", () => {
-    const current = document.body.getAttribute("data-theme") || "default";
-    const next = current === "default" ? "ion" : "default";
-    localStorage.setItem("zynergyTheme", next);
-    applyTheme(next);
-    themeBtn.textContent = labelMap[next] || labelMap.default;
-    showXpPop("Theme switched");
-  });
-}
-
-function setupMissionBoard() {
-  const missionList = document.getElementById("missionList");
-  if (!missionList) return;
-
-  const missionButtons = missionList.querySelectorAll(".mission-toggle");
-  const missionPct = document.getElementById("missionPct");
-  const updateMissionProgress = () => {
-    const done = missionList.querySelectorAll("li.done").length;
-    const total = missionButtons.length;
-    const percent = Math.round((done / total) * 100);
-    if (missionPct) missionPct.textContent = `${percent}%`;
-    animateMeterById("missionMeter", percent);
-  };
-
-  missionButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const item = btn.closest("li");
-      if (!item) return;
-      const nowDone = !item.classList.contains("done");
-      item.classList.toggle("done", nowDone);
-      btn.textContent = nowDone ? "Done" : "Pending";
-      const xpReward = Number(btn.dataset.xp || "10");
-      if (nowDone) {
-        const xpNode = document.getElementById("xpValue");
-        const currentXp = Number(xpNode?.textContent || "0");
-        animateNumber("xpValue", currentXp + xpReward);
-        showXpPop(`+${xpReward} XP`);
-      }
-      updateMissionProgress();
-    });
-  });
-
-  updateMissionProgress();
-}
-
-function setupLeaderboardRefresh() {
-  const list = document.getElementById("leaderboardList");
-  const refreshBtn = document.getElementById("refreshBoardBtn");
-  if (!list || !refreshBtn) return;
-
-  refreshBtn.addEventListener("click", () => {
-    const entries = Array.from(list.querySelectorAll("li"));
-    for (let i = entries.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [entries[i], entries[j]] = [entries[j], entries[i]];
-    }
-    list.replaceChildren(...entries);
-    showXpPop("Board refreshed");
-  });
 }
 
 function stripHtml(input) {
@@ -604,379 +168,397 @@ function renderApiError(statusEl, listEl, message) {
   if (listEl) listEl.replaceChildren();
 }
 
-function setSourceMode({
-  ready,
-  wgerCardId,
-  manualCardId,
-  statusId,
-  manualToggleId,
-  readyText,
-  fallbackText,
-}) {
-  const wgerCard = document.getElementById(wgerCardId);
-  const manualCard = document.getElementById(manualCardId);
-  const status = document.getElementById(statusId);
-  const toggleBtn = document.getElementById(manualToggleId);
-
-  if (status) status.textContent = ready ? readyText : fallbackText;
-
-  if (!wgerCard || !manualCard) return;
-
-  if (ready) {
-    wgerCard.classList.remove("hidden");
-    manualCard.classList.add("hidden");
-    if (toggleBtn) {
-      toggleBtn.textContent = "Use Manual Logger";
-    }
-    return;
-  }
-
-  // Automatic failover: manual logger becomes the primary visible UI.
-  wgerCard.classList.add("hidden");
-  manualCard.classList.remove("hidden");
+function capitalizeFirst(text) {
+  if (!text) return "";
+  return text[0].toUpperCase() + text.slice(1).toLowerCase();
 }
 
-function setupManualToggles() {
-  const workoutManualToggle = document.getElementById("workoutManualToggle");
-  const nutritionManualToggle = document.getElementById("nutritionManualToggle");
-
-  workoutManualToggle?.addEventListener("click", () => {
-    const manualCard = document.getElementById("manualWorkoutCard");
-    if (!manualCard) return;
-    const showing = !manualCard.classList.contains("hidden");
-    manualCard.classList.toggle("hidden", showing);
-    workoutManualToggle.textContent = showing ? "Use Manual Logger" : "Hide Manual Logger";
-  });
-
-  nutritionManualToggle?.addEventListener("click", () => {
-    const manualCard = document.getElementById("manualNutritionCard");
-    if (!manualCard) return;
-    const showing = !manualCard.classList.contains("hidden");
-    manualCard.classList.toggle("hidden", showing);
-    nutritionManualToggle.textContent = showing ? "Use Manual Logger" : "Hide Manual Logger";
-  });
-}
-
-function normalizeWgerExercise(exercise) {
-  const translations = Array.isArray(exercise.translations) ? exercise.translations : [];
-  const translated =
-    translations.find((item) => item.language === 2 && (item.name || item.description)) ||
-    translations.find((item) => item.name || item.description) ||
-    null;
-
-  return {
-    id: exercise.id ?? exercise.uuid,
-    name:
-      translated?.name ||
-      exercise.name ||
-      exercise.exercise_base_name ||
-      exercise.uuid ||
-      "Unnamed exercise",
-    description: stripHtml(translated?.description || exercise.description || ""),
-  };
-}
-
+// ─── SELECT FILLERS ────────────────────────────────────────────────────────────
 function fillWgerExerciseSelect(exercises) {
   const select = document.getElementById("wgerExerciseSelect");
   if (!select) return;
-
   select.replaceChildren();
+
   if (!exercises.length) {
-    const option = document.createElement("option");
-    option.value = "";
-    option.textContent = "No exercises for this muscle group";
-    select.appendChild(option);
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No exercises found — try a different search";
+    select.appendChild(opt);
     return;
   }
 
-  exercises.forEach((exercise, idx) => {
-    const option = document.createElement("option");
-    option.value = String(exercise.id ?? idx);
-    option.textContent = exercise.name;
-    if (idx === 0) option.selected = true;
-    select.appendChild(option);
+  exercises.forEach((ex, idx) => {
+    const opt = document.createElement("option");
+    opt.value = String(ex.id ?? idx);
+    opt.textContent = ex.name;
+    if (idx === 0) opt.selected = true;
+    select.appendChild(opt);
   });
 }
 
 function fillWgerIngredientSelect(ingredients) {
   const select = document.getElementById("wgerIngredientSelect");
   if (!select) return;
-
   select.replaceChildren();
+
   if (!ingredients.length) {
-    const option = document.createElement("option");
-    option.value = "";
-    option.textContent = "No ingredients for this nutrition focus";
-    select.appendChild(option);
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No ingredients found — try a different search";
+    select.appendChild(opt);
     return;
   }
 
-  ingredients.forEach((ingredient, idx) => {
-    const option = document.createElement("option");
-    option.value = String(ingredient.id ?? idx);
-    option.textContent = ingredient.name || "Unnamed ingredient";
-    if (idx === 0) option.selected = true;
-    select.appendChild(option);
+  ingredients.forEach((ing, idx) => {
+    const opt = document.createElement("option");
+    opt.value = String(ing.id ?? idx);
+    opt.textContent = ing.name || "Unnamed ingredient";
+    if (idx === 0) opt.selected = true;
+    select.appendChild(opt);
   });
 }
 
-function extractIdArray(input) {
-  if (!Array.isArray(input)) return [];
-  return input
-    .map((item) => {
-      if (typeof item === "number") return item;
-      if (item && typeof item.id === "number") return item.id;
-      return null;
-    })
-    .filter((id) => Number.isFinite(id));
-}
-
-function fillWgerMuscleSelect(exercises, lookup) {
+function fillWgerMuscleSelect(muscleLookup) {
   const select = document.getElementById("wgerMuscleFocus");
   if (!select) return;
-
-  const ids = new Set();
-  exercises.forEach((exercise) => {
-    (exercise.muscleIds || []).forEach((id) => ids.add(id));
-  });
 
   const previous = select.value || "";
   select.replaceChildren();
 
   const placeholder = document.createElement("option");
   placeholder.value = "";
-  placeholder.textContent = "Select muscle group";
+  placeholder.textContent = "All muscle groups (optional)";
   placeholder.selected = true;
   select.appendChild(placeholder);
 
-  Array.from(ids)
-    .sort((a, b) => a - b)
-    .forEach((id) => {
-      const option = document.createElement("option");
-      option.value = String(id);
-      option.textContent = lookup[id] || `Muscle ${id}`;
-      if (previous && previous === option.value) option.selected = true;
-      select.appendChild(option);
+  Object.entries(muscleLookup)
+    .sort(([, a], [, b]) => a.localeCompare(b))
+    .forEach(([id, name]) => {
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = name;
+      if (previous && previous === opt.value) opt.selected = true;
+      select.appendChild(opt);
     });
 }
 
-function applyExerciseFilterByMuscle() {
+// ─── EXERCISE SEARCH (fixed) ───────────────────────────────────────────────────
+// Uses the wger /exercise/search/ endpoint for live keyword search, optionally
+// filtered by muscle group from the pre-loaded muscle lookup.
+async function runExerciseSearch() {
+  const searchInput = document.getElementById("wgerExerciseSearch");
   const muscleSelect = document.getElementById("wgerMuscleFocus");
-  if (!muscleSelect) return;
-
-  const muscleId = Number(muscleSelect.value);
-  if (!muscleId) {
-    wgerState.filteredExercises = [];
-    fillWgerExerciseSelect([]);
-    return;
-  }
-
-  const filtered = wgerState.exercises.filter((exercise) =>
-    (exercise.muscleIds || []).includes(muscleId)
-  );
-  wgerState.filteredExercises = filtered;
-  fillWgerExerciseSelect(filtered);
-}
-
-function applyNutritionFocusFilter() {
-  const focusSelect = document.getElementById("wgerFoodFocus");
-  if (!focusSelect) return;
-
-  const focus = focusSelect.value;
-  if (!focus) {
-    wgerState.filteredIngredients = [];
-    fillWgerIngredientSelect([]);
-    return;
-  }
-
-  const scored = [...wgerState.ingredients].map((ingredient) => {
-    const protein = Number(ingredient.protein || 0);
-    const carbs = Number(ingredient.carbohydrates || 0);
-    const fat = Number(ingredient.fat || 0);
-    const total = protein + carbs + fat;
-
-    let score = 0;
-    if (focus === "protein") score = protein;
-    if (focus === "carbs") score = carbs;
-    if (focus === "fat") score = fat;
-    if (focus === "balanced") {
-      const p = total ? protein / total : 0;
-      const c = total ? carbs / total : 0;
-      const f = total ? fat / total : 0;
-      score = 1 - (Math.abs(p - 0.33) + Math.abs(c - 0.33) + Math.abs(f - 0.34));
-    }
-
-    return { ingredient, score };
-  });
-
-  scored.sort((a, b) => b.score - a.score);
-  const filtered = scored.slice(0, 25).map((entry) => entry.ingredient);
-  wgerState.filteredIngredients = filtered;
-  fillWgerIngredientSelect(filtered);
-}
-
-async function loadWgerExercises() {
-  const listEl = document.getElementById("exercise-list");
   const statusEl = document.getElementById("exerciseStatus");
-  if (!listEl) return false;
+  const listEl = document.getElementById("exercise-list");
 
-  if (statusEl) statusEl.textContent = "Loading exercises...";
-
-  try {
-    const [exerciseResponse, muscleResponse] = await Promise.all([
-      fetch("https://wger.de/api/v2/exerciseinfo/?language=2&limit=60"),
-      fetch("https://wger.de/api/v2/muscle/?language=2&limit=200"),
-    ]);
-
-    if (!exerciseResponse.ok) {
-      throw new Error(`HTTP ${exerciseResponse.status}`);
-    }
-
-    const data = await exerciseResponse.json();
-    let muscleLookup = {};
-    if (muscleResponse.ok) {
-      const muscleData = await muscleResponse.json();
-      const muscleResults = Array.isArray(muscleData.results) ? muscleData.results : [];
-      muscleLookup = muscleResults.reduce((acc, item) => {
-        const id = item?.id;
-        const name = item?.name_en || item?.name || item?.muscle || "";
-        if (typeof id === "number" && name) acc[id] = name;
-        return acc;
-      }, {});
-    }
-
-    const results = Array.isArray(data.results) ? data.results : [];
-    const exercises = results.map((exercise) => ({
-      ...normalizeWgerExercise(exercise),
-      muscleIds: [
-        ...extractIdArray(exercise.muscles),
-        ...extractIdArray(exercise.muscles_secondary),
-      ],
-    }));
-
-    wgerState.exercises = exercises;
-    wgerState.muscleLookup = muscleLookup;
-    fillWgerMuscleSelect(exercises, muscleLookup);
-    fillWgerExerciseSelect([]);
-
-    listEl.replaceChildren();
-    exercises.forEach((exercise) => {
-      const card = document.createElement("article");
-      card.className = "api-item";
-
-      const title = document.createElement("h3");
-      title.textContent = exercise.name;
-
-      const description = document.createElement("p");
-      description.textContent = exercise.description || "No description available.";
-
-      card.append(title, description);
-      listEl.appendChild(card);
-    });
-
-    if (statusEl) {
-      statusEl.textContent = results.length
-        ? `Loaded ${results.length} exercises from Wger.`
-        : "No exercises found from Wger.";
-    }
-
-    return results.length > 0;
-  } catch (error) {
-    renderApiError(statusEl, listEl, "Could not load exercises from Wger right now.");
-    console.error("Wger exercise fetch failed:", error);
-    fillWgerMuscleSelect([], {});
-    fillWgerExerciseSelect([]);
-    return false;
+  const query = searchInput?.value.trim();
+  if (!query) {
+    if (statusEl) statusEl.textContent = "Please type an exercise name to search.";
+    return;
   }
-}
 
-async function loadWgerNutrition() {
-  const listEl = document.getElementById("nutrition-list");
-  const statusEl = document.getElementById("nutritionStatus");
-  if (!listEl) return false;
-
-  if (statusEl) statusEl.textContent = "Loading nutrition data...";
+  if (statusEl) statusEl.textContent = "Searching exercises…";
+  fillWgerExerciseSelect([]);
 
   try {
-    const response = await fetch("https://wger.de/api/v2/ingredient/?language=2&limit=8");
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
+    // FIX: Use the dedicated search endpoint with the term parameter
+    const url = `https://wger.de/api/v2/exercise/search/?term=${encodeURIComponent(query)}&language=english&format=json`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const data = await response.json();
-    const results = Array.isArray(data.results) ? data.results : [];
-    wgerState.ingredients = results;
-    fillWgerIngredientSelect([]);
 
-    listEl.replaceChildren();
-    results.forEach((ingredient) => {
-      const card = document.createElement("article");
-      card.className = "api-item";
+    // The search endpoint returns { suggestions: [ { value, data: { id, ... } } ] }
+    const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
 
-      const title = document.createElement("h3");
-      title.textContent = ingredient.name || "Unnamed ingredient";
+    // Map into our normalised shape
+    let exercises = suggestions.map((s) => ({
+      id: s.data?.id ?? s.data?.base_id,
+      name: s.value || s.data?.name || "Unnamed exercise",
+      description: stripHtml(s.data?.description || ""),
+      muscleIds: [],   // search endpoint doesn't return muscle ids; filter below uses category
+      category: s.data?.category || "",
+    }));
 
-      const detail = document.createElement("p");
-      detail.textContent = `Energy: ${ingredient.energy ?? "?"} kcal / 100g`;
-
-      const pills = document.createElement("div");
-      pills.className = "api-pill-row";
-
-      const values = [
-        formatMacro("Protein", ingredient.protein),
-        formatMacro("Carbs", ingredient.carbohydrates),
-        formatMacro("Fat", ingredient.fat),
-      ].filter(Boolean);
-
-      if (!values.length) {
-        const fallback = document.createElement("span");
-        fallback.className = "api-pill";
-        fallback.textContent = "Macros unavailable";
-        pills.appendChild(fallback);
-      } else {
-        values.forEach((value) => {
-          const pill = document.createElement("span");
-          pill.className = "api-pill";
-          pill.textContent = value;
-          pills.appendChild(pill);
-        });
-      }
-
-      card.append(title, detail, pills);
-      listEl.appendChild(card);
-    });
-
-    if (statusEl) {
-      statusEl.textContent = results.length
-        ? `Loaded ${results.length} nutrition items from Wger.`
-        : "No nutrition items found from Wger.";
+    // Optional: client-side muscle filter using the wger category name
+    const muscleId = muscleSelect?.value;
+    if (muscleId && wgerState.muscleLookup[muscleId]) {
+      const muscleName = wgerState.muscleLookup[muscleId].toLowerCase();
+      exercises = exercises.filter(
+        (ex) =>
+          ex.name.toLowerCase().includes(muscleName) ||
+          ex.category.toLowerCase().includes(muscleName)
+      );
     }
 
-    return results.length > 0;
-  } catch (error) {
-    renderApiError(statusEl, listEl, "Could not load nutrition data from Wger right now.");
-    console.error("Wger nutrition fetch failed:", error);
-    fillWgerIngredientSelect([]);
-    return false;
+    wgerState.exercises = exercises;
+    fillWgerExerciseSelect(exercises);
+
+    // Render cards
+    if (listEl) {
+      listEl.replaceChildren();
+      exercises.slice(0, 20).forEach((ex) => {
+        const card = document.createElement("article");
+        card.className = "api-item";
+        const title = document.createElement("h3");
+        title.textContent = ex.name;
+        const desc = document.createElement("p");
+        desc.textContent = ex.description || "No description available.";
+        card.append(title, desc);
+        listEl.appendChild(card);
+      });
+    }
+
+    if (statusEl) {
+      statusEl.textContent = exercises.length
+        ? `Found ${exercises.length} exercise(s) for "${query}".`
+        : `No exercises found for "${query}". Try a different keyword.`;
+    }
+  } catch (err) {
+    renderApiError(statusEl, listEl, "Could not search exercises. Check your connection.");
+    console.error("Wger exercise search failed:", err);
+    wgerState.exercises = [];
+    fillWgerExerciseSelect([]);
   }
 }
 
+// ─── INGREDIENT SEARCH (fixed) ─────────────────────────────────────────────────
+// Uses /ingredient/ with a live ?name= search param instead of scoring 8 items.
+// Focus filter sorts results by macro content after fetching.
+async function runIngredientSearch() {
+  const searchInput = document.getElementById("wgerIngredientSearch");
+  const focusSelect = document.getElementById("wgerFoodFocus");
+  const statusEl = document.getElementById("nutritionStatus");
+  const listEl = document.getElementById("nutrition-list");
+
+  const query = searchInput?.value.trim();
+  if (!query) {
+    if (statusEl) statusEl.textContent = "Please type an ingredient name to search.";
+    return;
+  }
+
+  if (statusEl) statusEl.textContent = "Searching ingredients…";
+  fillWgerIngredientSelect([]);
+
+  try {
+    // FIX: Search by name with a generous limit so focus filter has enough data
+    const url = `https://wger.de/api/v2/ingredient/?format=json&language=2&name=${encodeURIComponent(query)}&limit=50`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const data = await response.json();
+    let results = Array.isArray(data.results) ? data.results : [];
+
+    // FIX: Apply focus sort AFTER fetching real search results
+    const focus = focusSelect?.value;
+    if (focus) {
+      results = sortIngredientsByFocus(results, focus);
+    }
+
+    wgerState.ingredients = results;
+    fillWgerIngredientSelect(results);
+
+    // Render cards
+    if (listEl) {
+      listEl.replaceChildren();
+      results.slice(0, 20).forEach((ing) => {
+        const card = document.createElement("article");
+        card.className = "api-item";
+
+        const title = document.createElement("h3");
+        title.textContent = ing.name || "Unnamed ingredient";
+
+        const detail = document.createElement("p");
+        detail.textContent = `Energy: ${ing.energy ?? "?"} kcal / 100g`;
+
+        const pills = document.createElement("div");
+        pills.className = "api-pill-row";
+
+        const macros = [
+          formatMacro("Protein", ing.protein),
+          formatMacro("Carbs", ing.carbohydrates),
+          formatMacro("Fat", ing.fat),
+        ].filter(Boolean);
+
+        if (!macros.length) {
+          const fallback = document.createElement("span");
+          fallback.className = "api-pill";
+          fallback.textContent = "Macros unavailable";
+          pills.appendChild(fallback);
+        } else {
+          macros.forEach((m) => {
+            const pill = document.createElement("span");
+            pill.className = "api-pill";
+            pill.textContent = m;
+            pills.appendChild(pill);
+          });
+        }
+
+        card.append(title, detail, pills);
+        listEl.appendChild(card);
+      });
+    }
+
+    if (statusEl) {
+      statusEl.textContent = results.length
+        ? `Found ${results.length} ingredient(s) for "${query}"${focus ? ` sorted by ${focus}` : ""}.`
+        : `No ingredients found for "${query}". Try a different keyword.`;
+    }
+  } catch (err) {
+    renderApiError(statusEl, listEl, "Could not search ingredients. Check your connection.");
+    console.error("Wger ingredient search failed:", err);
+    wgerState.ingredients = [];
+    fillWgerIngredientSelect([]);
+  }
+}
+
+// ─── SORTING HELPER (replaces the broken getIngredientsByFocus) ─────────────
+function sortIngredientsByFocus(ingredients, focus) {
+  if (!focus) return ingredients;
+
+  return [...ingredients].sort((a, b) => {
+    const getScore = (ing) => {
+      const protein = Number(ing.protein || 0);
+      const carbs = Number(ing.carbohydrates || 0);
+      const fat = Number(ing.fat || 0);
+      const total = protein + carbs + fat || 1;
+
+      if (focus === "protein") return protein;
+      if (focus === "carbs") return carbs;
+      if (focus === "fat") return fat;
+      if (focus === "balanced") {
+        const p = protein / total;
+        const c = carbs / total;
+        const f = fat / total;
+        return 1 - (Math.abs(p - 0.33) + Math.abs(c - 0.33) + Math.abs(f - 0.34));
+      }
+      return 0;
+    };
+    return getScore(b) - getScore(a);
+  });
+}
+
+// ─── MUSCLE LOOKUP INIT ────────────────────────────────────────────────────────
+// Load muscles once on startup — independent of exercise fetch so the dropdown
+// is always available even if the exercise search hasn't run yet.
+async function loadMuscleLookup() {
+  try {
+    const res = await fetch("https://wger.de/api/v2/muscle/?format=json&limit=100");
+    if (!res.ok) return;
+    const data = await res.json();
+    const muscles = Array.isArray(data.results) ? data.results : [];
+    wgerState.muscleLookup = muscles.reduce((acc, m) => {
+      if (typeof m.id === "number" && (m.name_en || m.name)) {
+        acc[m.id] = m.name_en || m.name;
+      }
+      return acc;
+    }, {});
+    fillWgerMuscleSelect(wgerState.muscleLookup);
+  } catch (err) {
+    console.error("Muscle lookup failed:", err);
+  }
+}
+
+// ─── FILTER SETUP ──────────────────────────────────────────────────────────────
 function setupWgerFilters() {
-  const muscleSelect = document.getElementById("wgerMuscleFocus");
-  const foodFocusSelect = document.getElementById("wgerFoodFocus");
-  muscleSelect?.addEventListener("change", applyExerciseFilterByMuscle);
-  foodFocusSelect?.addEventListener("change", applyNutritionFocusFilter);
+  const exerciseSearchBtn = document.getElementById("wgerExerciseSearchBtn");
+  const exerciseSearchInput = document.getElementById("wgerExerciseSearch");
+  const ingredientSearchBtn = document.getElementById("wgerIngredientSearchBtn");
+  const ingredientSearchInput = document.getElementById("wgerIngredientSearch");
+  const focusSelect = document.getElementById("wgerFoodFocus");
+
+  // Re-sort current results when focus changes (no new API call needed)
+  focusSelect?.addEventListener("change", () => {
+    if (wgerState.ingredients.length) {
+      const sorted = sortIngredientsByFocus(wgerState.ingredients, focusSelect.value);
+      wgerState.ingredients = sorted;
+      fillWgerIngredientSelect(sorted);
+      const statusEl = document.getElementById("nutritionStatus");
+      if (statusEl && focusSelect.value) {
+        statusEl.textContent = `Results re-sorted by ${focusSelect.value}.`;
+      }
+    }
+  });
+
+  exerciseSearchBtn?.addEventListener("click", runExerciseSearch);
+  exerciseSearchInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); runExerciseSearch(); }
+  });
+
+  ingredientSearchBtn?.addEventListener("click", runIngredientSearch);
+  ingredientSearchInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); runIngredientSearch(); }
+  });
 }
 
-function capitalizeFirst(text) {
-  if (!text) return "";
-  return text[0].toUpperCase() + text.slice(1).toLowerCase();
+// ─── SOURCE MODE ───────────────────────────────────────────────────────────────
+function setSourceMode({ ready, wgerCardId, manualCardId, statusId, manualToggleId, readyText, fallbackText }) {
+  const wgerCard = document.getElementById(wgerCardId);
+  const manualCard = document.getElementById(manualCardId);
+  const status = document.getElementById(statusId);
+  const toggleBtn = document.getElementById(manualToggleId);
+
+  if (status) status.textContent = ready ? readyText : fallbackText;
+  if (!wgerCard || !manualCard) return;
+
+  if (ready) {
+    wgerCard.classList.remove("hidden");
+    manualCard.classList.add("hidden");
+    if (toggleBtn) toggleBtn.textContent = "Use Manual Logger";
+  } else {
+    wgerCard.classList.add("hidden");
+    manualCard.classList.remove("hidden");
+  }
 }
 
+// ─── WGER FEEDS INIT ──────────────────────────────────────────────────────────
+// FIX: We no longer bulk-fetch exercises/ingredients on startup.
+// Instead we load muscles (lightweight) and mark wger as "ready" so the
+// search-based UI is shown. Actual data loads only when the user searches.
+async function setupWgerFeeds() {
+  await loadMuscleLookup();
+
+  // Wger is "ready" as long as the API is reachable (muscle fetch succeeded)
+  const wgerReady = Object.keys(wgerState.muscleLookup).length > 0;
+
+  wgerState.workoutReady = wgerReady;
+  wgerState.nutritionReady = wgerReady;
+
+  setSourceMode({
+    ready: wgerReady,
+    wgerCardId: "wgerWorkoutCard",
+    manualCardId: "manualWorkoutCard",
+    statusId: "workoutSourceStatus",
+    manualToggleId: "workoutManualToggle",
+    readyText: "Wger connected. Search for an exercise to begin.",
+    fallbackText: "Wger unavailable. Manual workout logger enabled.",
+  });
+
+  setSourceMode({
+    ready: wgerReady,
+    wgerCardId: "wgerNutritionCard",
+    manualCardId: "manualNutritionCard",
+    statusId: "nutritionSourceStatus",
+    manualToggleId: "nutritionManualToggle",
+    readyText: "Wger connected. Search for an ingredient to begin.",
+    fallbackText: "Wger unavailable. Manual nutrition logger enabled.",
+  });
+
+  // Seed status labels
+  const exerciseStatus = document.getElementById("exerciseStatus");
+  const nutritionStatus = document.getElementById("nutritionStatus");
+  if (exerciseStatus) exerciseStatus.textContent = "Type an exercise name and click Search.";
+  if (nutritionStatus) nutritionStatus.textContent = "Type an ingredient name and click Search.";
+
+  fillWgerExerciseSelect([]);
+  fillWgerIngredientSelect([]);
+}
+
+// ─── SAVE VIA WGER ─────────────────────────────────────────────────────────────
 async function saveWorkoutViaWger() {
   const userInfo = await getUserInfo();
   if (!userInfo) {
-    alert("You must be logged in to save workouts. Please log in first.");
+    alert("You must be logged in to save workouts.");
     return;
   }
 
@@ -987,12 +569,8 @@ async function saveWorkoutViaWger() {
   const intensityRaw = document.getElementById("wgerWorkoutIntensity")?.value || "moderate";
   const energyRaw = Number(document.getElementById("wgerWorkoutEnergy")?.value || 3);
 
-  if (!muscleFocus) {
-    alert("Choose a muscle group first.");
-    return;
-  }
-  if (!exerciseSelect?.value) {
-    alert("Please select an exercise from Wger.");
+  if (!exerciseSelect?.value || exerciseSelect.value === "") {
+    alert("Please search for and select an exercise first.");
     return;
   }
   if (sets <= 0 || reps <= 0) {
@@ -1000,12 +578,17 @@ async function saveWorkoutViaWger() {
     return;
   }
 
-  const exercise = wgerState.exercises.find((item) => String(item.id) === exerciseSelect.value);
-  const exerciseName = exercise?.name || exerciseSelect.options[exerciseSelect.selectedIndex]?.text || "Exercise";
+  const exercise = wgerState.exercises.find(
+    (item) => String(item.id) === exerciseSelect.value
+  );
+  const exerciseName =
+    exercise?.name ||
+    exerciseSelect.options[exerciseSelect.selectedIndex]?.text ||
+    "Exercise";
   const date = new Date().toISOString().split("T")[0];
   const intensity = capitalizeFirst(intensityRaw);
-
   const { user_id, username } = userInfo;
+
   const { error } = await upsertWithFallback(
     "workout_daily",
     {
@@ -1014,7 +597,7 @@ async function saveWorkoutViaWger() {
       date,
       workout_status: `Wger log: ${exerciseName} (${sets}x${reps})`,
       workout_intensity: intensity,
-      muscle_groups: [],
+      muscle_groups: muscleFocus ? [wgerState.muscleLookup[muscleFocus] || muscleFocus] : [],
       energy_level: energyRaw,
     },
     "user_id,date"
@@ -1036,7 +619,7 @@ async function saveWorkoutViaWger() {
 async function saveNutritionViaWger() {
   const userInfo = await getUserInfo();
   if (!userInfo) {
-    alert("You must be logged in to save nutrition data. Please log in first.");
+    alert("You must be logged in to save nutrition data.");
     return;
   }
 
@@ -1048,12 +631,8 @@ async function saveNutritionViaWger() {
   const protein = document.getElementById("wgerProtein")?.checked || false;
   const balancedMeal = document.getElementById("wgerBalancedMeal")?.checked || false;
 
-  if (!foodFocus) {
-    alert("Choose nutrition focus first.");
-    return;
-  }
-  if (!ingredientSelect?.value) {
-    alert("Please select an ingredient from Wger.");
+  if (!ingredientSelect?.value || ingredientSelect.value === "") {
+    alert("Please search for and select an ingredient first.");
     return;
   }
   if (grams <= 0) {
@@ -1061,17 +640,16 @@ async function saveNutritionViaWger() {
     return;
   }
 
-  const ingredient = wgerState.ingredients.find((item) => String(item.id) === ingredientSelect.value);
+  const ingredient = wgerState.ingredients.find(
+    (item) => String(item.id) === ingredientSelect.value
+  );
   const ingredientName =
-    ingredient?.name || ingredientSelect.options[ingredientSelect.selectedIndex]?.text || "Ingredient";
+    ingredient?.name ||
+    ingredientSelect.options[ingredientSelect.selectedIndex]?.text ||
+    "Ingredient";
   const entryText = `${ingredientName} (${grams}g)`;
 
-  const meals = {
-    breakfast: "-",
-    lunch: "-",
-    dinner: "-",
-    snacks: "-",
-  };
+  const meals = { breakfast: "-", lunch: "-", dinner: "-", snacks: "-" };
   meals[mealType] = entryText;
 
   const notes = [
@@ -1126,81 +704,333 @@ async function saveNutritionViaWger() {
 }
 
 function setupWgerPrimaryLoggers() {
-  const workoutSaveBtn = document.getElementById("wgerWorkoutSaveBtn");
-  const nutritionSaveBtn = document.getElementById("wgerNutritionSaveBtn");
-  workoutSaveBtn?.addEventListener("click", saveWorkoutViaWger);
-  nutritionSaveBtn?.addEventListener("click", saveNutritionViaWger);
+  document
+    .getElementById("wgerWorkoutSaveBtn")
+    ?.addEventListener("click", saveWorkoutViaWger);
+  document
+    .getElementById("wgerNutritionSaveBtn")
+    ?.addEventListener("click", saveNutritionViaWger);
 }
 
-async function setupWgerFeeds() {
-  const [workoutReady, nutritionReady] = await Promise.all([
-    loadWgerExercises(),
-    loadWgerNutrition(),
-  ]);
+// ─── ALL OTHER UNCHANGED LOGIC ─────────────────────────────────────────────────
+async function getValues() {
+  const userInfo = await getUserInfo();
+  if (!userInfo) {
+    alert("You must be logged in to save workouts. Please log in first.");
+    return;
+  }
+  const { user_id, username } = userInfo;
+  const intensityRaw = document.getElementById("workout-intensity")?.value;
+  const mg1Raw = document.getElementById("muscle-group")?.value;
+  const mg2Raw = document.getElementById("muscle-group2")?.value;
+  const energyRaw = document.getElementById("energy-level")?.value;
+  const workout_intensity = intensityRaw
+    ? intensityRaw[0].toUpperCase() + intensityRaw.slice(1).toLowerCase()
+    : null;
+  const muscleMap = {
+    chest: "Chest", back: "Back", legs: "Leg", leg: "Leg",
+    bicep: "Bicep", tricep: "Tricep", shoulders: "Shoulder", shoulder: "Shoulder",
+  };
+  const mg1 = mg1Raw ? muscleMap[mg1Raw] ?? null : null;
+  const mg2 = mg2Raw ? muscleMap[mg2Raw] ?? null : null;
+  const muscle_groups = [mg1, mg2].filter(Boolean);
+  const energy_level = energyRaw != null ? parseInt(energyRaw, 10) : null;
+  const date = new Date().toISOString().split("T")[0];
 
-  wgerState.workoutReady = workoutReady;
-  wgerState.nutritionReady = nutritionReady;
+  let validationError = null;
+  if (workout_intensity && energy_level != null) {
+    if (workout_intensity === "Light" && (energy_level < 3 || energy_level > 5))
+      validationError = `Light workouts require energy level 3-5, but you selected ${energy_level}`;
+    else if (workout_intensity === "Moderate" && (energy_level < 2 || energy_level > 4))
+      validationError = `Moderate workouts require energy level 2-4, but you selected ${energy_level}`;
+    else if (workout_intensity === "Intense" && (energy_level < 1 || energy_level > 2))
+      validationError = `Intense workouts require energy level 1-2, but you selected ${energy_level}`;
+  }
+  if (validationError) { alert("Validation failed: " + validationError); return; }
 
-  setSourceMode({
-    ready: workoutReady,
-    wgerCardId: "wgerWorkoutCard",
-    manualCardId: "manualWorkoutCard",
-    statusId: "workoutSourceStatus",
-    manualToggleId: "workoutManualToggle",
-    readyText: "Wger available. Logging through Wger flow.",
-    fallbackText: "Wger unavailable. Manual workout logger enabled as fallback.",
+  const { data, error } = await upsertWithFallback(
+    "workout_daily",
+    { user_id, username, date, workout_status: "Workout done", workout_intensity, muscle_groups, energy_level },
+    "user_id,date"
+  );
+
+  if (error) {
+    alert(handleError(error, "workout_daily", user_id, date));
+  } else {
+    uiState.sessionXp += 30;
+    animateNumber("sessionXp", uiState.sessionXp);
+    animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
+    showXpPop("+30 XP");
+    maybeNotify("Workout saved", "Mission progress increased.");
+    alert("Workout saved successfully!");
+  }
+}
+
+async function saveSleepData() {
+  const userInfo = await getUserInfo();
+  if (!userInfo) { alert("You must be logged in to save sleep data."); return; }
+  const { user_id, username } = userInfo;
+  const hoursSleptRaw = document.getElementById("sleepInput")?.value;
+  const emojiRaw = document.getElementById("emojiSelect")?.value;
+  if (!hoursSleptRaw || !emojiRaw) { alert("Please fill in all sleep fields."); return; }
+  const hours_slept = parseFloat(hoursSleptRaw);
+  const date = new Date().toISOString().split("T")[0];
+  const emojiMap = { emoji1: "😴🛌💤", emoji2: "😃☀️🌞", emoji3: "😬☕🥱", emoji4: "😡⏰😒", emoji5: "🏃‍♂️💨⏱️" };
+  const sleep_emoji = emojiMap[emojiRaw] || emojiRaw;
+  if (hours_slept < 0 || hours_slept > 12) { alert(`Hours slept must be between 0 and 12.`); return; }
+  const validEmojis = ["😴🛌💤", "😃☀️🌞", "😬☕🥱", "😡⏰😒", "🏃‍♂️💨⏱️"];
+  if (!validEmojis.includes(sleep_emoji)) { alert("Invalid sleep emoji."); return; }
+  const { data, error } = await upsertWithFallback(
+    "daily_sleep",
+    { user_id, username, Date: date, hours_slept, sleep_emoji },
+    'user_id,"Date"'
+  );
+  if (error) { alert(handleError(error, "daily_sleep", user_id, date)); }
+  else {
+    showXpPop("+10 XP");
+    animateMeterById("sleepMeter", Math.min(100, hours_slept * 10));
+    maybeNotify("Sleep log saved", `Recovery updated: ${hours_slept}h`);
+    alert("Sleep data saved successfully!");
+  }
+}
+
+async function saveNutritionData() {
+  const userInfo = await getUserInfo();
+  if (!userInfo) { alert("You must be logged in to save nutrition data."); return; }
+  const { user_id, username } = userInfo;
+  const breakfast = document.getElementById("breakfast")?.value?.trim() || "";
+  const lunch = document.getElementById("lunch")?.value?.trim() || "";
+  const dinner = document.getElementById("dinner")?.value?.trim() || "";
+  const snacks = document.getElementById("snacks")?.value?.trim() || "";
+  const hydration = document.getElementById("hydration")?.checked || false;
+  const protein = document.getElementById("protein")?.checked || false;
+  const balancedMeal = document.getElementById("balanced_meal")?.checked || false;
+  const notes = document.getElementById("notes")?.value?.trim() || null;
+  if (!breakfast || !lunch || !dinner || !snacks) { alert("Please fill in all meal fields."); return; }
+  const entry_date = new Date().toISOString().split("T")[0];
+  const { data, error } = await upsertWithFallback(
+    "daily_nutrition",
+    {
+      user_id, username, entry_date, breakfast, lunch, dinner, snacks,
+      hydration_goal_met: hydration ? "Yes" : "No",
+      protein_goal_met: protein ? "Yes" : "No",
+      balanced_meal_goal_met: balancedMeal ? "Yes" : "No",
+      notes_or_regrets: notes,
+    },
+    "user_id,entry_date"
+  );
+  if (error) { alert(handleError(error, "daily_nutrition", user_id, entry_date)); }
+  else {
+    const proteinPct = protein ? 82 : 48;
+    const caloriePct = balancedMeal ? 65 : 40;
+    const recoveryPct = hydration ? 78 : 52;
+    animateMeterById("proteinMeter", proteinPct);
+    animateMeterById("calorieMeter", caloriePct);
+    animateMeterById("recoveryMeter", recoveryPct);
+    document.getElementById("proteinPct")?.textContent && (document.getElementById("proteinPct").textContent = `${proteinPct}%`);
+    document.getElementById("caloriePct")?.textContent && (document.getElementById("caloriePct").textContent = `${caloriePct}%`);
+    document.getElementById("recoveryPct")?.textContent && (document.getElementById("recoveryPct").textContent = `${recoveryPct}%`);
+    showXpPop("+15 XP");
+    maybeNotify("Nutrition saved", "Fuel goals updated.");
+    alert("Nutrition data saved successfully!");
+  }
+}
+
+window.getValues = getValues;
+window.saveSleepData = saveSleepData;
+window.saveNutritionData = saveNutritionData;
+
+function setupWorkoutShortcuts() {
+  const workoutPage = document.getElementById("workout");
+  if (!workoutPage) return;
+  const setCounter = document.getElementById("setCounter");
+  const addSetBtn = document.getElementById("addSetBtn");
+  const addWeightBtn = document.getElementById("addWeightBtn");
+  const repeatWorkoutBtn = document.getElementById("repeatWorkoutBtn");
+  const weightInput = document.getElementById("workout-weight");
+  const intensity = document.getElementById("workout-intensity");
+  const muscle1 = document.getElementById("muscle-group");
+  const muscle2 = document.getElementById("muscle-group2");
+  const energy = document.getElementById("energy-level");
+
+  const addSet = () => {
+    uiState.setCount += 1;
+    uiState.sessionXp += 20;
+    if (setCounter) setCounter.textContent = `Sets logged: ${uiState.setCount}`;
+    animateNumber("sessionXp", uiState.sessionXp);
+    animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
+    showXpPop("+20 XP");
+  };
+
+  addSetBtn?.addEventListener("click", addSet);
+  addWeightBtn?.addEventListener("click", () => {
+    if (!weightInput) return;
+    const next = (parseFloat(weightInput.value || "0") || 0) + 5;
+    weightInput.value = String(next);
+    showXpPop("+5kg");
   });
+  repeatWorkoutBtn?.addEventListener("click", () => {
+    const cached = localStorage.getItem("lastWorkoutPreset");
+    if (!cached) return;
+    try {
+      const value = JSON.parse(cached);
+      if (intensity && value.intensity) intensity.value = value.intensity;
+      if (muscle1 && value.muscle1) muscle1.value = value.muscle1;
+      if (muscle2 && value.muscle2) muscle2.value = value.muscle2;
+      if (energy && value.energy) energy.value = value.energy;
+      if (weightInput && value.weight) weightInput.value = value.weight;
+      showXpPop("Preset loaded");
+    } catch { /* ignore */ }
+  });
+  document.addEventListener("keydown", (event) => {
+    const activeTag = document.activeElement?.tagName;
+    const typing = activeTag === "INPUT" || activeTag === "TEXTAREA";
+    if (event.code === "Space" && !typing) { event.preventDefault(); addSet(); }
+    if (event.key === "ArrowRight" && !typing) { event.preventDefault(); addWeightBtn?.click(); }
+    if (event.key === "Enter" && !typing) { event.preventDefault(); workoutPage.click(); }
+    if ((event.key === "r" || event.key === "R") && !typing) { event.preventDefault(); repeatWorkoutBtn?.click(); }
+  });
+  workoutPage.addEventListener("click", () => {
+    const payload = {
+      intensity: intensity?.value, muscle1: muscle1?.value,
+      muscle2: muscle2?.value, energy: energy?.value, weight: weightInput?.value,
+    };
+    localStorage.setItem("lastWorkoutPreset", JSON.stringify(payload));
+  });
+}
 
-  setSourceMode({
-    ready: nutritionReady,
-    wgerCardId: "wgerNutritionCard",
-    manualCardId: "manualNutritionCard",
-    statusId: "nutritionSourceStatus",
-    manualToggleId: "nutritionManualToggle",
-    readyText: "Wger available. Logging through Wger flow.",
-    fallbackText: "Wger unavailable. Manual nutrition logger enabled as fallback.",
+function setupShareActions() {
+  document.getElementById("copyShareBtn")?.addEventListener("click", async () => {
+    const text = "NEW PR: Deadlift 140kg. Level Up -> 15";
+    try { await navigator.clipboard.writeText(text); showXpPop("Copied"); }
+    catch { alert(text); }
+  });
+  document.getElementById("downloadShareBtn")?.addEventListener("click", () => {
+    const blob = new Blob(["NEW PR\nDeadlift 140kg\nLevel Up -> 15"], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "zynergy-pr-card.txt"; a.click();
+    URL.revokeObjectURL(url);
+    document.getElementById("shareCard")?.classList.add("shake");
+    setTimeout(() => document.getElementById("shareCard")?.classList.remove("shake"), 700);
+  });
+  document.getElementById("shareWhatsAppBtn")?.addEventListener("click", () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent("NEW PR! Deadlift 140kg. Level Up to 15.")}`, "_blank");
+  });
+}
+
+function setupNotifications() {
+  document.getElementById("notifyEnableBtn")?.addEventListener("click", async () => {
+    if (!("Notification" in window)) return;
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      showXpPop("Alerts on");
+      maybeNotify("ZYNERGY alerts enabled", "You will receive streak reminders.");
+    }
+  });
+}
+
+function setupThemeToggle() {
+  const themeBtn = document.getElementById("themeToggleBtn");
+  const rawTheme = localStorage.getItem("zynergyTheme") || "default";
+  const savedTheme = rawTheme === "ion" ? "ion" : "default";
+  applyTheme(savedTheme);
+  if (!themeBtn) return;
+  const labelMap = { default: "Theme: Black", ion: "Theme: Blue" };
+  themeBtn.textContent = labelMap[savedTheme] || labelMap.default;
+  themeBtn.addEventListener("click", () => {
+    const current = document.body.getAttribute("data-theme") || "default";
+    const next = current === "default" ? "ion" : "default";
+    localStorage.setItem("zynergyTheme", next);
+    applyTheme(next);
+    themeBtn.textContent = labelMap[next] || labelMap.default;
+    showXpPop("Theme switched");
+  });
+}
+
+function setupMissionBoard() {
+  const missionList = document.getElementById("missionList");
+  if (!missionList) return;
+  const missionButtons = missionList.querySelectorAll(".mission-toggle");
+  const missionPct = document.getElementById("missionPct");
+  const updateMissionProgress = () => {
+    const done = missionList.querySelectorAll("li.done").length;
+    const percent = Math.round((done / missionButtons.length) * 100);
+    if (missionPct) missionPct.textContent = `${percent}%`;
+    animateMeterById("missionMeter", percent);
+  };
+  missionButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const item = btn.closest("li");
+      if (!item) return;
+      const nowDone = !item.classList.contains("done");
+      item.classList.toggle("done", nowDone);
+      btn.textContent = nowDone ? "Done" : "Pending";
+      if (nowDone) {
+        const xpReward = Number(btn.dataset.xp || "10");
+        animateNumber("xpValue", (Number(document.getElementById("xpValue")?.textContent) || 0) + xpReward);
+        showXpPop(`+${xpReward} XP`);
+      }
+      updateMissionProgress();
+    });
+  });
+  updateMissionProgress();
+}
+
+function setupLeaderboardRefresh() {
+  const list = document.getElementById("leaderboardList");
+  const refreshBtn = document.getElementById("refreshBoardBtn");
+  if (!list || !refreshBtn) return;
+  refreshBtn.addEventListener("click", () => {
+    const entries = Array.from(list.querySelectorAll("li"));
+    for (let i = entries.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [entries[i], entries[j]] = [entries[j], entries[i]];
+    }
+    list.replaceChildren(...entries);
+    showXpPop("Board refreshed");
+  });
+}
+
+function setupManualToggles() {
+  document.getElementById("workoutManualToggle")?.addEventListener("click", () => {
+    const card = document.getElementById("manualWorkoutCard");
+    if (!card) return;
+    const showing = !card.classList.contains("hidden");
+    card.classList.toggle("hidden", showing);
+    document.getElementById("workoutManualToggle").textContent = showing ? "Use Manual Logger" : "Hide Manual Logger";
+  });
+  document.getElementById("nutritionManualToggle")?.addEventListener("click", () => {
+    const card = document.getElementById("manualNutritionCard");
+    if (!card) return;
+    const showing = !card.classList.contains("hidden");
+    card.classList.toggle("hidden", showing);
+    document.getElementById("nutritionManualToggle").textContent = showing ? "Use Manual Logger" : "Hide Manual Logger";
   });
 }
 
 function setupScrollReveal() {
-  const revealNodes = [
-    ...document.querySelectorAll("header"),
-    ...document.querySelectorAll(".card"),
-  ];
+  const revealNodes = [...document.querySelectorAll("header"), ...document.querySelectorAll(".card")];
   if (!revealNodes.length) return;
-
   revealNodes.forEach((node, index) => {
     node.classList.add("reveal-up");
     node.style.animationDelay = `${Math.min(index * 0.06, 0.32)}s`;
   });
-
   if (!("IntersectionObserver" in window)) {
     revealNodes.forEach((node) => node.classList.add("in-view"));
     return;
   }
-
   const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add("in-view");
-          observer.unobserve(entry.target);
-        }
-      });
-    },
+    (entries) => { entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in-view"); observer.unobserve(e.target); } }); },
     { threshold: 0.15, rootMargin: "0px 0px -30px 0px" }
   );
-
   revealNodes.forEach((node) => observer.observe(node));
 }
 
 async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
-  try {
-    await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
-  } catch {
-    // Ignore service worker registration errors in local file contexts
-  }
+  try { await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }); }
+  catch { /* ignore */ }
 }
 
 function initUI() {
@@ -1220,48 +1050,33 @@ function initUI() {
 
 initUI();
 
+// ─── AUTH ──────────────────────────────────────────────────────────────────────
 const profile = document.getElementById("profile");
 const login = document.getElementById("login");
 
 async function loginpage() {
-  const { data, error } = await supabase.auth.signInWithOAuth({
+  const { data } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: {
-      redirectTo: "http://127.0.0.1:5500/",
-    },
+    options: { redirectTo: "http://127.0.0.1:5500/" },
   });
-
-  if (data.url) {
-    window.location.href = data.url;
-  }
+  if (data.url) window.location.href = data.url;
 }
 window.loginpage = loginpage;
 
-const {
-  data: { session },
-} = await supabase.auth.getSession();
+const { data: { session } } = await supabase.auth.getSession();
 
 if (session && profile && login) {
   profile.classList.remove("hidden");
   login.classList.add("hidden");
-  document.getElementById("profile-pic").src =
-    session.user.user_metadata.avatar_url;
-  document.getElementById("username").textContent =
-    "Welcome, " + session.user.user_metadata.full_name + "!";
+  document.getElementById("profile-pic").src = session.user.user_metadata.avatar_url;
+  document.getElementById("username").textContent = "Welcome, " + session.user.user_metadata.full_name + "!";
 } else if (profile && login) {
   login.classList.remove("hidden");
   profile.classList.add("hidden");
 }
 
-const logoutBtn = document.getElementById("logout");
-
-logoutBtn?.addEventListener("click", async () => {
+document.getElementById("logout")?.addEventListener("click", async () => {
   const { error } = await supabase.auth.signOut();
-
-  if (error) {
-    console.error("Logout error:", error.message);
-  } else {
-    alert("You have been logged out!");
-    window.location.reload();
-  }
-});
+  if (error) { console.error("Logout error:", error.message); }
+  else { alert("You have been logged out!"); window.location.reload(); }
+ });

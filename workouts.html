@@ -38,8 +38,8 @@
       <main>
         <div class="dashboard-grid">
           <section class="card col-8 workout-form" id="wgerWorkoutCard">
-            <h2>Wger Workout Logger (Primary)</h2>
-            <p class="muted" id="workoutSourceStatus">Wger available. Logging through Wger flow.</p>
+            <h2>Workout Logger (Exercise Library)</h2>
+            <p class="muted" id="workoutSourceStatus">Exercise library ready. Logging through local workout flow.</p>
             <div class="flow-steps">
               <span class="flow-step active">1. Choose Muscle</span>
               <span class="flow-step">2. Search Exercise</span>
@@ -106,7 +106,7 @@
 
           <section class="card col-8 workout-form hidden" id="manualWorkoutCard">
             <h2>Workout Logger</h2>
-            <p class="muted">Fallback logger when Wger is unavailable.</p>
+            <p class="muted">Fallback logger when exercise library is unavailable.</p>
 
             <div class="form-row">
               <label for="workout-intensity">Intensity</label>
@@ -196,8 +196,8 @@
           </section>
 
           <section class="card col-12">
-            <h2>Wger Exercise Library</h2>
-            <p class="muted">Pulled live from Wger to help you discover moves quickly.</p>
+            <h2>Exercise Library</h2>
+            <p class="muted">Common movements by muscle group to help you log faster.</p>
             <p class="muted" id="exerciseStatus">Loading exercises...</p>
             <div id="exercise-list" class="api-grid"></div>
           </section>

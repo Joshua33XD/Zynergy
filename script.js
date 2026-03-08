@@ -174,9 +174,40 @@ async function addXp(delta) {
   }
 }
 
-// ─── wger state ────────────────────────────────────────────────────────────────
-// exercises and ingredients are now populated dynamically via live API search.
-// We cache the last search results so the save buttons can look up details.
+// ─── Local exercise catalog ────────────────────────────────────────────────────
+// Common movements and their primary muscle group. Used instead of Wger for
+// exercise discovery and selection.
+const LOCAL_EXERCISES = [
+  { id: "bb_bench_press", name: "Barbell Bench Press", muscle: "Chest", description: "Flat bench press with barbell for overall chest strength." },
+  { id: "db_bench_press", name: "Dumbbell Bench Press", muscle: "Chest", description: "Flat dumbbell press to train each side independently." },
+  { id: "incline_db_press", name: "Incline Dumbbell Press", muscle: "Chest", description: "Incline variation to emphasize upper chest." },
+  { id: "push_up", name: "Push-up", muscle: "Chest", description: "Bodyweight horizontal press for chest, shoulders, and triceps." },
+
+  { id: "bb_squat", name: "Barbell Back Squat", muscle: "Legs", description: "Heavy compound for quads, glutes, and core." },
+  { id: "front_squat", name: "Front Squat", muscle: "Legs", description: "Quad-focused squat with the bar in front rack position." },
+  { id: "romanian_deadlift", name: "Romanian Deadlift", muscle: "Legs", description: "Hip-hinge for hamstrings and glutes." },
+  { id: "leg_press", name: "Leg Press", muscle: "Legs", description: "Machine press for high-volume leg work." },
+
+  { id: "conventional_deadlift", name: "Conventional Deadlift", muscle: "Back", description: "Full-body pull emphasizing posterior chain and back." },
+  { id: "bb_row", name: "Barbell Row", muscle: "Back", description: "Horizontal pull for lats and mid-back." },
+  { id: "seated_cable_row", name: "Seated Cable Row", muscle: "Back", description: "Controlled row variation for back thickness." },
+  { id: "lat_pulldown", name: "Lat Pulldown", muscle: "Back", description: "Vertical pull to build lats and upper back." },
+
+  { id: "ohp", name: "Overhead Press", muscle: "Shoulders", description: "Standing press for shoulders and triceps." },
+  { id: "lateral_raise", name: "Dumbbell Lateral Raise", muscle: "Shoulders", description: "Isolation movement for side delts." },
+  { id: "rear_delt_fly", name: "Rear Delt Fly", muscle: "Shoulders", description: "Fly variation to hit rear delts and upper back." },
+
+  { id: "bb_curl", name: "Barbell Curl", muscle: "Biceps", description: "Straight-bar curl for overall biceps mass." },
+  { id: "db_curl", name: "Alternating Dumbbell Curl", muscle: "Biceps", description: "Unilateral curl for biceps and forearms." },
+  { id: "hammer_curl", name: "Hammer Curl", muscle: "Biceps", description: "Neutral-grip curl for brachialis and forearms." },
+
+  { id: "skullcrusher", name: "Skullcrusher", muscle: "Triceps", description: "Lying triceps extension for long head strength." },
+  { id: "rope_pushdown", name: "Cable Rope Pushdown", muscle: "Triceps", description: "Cable isolation for triceps lockout strength." },
+  { id: "dip", name: "Parallel Bar Dip", muscle: "Triceps", description: "Bodyweight dip for chest and triceps." },
+];
+
+// ─── wger / external state ─────────────────────────────────────────────────────
+// We still use wger for nutrition ingredients, but workouts use LOCAL_EXERCISES.
 const wgerState = {
   exercises: [],       // last exercise search results
   ingredients: [],     // last ingredient search results
@@ -323,9 +354,8 @@ function fillWgerMuscleSelect(muscleLookup) {
     });
 }
 
-// ─── EXERCISE SEARCH (fixed) ───────────────────────────────────────────────────
-// Uses the wger /exercise/search/ endpoint for live keyword search, optionally
-// filtered by muscle group from the pre-loaded muscle lookup.
+// ─── EXERCISE SEARCH (local catalog) ───────────────────────────────────────────
+// Uses LOCAL_EXERCISES with keyword + muscle-group filters. No external API.
 async function runExerciseSearch() {
   const searchInput = document.getElementById("wgerExerciseSearch");
   const muscleSelect = document.getElementById("wgerMuscleFocus");
@@ -338,74 +368,48 @@ async function runExerciseSearch() {
     return;
   }
 
-  if (statusEl) statusEl.textContent = "Searching exercises…";
+  if (statusEl) statusEl.textContent = "Searching local exercise library…";
   fillWgerExerciseSelect([]);
 
-  try {
-    // FIX: Use the dedicated search endpoint with the term parameter
-    const url = `https://wger.de/api/v2/exercise/search/?term=${encodeURIComponent(query)}&language=english&format=json`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  // Filter local exercises by name + optional muscle group
+  const lower = query.toLowerCase();
+  let exercises = LOCAL_EXERCISES.filter((ex) =>
+    ex.name.toLowerCase().includes(lower)
+  );
 
-    const data = await response.json();
+  const muscleId = muscleSelect?.value;
+  if (muscleId) {
+    exercises = exercises.filter((ex) => ex.muscle === muscleId);
+  }
 
-    // The search endpoint returns { suggestions: [ { value, data: { id, ... } } ] }
-    const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+  wgerState.exercises = exercises;
+  fillWgerExerciseSelect(exercises);
 
-    // Map into our normalised shape
-    let exercises = suggestions.map((s) => ({
-      id: s.data?.id ?? s.data?.base_id,
-      name: s.value || s.data?.name || "Unnamed exercise",
-      description: stripHtml(s.data?.description || ""),
-      muscleIds: [],   // search endpoint doesn't return muscle ids; filter below uses category
-      category: s.data?.category || "",
-    }));
+  // Render cards with a simple visual thumbnail
+  if (listEl) {
+    listEl.replaceChildren();
+    exercises.slice(0, 20).forEach((ex) => {
+      const card = document.createElement("article");
+      card.className = "api-item";
 
-    // Optional: client-side muscle filter using the wger category name
-    const muscleId = muscleSelect?.value;
-    if (muscleId && wgerState.muscleLookup[muscleId]) {
-      const muscleName = wgerState.muscleLookup[muscleId].toLowerCase();
-      exercises = exercises.filter(
-        (ex) =>
-          ex.name.toLowerCase().includes(muscleName) ||
-          ex.category.toLowerCase().includes(muscleName)
-      );
-    }
+      const thumb = document.createElement("div");
+      thumb.className = "exercise-thumb";
+      thumb.textContent = (ex.name || "?").charAt(0).toUpperCase();
 
-    wgerState.exercises = exercises;
-    fillWgerExerciseSelect(exercises);
+      const title = document.createElement("h3");
+      title.textContent = ex.name;
+      const desc = document.createElement("p");
+      desc.textContent = ex.description || "No description available.";
 
-    // Render cards with a simple visual thumbnail
-    if (listEl) {
-      listEl.replaceChildren();
-      exercises.slice(0, 20).forEach((ex) => {
-        const card = document.createElement("article");
-        card.className = "api-item";
+      card.append(thumb, title, desc);
+      listEl.appendChild(card);
+    });
+  }
 
-        const thumb = document.createElement("div");
-        thumb.className = "exercise-thumb";
-        thumb.textContent = (ex.name || "?").charAt(0).toUpperCase();
-
-        const title = document.createElement("h3");
-        title.textContent = ex.name;
-        const desc = document.createElement("p");
-        desc.textContent = ex.description || "No description available.";
-
-        card.append(thumb, title, desc);
-        listEl.appendChild(card);
-      });
-    }
-
-    if (statusEl) {
-      statusEl.textContent = exercises.length
-        ? `Found ${exercises.length} exercise(s) for "${query}".`
-        : `No exercises found for "${query}". Try a different keyword.`;
-    }
-  } catch (err) {
-    renderApiError(statusEl, listEl, "Could not search exercises. Check your connection.");
-    console.error("Wger exercise search failed:", err);
-    wgerState.exercises = [];
-    fillWgerExerciseSelect([]);
+  if (statusEl) {
+    statusEl.textContent = exercises.length
+      ? `Found ${exercises.length} exercise(s) for "${query}".`
+      : `No exercises found for "${query}". Try a different keyword.`;
   }
 }
 
@@ -525,25 +529,17 @@ function sortIngredientsByFocus(ingredients, focus) {
   });
 }
 
-// ─── MUSCLE LOOKUP INIT ────────────────────────────────────────────────────────
-// Load muscles once on startup — independent of exercise fetch so the dropdown
-// is always available even if the exercise search hasn't run yet.
+// ─── MUSCLE LOOKUP INIT (local) ────────────────────────────────────────────────
+// Build muscle dropdown from LOCAL_EXERCISES (no external API).
 async function loadMuscleLookup() {
-  try {
-    const res = await fetch("https://wger.de/api/v2/muscle/?format=json&limit=100");
-    if (!res.ok) return;
-    const data = await res.json();
-    const muscles = Array.isArray(data.results) ? data.results : [];
-    wgerState.muscleLookup = muscles.reduce((acc, m) => {
-      if (typeof m.id === "number" && (m.name_en || m.name)) {
-        acc[m.id] = m.name_en || m.name;
-      }
-      return acc;
-    }, {});
-    fillWgerMuscleSelect(wgerState.muscleLookup);
-  } catch (err) {
-    console.error("Muscle lookup failed:", err);
-  }
+  const muscles = Array.from(
+    new Set(LOCAL_EXERCISES.map((ex) => ex.muscle).filter(Boolean))
+  );
+  wgerState.muscleLookup = muscles.reduce((acc, name) => {
+    acc[name] = name;
+    return acc;
+  }, {});
+  fillWgerMuscleSelect(wgerState.muscleLookup);
 }
 
 // ─── FILTER SETUP ──────────────────────────────────────────────────────────────
@@ -598,14 +594,11 @@ function setSourceMode({ ready, wgerCardId, manualCardId, statusId, manualToggle
   }
 }
 
-// ─── WGER FEEDS INIT ──────────────────────────────────────────────────────────
-// FIX: We no longer bulk-fetch exercises/ingredients on startup.
-// Instead we load muscles (lightweight) and mark wger as "ready" so the
-// search-based UI is shown. Actual data loads only when the user searches.
+// ─── FEEDS INIT ────────────────────────────────────────────────────────────────
+// For workouts we now use local catalog; nutrition still calls Wger.
 async function setupWgerFeeds() {
   await loadMuscleLookup();
 
-  // Wger is "ready" as long as the API is reachable (muscle fetch succeeded)
   const wgerReady = Object.keys(wgerState.muscleLookup).length > 0;
 
   wgerState.workoutReady = wgerReady;
@@ -617,8 +610,8 @@ async function setupWgerFeeds() {
     manualCardId: "manualWorkoutCard",
     statusId: "workoutSourceStatus",
     manualToggleId: "workoutManualToggle",
-    readyText: "Wger connected. Search for an exercise to begin.",
-    fallbackText: "Wger unavailable. Manual workout logger enabled.",
+    readyText: "Exercise library ready. Search for an exercise to begin.",
+    fallbackText: "Exercise library unavailable. Manual workout logger enabled.",
   });
 
   setSourceMode({

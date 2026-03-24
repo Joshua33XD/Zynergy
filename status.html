@@ -15,6 +15,7 @@
       <div class="profile-block">
         <div class="profile-line"><strong>Your Rank:</strong> <span id="statusRankLabel">-</span></div>
         <div class="profile-line"><strong>Your XP:</strong> <span id="statusXpLabel">0</span></div>
+        <div class="profile-line"><strong>Rank Change:</strong> <span id="statusRankChangeLabel">-</span></div>
       </div>
       <nav class="side-nav">
         <ul>
@@ -42,6 +43,7 @@
           <section class="card col-7">
             <h2>Live Leaderboard</h2>
             <button id="refreshBoardBtn" type="button">Refresh Leaderboard</button>
+            <p class="muted" id="rivalLabel">Closest rival: loading...</p>
             <ol class="leaderboard" id="leaderboardList">
               <!-- Populated from Supabase using real challenge data -->
             </ol>

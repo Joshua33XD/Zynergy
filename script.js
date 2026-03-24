@@ -93,6 +93,12 @@ function handleError(error, tableName, user_id, date) {
 
 const uiState = { setCount: 0, sessionXp: 0 };
 const mealCaptureState = {};
+const gamificationState = {
+  dailyMissions: [],
+  completedMissionKeys: new Set(),
+  badges: [],
+  leaderboardLastRank: null,
+};
 
 function formatElapsedMs(elapsedMs) {
   const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
@@ -285,7 +291,7 @@ async function getOrCreateUserProfile() {
   return data;
 }
 
-async function addXp(delta) {
+async function addXp(delta, source = "general") {
   const userInfo = await getUserInfo();
   if (!userInfo || !delta) return;
   const { user_id, username } = userInfo;
@@ -315,6 +321,115 @@ async function addXp(delta) {
 
   if (upsertError) {
     console.error("XP update failed:", upsertError);
+    return;
+  }
+
+  const today = new Date().toISOString().split("T")[0];
+  const { error: eventError } = await supabase.from("xp_events").insert({
+    user_id,
+    username,
+    event_date: today,
+    xp_delta: delta,
+    source,
+  });
+  if (eventError) {
+    // Keep XP flow resilient even if analytics table is not yet provisioned.
+    console.warn("xp_events insert skipped:", eventError.message);
+  }
+}
+
+function getDailyMissionCatalog() {
+  return [
+    { key: "log_workout", label: "Log 1 workout", xp: 20 },
+    { key: "log_nutrition", label: "Log 1 nutrition entry", xp: 15 },
+    { key: "log_sleep", label: "Log sleep entry", xp: 10 },
+    { key: "post_challenge", label: "Post 1 challenge", xp: 25 },
+  ];
+}
+
+function getMissionStorageKey() {
+  return `zynergy_daily_missions_${new Date().toISOString().split("T")[0]}`;
+}
+
+function loadMissionProgress() {
+  const raw = localStorage.getItem(getMissionStorageKey());
+  if (!raw) return new Set();
+  try {
+    const parsed = JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveMissionProgress(setValue) {
+  localStorage.setItem(getMissionStorageKey(), JSON.stringify(Array.from(setValue)));
+}
+
+function markMissionComplete(key, { suppressXpPop = false } = {}) {
+  if (!key) return;
+  const mission = gamificationState.dailyMissions.find((m) => m.key === key);
+  if (!mission) return;
+  if (gamificationState.completedMissionKeys.has(key)) return;
+  gamificationState.completedMissionKeys.add(key);
+  saveMissionProgress(gamificationState.completedMissionKeys);
+  if (!suppressXpPop) {
+    showXpPop(`+${mission.xp} XP (Mission)`);
+    addXp(mission.xp, `mission:${key}`);
+  }
+  renderMissionBoard();
+
+  const allDone =
+    gamificationState.dailyMissions.length > 0 &&
+    gamificationState.dailyMissions.every((m) =>
+      gamificationState.completedMissionKeys.has(m.key)
+    );
+  if (allDone && !gamificationState.completedMissionKeys.has("__daily_bonus__")) {
+    gamificationState.completedMissionKeys.add("__daily_bonus__");
+    saveMissionProgress(gamificationState.completedMissionKeys);
+    showXpPop("+25 XP Daily Bonus");
+    addXp(25, "daily_bonus");
+    maybeNotify("Daily bonus unlocked", "All missions complete. +25 XP awarded.");
+  }
+}
+
+function renderMissionBoard() {
+  const missionList = document.getElementById("missionList");
+  if (!missionList) return;
+
+  missionList.replaceChildren();
+  gamificationState.dailyMissions.forEach((mission) => {
+    const done = gamificationState.completedMissionKeys.has(mission.key);
+    const li = document.createElement("li");
+    li.classList.toggle("done", done);
+    const text = document.createElement("span");
+    text.textContent = mission.label;
+    const btn = document.createElement("button");
+    btn.className = "mission-toggle";
+    btn.type = "button";
+    btn.dataset.key = mission.key;
+    btn.dataset.xp = String(mission.xp);
+    btn.textContent = done ? "Done" : "Pending";
+    btn.addEventListener("click", () => markMissionComplete(mission.key));
+    li.append(text, btn);
+    missionList.appendChild(li);
+  });
+
+  const doneCount = gamificationState.dailyMissions.filter((m) =>
+    gamificationState.completedMissionKeys.has(m.key)
+  ).length;
+  const pct = gamificationState.dailyMissions.length
+    ? Math.round((doneCount / gamificationState.dailyMissions.length) * 100)
+    : 0;
+  const missionPct = document.getElementById("missionPct");
+  if (missionPct) missionPct.textContent = `${pct}%`;
+  animateMeterById("missionMeter", pct);
+  const bonusLabel = document.getElementById("missionBonusLabel");
+  if (bonusLabel) {
+    const bonusDone = gamificationState.completedMissionKeys.has("__daily_bonus__");
+    bonusLabel.textContent = bonusDone
+      ? "Daily bonus claimed: +25 XP."
+      : "Daily bonus: complete all missions for +25 XP.";
   }
 }
 
@@ -869,6 +984,7 @@ async function saveWorkoutViaWger() {
   }
 
   addXp(30);
+  markMissionComplete("log_workout");
   if (statusLabel) statusLabel.textContent = "Workout saved to your daily log.";
   setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
 }
@@ -969,6 +1085,7 @@ async function saveNutritionViaWger() {
   maybeNotify("Nutrition saved", `${ingredientName} logged through Wger.`);
   alert("Nutrition data saved successfully via Wger!");
   addXp(15);
+  markMissionComplete("log_nutrition");
   if (statusLabel) statusLabel.textContent = "Nutrition saved to your daily log.";
   setButtonBusy("wgerNutritionSaveBtn", false, "Log Selected Nutrition");
 }
@@ -1028,6 +1145,7 @@ async function getValues() {
     maybeNotify("Workout saved", "Mission progress increased.");
     alert("Workout saved successfully!");
     addXp(30);
+    markMissionComplete("log_workout");
   }
 }
 
@@ -1062,6 +1180,8 @@ async function saveSleepData() {
     animateMeterById("sleepMeter", Math.min(100, hours_slept * 10));
     maybeNotify("Sleep log saved", `Recovery updated: ${hours_slept}h`);
     alert("Sleep data saved successfully!");
+    addXp(10, "sleep_log");
+    markMissionComplete("log_sleep");
   }
 }
 
@@ -1105,6 +1225,8 @@ async function saveNutritionData() {
     showXpPop("+15 XP");
     maybeNotify("Nutrition saved", "Fuel goals updated.");
     alert("Nutrition data saved successfully!");
+    addXp(15, "nutrition_log");
+    markMissionComplete("log_nutrition");
   }
 }
 
@@ -1164,6 +1286,7 @@ async function submitChallenge() {
   }
   showXpPop("+25 XP (Challenge)");
   addXp(25);
+  markMissionComplete("post_challenge");
 }
 
 async function loadLeaderboard() {
@@ -1209,6 +1332,7 @@ async function loadLeaderboard() {
   const userInfo = await getUserInfo();
   const myId = userInfo?.user_id;
   let myRank = null;
+  let rival = null;
 
   rows.slice(0, 20).forEach((row, index) => {
     const li = document.createElement("li");
@@ -1223,6 +1347,7 @@ async function loadLeaderboard() {
 
     if (row.user_id === myId) {
       myRank = index + 1;
+      rival = rows[index - 1] || null;
     }
   });
 
@@ -1230,6 +1355,27 @@ async function loadLeaderboard() {
   if (rankLabel) {
     rankLabel.textContent = myRank ? `#${myRank}` : "Not ranked yet";
   }
+  const rivalLabel = document.getElementById("rivalLabel");
+  if (rivalLabel) {
+    rivalLabel.textContent = rival
+      ? `Closest rival above you: ${rival.username} (${rival.bestScore})`
+      : myRank
+        ? "You are currently at the top. Keep defending your spot."
+        : "Post a challenge to get ranked and unlock rivals.";
+  }
+  const rankChangeLabel = document.getElementById("statusRankChangeLabel");
+  if (rankChangeLabel) {
+    const prev = gamificationState.leaderboardLastRank;
+    if (!myRank || !prev) {
+      rankChangeLabel.textContent = myRank ? "new this session" : "-";
+    } else {
+      const diff = prev - myRank;
+      if (diff > 0) rankChangeLabel.textContent = `up ${diff}`;
+      else if (diff < 0) rankChangeLabel.textContent = `down ${Math.abs(diff)}`;
+      else rankChangeLabel.textContent = "no change";
+    }
+  }
+  gamificationState.leaderboardLastRank = myRank;
 }
 
 function setupChallengeSection() {
@@ -1345,32 +1491,83 @@ function setupThemeToggle() {
 }
 
 function setupMissionBoard() {
-  const missionList = document.getElementById("missionList");
-  if (!missionList) return;
-  const missionButtons = missionList.querySelectorAll(".mission-toggle");
-  const missionPct = document.getElementById("missionPct");
-  const updateMissionProgress = () => {
-    const done = missionList.querySelectorAll("li.done").length;
-    const percent = Math.round((done / missionButtons.length) * 100);
-    if (missionPct) missionPct.textContent = `${percent}%`;
-    animateMeterById("missionMeter", percent);
-  };
-  missionButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const item = btn.closest("li");
-      if (!item) return;
-      const nowDone = !item.classList.contains("done");
-      item.classList.toggle("done", nowDone);
-      btn.textContent = nowDone ? "Done" : "Pending";
-      if (nowDone) {
-        const xpReward = Number(btn.dataset.xp || "10");
-        animateNumber("xpValue", (Number(document.getElementById("xpValue")?.textContent) || 0) + xpReward);
-        showXpPop(`+${xpReward} XP`);
-      }
-      updateMissionProgress();
-    });
+  if (!document.getElementById("missionList")) return;
+  gamificationState.dailyMissions = getDailyMissionCatalog();
+  gamificationState.completedMissionKeys = loadMissionProgress();
+  renderMissionBoard();
+}
+
+function buildBadgeCatalog() {
+  return [
+    { key: "badge_streak_3", label: "Streak Rookie", test: (ctx) => ctx.streak >= 3 },
+    { key: "badge_streak_7", label: "Consistency Core", test: (ctx) => ctx.streak >= 7 },
+    { key: "badge_week_full", label: "Seven Day Sprint", test: (ctx) => ctx.weeklyLogs >= 7 },
+    { key: "badge_challenge_3", label: "Platform Competitor", test: (ctx) => ctx.challengeCount >= 3 },
+  ];
+}
+
+function renderBadges(unlockedKeys) {
+  const list = document.getElementById("badgeList");
+  if (!list) return;
+  list.replaceChildren();
+  const badgeCatalog = buildBadgeCatalog();
+  badgeCatalog.forEach((badge) => {
+    const li = document.createElement("li");
+    li.classList.toggle("done", unlockedKeys.has(badge.key));
+    const label = document.createElement("span");
+    label.textContent = badge.label;
+    const state = document.createElement("span");
+    state.className = "pill";
+    state.textContent = unlockedKeys.has(badge.key) ? "Unlocked" : "Locked";
+    li.append(label, state);
+    list.appendChild(li);
   });
-  updateMissionProgress();
+}
+
+async function loadGamificationBadgesAndQuest() {
+  const userInfo = await getUserInfo();
+  if (!userInfo) return;
+  const { user_id } = userInfo;
+  const weekStart = daysAgoLocal(6);
+  const today = toLocalDateString(new Date());
+
+  const [{ data: workouts }, { data: nutrition }, { data: sleep }, { data: challenges }] =
+    await Promise.all([
+      supabase.from("workout_daily").select("date").eq("user_id", user_id).gte("date", weekStart).lte("date", today),
+      supabase.from("daily_nutrition").select("entry_date").eq("user_id", user_id).gte("entry_date", weekStart).lte("entry_date", today),
+      supabase.from("daily_sleep").select('"Date"').eq("user_id", user_id).gte("Date", weekStart).lte("Date", today),
+      supabase.from("workout_challenges").select("user_id").eq("user_id", user_id).limit(200),
+    ]);
+
+  const dailyDates = [
+    ...(workouts || []).map((x) => x.date),
+    ...(nutrition || []).map((x) => x.entry_date),
+    ...(sleep || []).map((x) => x.Date),
+  ];
+  const streak = computeDailyStreak(dailyDates);
+  const weeklyLogs =
+    (workouts || []).length + (nutrition || []).length + (sleep || []).length;
+  const challengeCount = (challenges || []).length;
+
+  const context = { streak, weeklyLogs, challengeCount };
+  const unlocked = new Set(
+    buildBadgeCatalog()
+      .filter((badge) => badge.test(context))
+      .map((badge) => badge.key)
+  );
+  gamificationState.badges = Array.from(unlocked);
+  renderBadges(unlocked);
+
+  const weeklyTarget = 10;
+  const weeklyQuestDone = Math.min(weeklyTarget, weeklyLogs);
+  const weeklyPct = Math.round((weeklyQuestDone / weeklyTarget) * 100);
+  const weeklyQuestLabel = document.getElementById("weeklyQuestLabel");
+  const weeklyQuestPct = document.getElementById("weeklyQuestPct");
+  if (weeklyQuestLabel) {
+    weeklyQuestLabel.textContent = `Complete ${weeklyTarget} combined logs this week (${weeklyQuestDone}/${weeklyTarget}). Reward: +50 XP.`;
+  }
+  if (weeklyQuestPct) weeklyQuestPct.textContent = `${weeklyPct}%`;
+  animateMeterById("weeklyQuestMeter", weeklyPct);
 }
 
 function toLocalDateString(date) {
@@ -1684,6 +1881,7 @@ function initUI() {
   setupChallengeSection();
   setupHistoryPage();
   loadSidebarProfileStats();
+  loadGamificationBadgesAndQuest();
   setupScrollReveal();
   registerServiceWorker();
 }

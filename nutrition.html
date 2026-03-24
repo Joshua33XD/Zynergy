@@ -101,6 +101,45 @@
                 <label><input type="checkbox" id="wgerBalancedMeal">Balanced Meal</label>
               </div>
 
+              <section class="meal-capture" aria-label="Optional meal capture details">
+                <div class="meal-capture-head">
+                  <h3>Meal Capture</h3>
+                  <p class="muted">Optional photo, eating timer, meal time, and leftovers.</p>
+                </div>
+
+                <div class="form-row">
+                  <label for="wgerMealPhoto">Upload Food Photo</label>
+                  <input type="file" id="wgerMealPhoto" accept="image/*">
+                  <small class="field-hint">Preview only for now. The file name will be saved in your notes.</small>
+                  <div class="meal-photo-preview hidden" id="wgerMealPhotoPreviewWrap">
+                    <img id="wgerMealPhotoPreview" alt="Meal preview">
+                  </div>
+                </div>
+
+                <div class="meal-timer-card">
+                  <div>
+                    <strong id="wgerMealTimerDisplay">00:00</strong>
+                    <p class="muted" id="wgerMealTimerStatus">Timer idle.</p>
+                  </div>
+                  <div class="timer-actions">
+                    <button type="button" id="wgerMealTimerStart">Start Timer</button>
+                    <button type="button" id="wgerMealTimerStop">Stop Timer</button>
+                    <button type="button" id="wgerMealTimerReset">Reset</button>
+                  </div>
+                </div>
+
+                <div class="dual-row">
+                  <div class="form-row">
+                    <label for="wgerMealTime">Time Ate</label>
+                    <input type="time" id="wgerMealTime">
+                  </div>
+                  <div class="form-row">
+                    <label for="wgerRemainingFood">Remaining Food</label>
+                    <input type="text" id="wgerRemainingFood" placeholder="Optional, e.g. finished all or 25% left">
+                  </div>
+                </div>
+              </section>
+
               <div class="action-row">
                 <button id="wgerNutritionSaveBtn" type="button">Log Selected Nutrition</button>
                 <button id="nutritionManualToggle" type="button">Use Manual Logger</button>
@@ -133,6 +172,44 @@
                 <label><input type="checkbox" id="protein" name="protein">Protein</label>
                 <label><input type="checkbox" id="balanced_meal" name="balanced_meal">Balanced Meal</label>
               </div>
+              <section class="meal-capture" aria-label="Optional meal capture details">
+                <div class="meal-capture-head">
+                  <h3>Meal Capture</h3>
+                  <p class="muted">Optional photo, eating timer, meal time, and leftovers.</p>
+                </div>
+
+                <div class="form-row">
+                  <label for="manualMealPhoto">Upload Food Photo</label>
+                  <input type="file" id="manualMealPhoto" accept="image/*">
+                  <small class="field-hint">Preview only for now. The file name will be saved in your notes.</small>
+                  <div class="meal-photo-preview hidden" id="manualMealPhotoPreviewWrap">
+                    <img id="manualMealPhotoPreview" alt="Meal preview">
+                  </div>
+                </div>
+
+                <div class="meal-timer-card">
+                  <div>
+                    <strong id="manualMealTimerDisplay">00:00</strong>
+                    <p class="muted" id="manualMealTimerStatus">Timer idle.</p>
+                  </div>
+                  <div class="timer-actions">
+                    <button type="button" id="manualMealTimerStart">Start Timer</button>
+                    <button type="button" id="manualMealTimerStop">Stop Timer</button>
+                    <button type="button" id="manualMealTimerReset">Reset</button>
+                  </div>
+                </div>
+
+                <div class="dual-row">
+                  <div class="form-row">
+                    <label for="manualMealTime">Time Ate</label>
+                    <input type="time" id="manualMealTime">
+                  </div>
+                  <div class="form-row">
+                    <label for="manualRemainingFood">Remaining Food</label>
+                    <input type="text" id="manualRemainingFood" placeholder="Optional, e.g. finished all or 25% left">
+                  </div>
+                </div>
+              </section>
               <div class="form-row">
                 <label for="notes">Quick notes or regrets</label>
                 <textarea id="notes" name="notes" rows="3" placeholder="Write your notes here..."></textarea>

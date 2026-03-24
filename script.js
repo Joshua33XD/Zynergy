@@ -92,6 +92,150 @@ function handleError(error, tableName, user_id, date) {
 }
 
 const uiState = { setCount: 0, sessionXp: 0 };
+const mealCaptureState = {};
+
+function formatElapsedMs(elapsedMs) {
+  const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const hours = Math.floor(minutes / 60);
+  const displayMinutes = minutes % 60;
+  if (hours > 0) {
+    return `${String(hours).padStart(2, "0")}:${String(displayMinutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+  return `${String(displayMinutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function getCurrentLocalTimeValue() {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+}
+
+function stopMealTimer(prefix, { updateTimeInput = false } = {}) {
+  const state = mealCaptureState[prefix];
+  if (!state || !state.isRunning) return;
+  state.elapsedBeforeStart += Date.now() - state.startedAt;
+  state.isRunning = false;
+  state.startedAt = null;
+  if (state.intervalId) {
+    window.clearInterval(state.intervalId);
+    state.intervalId = null;
+  }
+  if (updateTimeInput && state.timeInput && !state.timeInput.value) {
+    state.timeInput.value = getCurrentLocalTimeValue();
+  }
+  state.statusEl.textContent = `Last session: ${formatElapsedMs(state.elapsedBeforeStart)}.`;
+}
+
+function resetMealTimer(prefix) {
+  const state = mealCaptureState[prefix];
+  if (!state) return;
+  stopMealTimer(prefix);
+  state.elapsedBeforeStart = 0;
+  state.displayEl.textContent = "00:00";
+  state.statusEl.textContent = "Timer reset.";
+}
+
+function setupMealCapture(prefix) {
+  const photoInput = document.getElementById(`${prefix}MealPhoto`);
+  const photoPreviewWrap = document.getElementById(`${prefix}MealPhotoPreviewWrap`);
+  const photoPreview = document.getElementById(`${prefix}MealPhotoPreview`);
+  const displayEl = document.getElementById(`${prefix}MealTimerDisplay`);
+  const statusEl = document.getElementById(`${prefix}MealTimerStatus`);
+  const startBtn = document.getElementById(`${prefix}MealTimerStart`);
+  const stopBtn = document.getElementById(`${prefix}MealTimerStop`);
+  const resetBtn = document.getElementById(`${prefix}MealTimerReset`);
+  const timeInput = document.getElementById(`${prefix}MealTime`);
+  const remainingInput = document.getElementById(`${prefix}RemainingFood`);
+
+  if (!photoInput || !photoPreviewWrap || !photoPreview || !displayEl || !statusEl || !startBtn || !stopBtn || !resetBtn) {
+    return;
+  }
+
+  mealCaptureState[prefix] = {
+    intervalId: null,
+    startedAt: null,
+    elapsedBeforeStart: 0,
+    isRunning: false,
+    photoInput,
+    photoPreviewWrap,
+    photoPreview,
+    displayEl,
+    statusEl,
+    timeInput,
+    remainingInput,
+  };
+
+  const renderTimer = () => {
+    const state = mealCaptureState[prefix];
+    const elapsed = state.isRunning
+      ? state.elapsedBeforeStart + (Date.now() - state.startedAt)
+      : state.elapsedBeforeStart;
+    state.displayEl.textContent = formatElapsedMs(elapsed);
+  };
+
+  photoInput.addEventListener("change", () => {
+    const file = photoInput.files?.[0];
+    const previousObjectUrl = photoPreview.dataset.objectUrl;
+    if (previousObjectUrl) {
+      URL.revokeObjectURL(previousObjectUrl);
+      delete photoPreview.dataset.objectUrl;
+    }
+    if (!file) {
+      photoPreview.removeAttribute("src");
+      photoPreviewWrap.classList.add("hidden");
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    photoPreview.src = objectUrl;
+    photoPreview.dataset.objectUrl = objectUrl;
+    photoPreviewWrap.classList.remove("hidden");
+  });
+
+  startBtn.addEventListener("click", () => {
+    const state = mealCaptureState[prefix];
+    if (state.isRunning) return;
+    state.isRunning = true;
+    state.startedAt = Date.now();
+    state.statusEl.textContent = `Started at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`;
+    renderTimer();
+    state.intervalId = window.setInterval(renderTimer, 1000);
+  });
+
+  stopBtn.addEventListener("click", () => {
+    stopMealTimer(prefix, { updateTimeInput: true });
+    renderTimer();
+  });
+
+  resetBtn.addEventListener("click", () => {
+    resetMealTimer(prefix);
+  });
+
+  renderTimer();
+}
+
+function getMealCaptureSummary(prefix) {
+  const state = mealCaptureState[prefix];
+  if (!state) return [];
+
+  const parts = [];
+  const photoFile = state.photoInput?.files?.[0];
+  const timeAte = state.timeInput?.value?.trim();
+  const remainingFood = state.remainingInput?.value?.trim();
+  const elapsed = state.isRunning
+    ? state.elapsedBeforeStart + (Date.now() - state.startedAt)
+    : state.elapsedBeforeStart;
+
+  if (photoFile) parts.push(`Photo: ${photoFile.name}`);
+  if (timeAte) parts.push(`Time ate: ${timeAte}`);
+  if (elapsed > 0) parts.push(`Eating timer: ${formatElapsedMs(elapsed)}`);
+  if (remainingFood) parts.push(`Remaining food: ${remainingFood}`);
+  return parts;
+}
+
+function combineNoteParts(parts) {
+  return parts.map((part) => part?.trim()).filter(Boolean).join(" | ") || null;
+}
 
 // Simple client-side level curve based on XP
 function getLevelFromXp(xp) {
@@ -174,7 +318,7 @@ async function addXp(delta) {
   }
 }
 
-// ─── Local exercise catalog ────────────────────────────────────────────────────
+// â”€â”€â”€ Local exercise catalog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Common movements and their primary muscle group. Used instead of Wger for
 // exercise discovery and selection.
 const LOCAL_EXERCISES = [
@@ -206,17 +350,17 @@ const LOCAL_EXERCISES = [
   { id: "dip", name: "Parallel Bar Dip", muscle: "Triceps", description: "Bodyweight dip for chest and triceps." },
 ];
 
-// ─── wger / external state ─────────────────────────────────────────────────────
+// â”€â”€â”€ wger / external state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // We still use wger for nutrition ingredients, but workouts use LOCAL_EXERCISES.
 const wgerState = {
   exercises: [],       // last exercise search results
   ingredients: [],     // last ingredient search results
-  muscleLookup: {},    // id → name, loaded once on init
+  muscleLookup: {},    // id â†’ name, loaded once on init
   workoutReady: false,
   nutritionReady: false,
 };
 
-// ─── UI helpers ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ UI helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function showXpPop(text) {
   const xpPop = document.getElementById("xpPop");
   if (!xpPop) return;
@@ -285,7 +429,7 @@ function capitalizeFirst(text) {
   return text[0].toUpperCase() + text.slice(1).toLowerCase();
 }
 
-// ─── SELECT FILLERS ────────────────────────────────────────────────────────────
+// â”€â”€â”€ SELECT FILLERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function fillWgerExerciseSelect(exercises) {
   const select = document.getElementById("wgerExerciseSelect");
   if (!select) return;
@@ -294,7 +438,7 @@ function fillWgerExerciseSelect(exercises) {
   if (!exercises.length) {
     const opt = document.createElement("option");
     opt.value = "";
-    opt.textContent = "No exercises found — try a different search";
+    opt.textContent = "No exercises found â€” try a different search";
     select.appendChild(opt);
     return;
   }
@@ -316,7 +460,7 @@ function fillWgerIngredientSelect(ingredients) {
   if (!ingredients.length) {
     const opt = document.createElement("option");
     opt.value = "";
-    opt.textContent = "No ingredients found — try a different search";
+    opt.textContent = "No ingredients found â€” try a different search";
     select.appendChild(opt);
     return;
   }
@@ -354,7 +498,7 @@ function fillWgerMuscleSelect(muscleLookup) {
     });
 }
 
-// ─── EXERCISE SEARCH (local catalog) ───────────────────────────────────────────
+// â”€â”€â”€ EXERCISE SEARCH (local catalog) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Uses LOCAL_EXERCISES with keyword + muscle-group filters. No external API.
 async function runExerciseSearch() {
   const searchInput = document.getElementById("wgerExerciseSearch");
@@ -368,7 +512,7 @@ async function runExerciseSearch() {
     return;
   }
 
-  if (statusEl) statusEl.textContent = "Searching local exercise library…";
+  if (statusEl) statusEl.textContent = "Searching local exercise libraryâ€¦";
   fillWgerExerciseSelect([]);
 
   // Filter local exercises by name + optional muscle group
@@ -413,7 +557,7 @@ async function runExerciseSearch() {
   }
 }
 
-// ─── INGREDIENT SEARCH (fixed) ─────────────────────────────────────────────────
+// â”€â”€â”€ INGREDIENT SEARCH (fixed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Uses /ingredient/ with a live ?name= search param instead of scoring 8 items.
 // Focus filter sorts results by macro content after fetching.
 async function runIngredientSearch() {
@@ -428,7 +572,7 @@ async function runIngredientSearch() {
     return;
   }
 
-  if (statusEl) statusEl.textContent = "Searching ingredients…";
+  if (statusEl) statusEl.textContent = "Searching ingredientsâ€¦";
   fillWgerIngredientSelect([]);
 
   try {
@@ -503,7 +647,7 @@ async function runIngredientSearch() {
   }
 }
 
-// ─── SORTING HELPER (replaces the broken getIngredientsByFocus) ─────────────
+// â”€â”€â”€ SORTING HELPER (replaces the broken getIngredientsByFocus) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function sortIngredientsByFocus(ingredients, focus) {
   if (!focus) return ingredients;
 
@@ -529,7 +673,7 @@ function sortIngredientsByFocus(ingredients, focus) {
   });
 }
 
-// ─── MUSCLE LOOKUP INIT (local) ────────────────────────────────────────────────
+// â”€â”€â”€ MUSCLE LOOKUP INIT (local) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Build muscle dropdown from LOCAL_EXERCISES (no external API).
 async function loadMuscleLookup() {
   const muscles = Array.from(
@@ -542,7 +686,7 @@ async function loadMuscleLookup() {
   fillWgerMuscleSelect(wgerState.muscleLookup);
 }
 
-// ─── FILTER SETUP ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ FILTER SETUP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function setupWgerFilters() {
   const exerciseSearchBtn = document.getElementById("wgerExerciseSearchBtn");
   const exerciseSearchInput = document.getElementById("wgerExerciseSearch");
@@ -574,7 +718,7 @@ function setupWgerFilters() {
   });
 }
 
-// ─── SOURCE MODE ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ SOURCE MODE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function setSourceMode({ ready, wgerCardId, manualCardId, statusId, manualToggleId, readyText, fallbackText }) {
   const wgerCard = document.getElementById(wgerCardId);
   const manualCard = document.getElementById(manualCardId);
@@ -594,7 +738,7 @@ function setSourceMode({ ready, wgerCardId, manualCardId, statusId, manualToggle
   }
 }
 
-// ─── FEEDS INIT ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ FEEDS INIT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // For workouts we now use local catalog; nutrition still calls Wger.
 async function setupWgerFeeds() {
   await loadMuscleLookup();
@@ -634,7 +778,7 @@ async function setupWgerFeeds() {
   fillWgerIngredientSelect([]);
 }
 
-// ─── SAVE VIA WGER ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ SAVE VIA WGER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function saveWorkoutViaWger() {
   const userInfo = await getUserInfo();
   if (!userInfo) {
@@ -755,9 +899,9 @@ async function saveNutritionViaWger() {
     `Wger item: ${entryText}`,
     ingredient?.energy != null ? `Energy: ${ingredient.energy} kcal/100g` : null,
     ingredient?.protein != null ? `Protein: ${ingredient.protein}g/100g` : null,
+    ...getMealCaptureSummary("wger"),
   ]
-    .filter(Boolean)
-    .join(" | ");
+    .filter(Boolean);
 
   const entry_date = new Date().toISOString().split("T")[0];
   const { user_id, username } = userInfo;
@@ -775,7 +919,7 @@ async function saveNutritionViaWger() {
       hydration_goal_met: hydration ? "Yes" : "No",
       protein_goal_met: protein ? "Yes" : "No",
       balanced_meal_goal_met: balancedMeal ? "Yes" : "No",
-      notes_or_regrets: notes || null,
+      notes_or_regrets: combineNoteParts(notes),
     },
     "user_id,entry_date"
   );
@@ -812,7 +956,7 @@ function setupWgerPrimaryLoggers() {
     ?.addEventListener("click", saveNutritionViaWger);
 }
 
-// ─── ALL OTHER UNCHANGED LOGIC ─────────────────────────────────────────────────
+// â”€â”€â”€ ALL OTHER UNCHANGED LOGIC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function getValues() {
   const userInfo = await getUserInfo();
   if (!userInfo) {
@@ -870,10 +1014,10 @@ async function saveSleepData() {
   if (!hoursSleptRaw || !emojiRaw) { alert("Please fill in all sleep fields."); return; }
   const hours_slept = parseFloat(hoursSleptRaw);
   const date = new Date().toISOString().split("T")[0];
-  const emojiMap = { emoji1: "😴🛌💤", emoji2: "😃☀️🌞", emoji3: "😬☕🥱", emoji4: "😡⏰😒", emoji5: "🏃‍♂️💨⏱️" };
+  const emojiMap = { emoji1: "ðŸ˜´ðŸ›ŒðŸ’¤", emoji2: "ðŸ˜ƒâ˜€ï¸ðŸŒž", emoji3: "ðŸ˜¬â˜•ðŸ¥±", emoji4: "ðŸ˜¡â°ðŸ˜’", emoji5: "ðŸƒâ€â™‚ï¸ðŸ’¨â±ï¸" };
   const sleep_emoji = emojiMap[emojiRaw] || emojiRaw;
   if (hours_slept < 0 || hours_slept > 12) { alert(`Hours slept must be between 0 and 12.`); return; }
-  const validEmojis = ["😴🛌💤", "😃☀️🌞", "😬☕🥱", "😡⏰😒", "🏃‍♂️💨⏱️"];
+  const validEmojis = ["ðŸ˜´ðŸ›ŒðŸ’¤", "ðŸ˜ƒâ˜€ï¸ðŸŒž", "ðŸ˜¬â˜•ðŸ¥±", "ðŸ˜¡â°ðŸ˜’", "ðŸƒâ€â™‚ï¸ðŸ’¨â±ï¸"];
   if (!validEmojis.includes(sleep_emoji)) { alert("Invalid sleep emoji."); return; }
   const { data, error } = await upsertWithFallback(
     "daily_sleep",
@@ -903,6 +1047,7 @@ async function saveNutritionData() {
   const notes = document.getElementById("notes")?.value?.trim() || null;
   if (!breakfast || !lunch || !dinner || !snacks) { alert("Please fill in all meal fields."); return; }
   const entry_date = new Date().toISOString().split("T")[0];
+  const noteParts = [notes, ...getMealCaptureSummary("manual")];
   const { data, error } = await upsertWithFallback(
     "daily_nutrition",
     {
@@ -910,7 +1055,7 @@ async function saveNutritionData() {
       hydration_goal_met: hydration ? "Yes" : "No",
       protein_goal_met: protein ? "Yes" : "No",
       balanced_meal_goal_met: balancedMeal ? "Yes" : "No",
-      notes_or_regrets: notes,
+      notes_or_regrets: combineNoteParts(noteParts),
     },
     "user_id,entry_date"
   );
@@ -935,7 +1080,7 @@ window.getValues = getValues;
 window.saveSleepData = saveSleepData;
 window.saveNutritionData = saveNutritionData;
 
-// ─── WORKOUT CHALLENGES & LEADERBOARD ──────────────────────────────────────────
+// â”€â”€â”€ WORKOUT CHALLENGES & LEADERBOARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function submitChallenge() {
   const userInfo = await getUserInfo();
   if (!userInfo) {
@@ -964,7 +1109,7 @@ async function submitChallenge() {
 
   const score = reps * weight;
 
-  if (statusEl) statusEl.textContent = "Saving challenge…";
+  if (statusEl) statusEl.textContent = "Saving challengeâ€¦";
 
   const { error } = await supabase.from("workout_challenges").insert({
     user_id,
@@ -983,7 +1128,7 @@ async function submitChallenge() {
   }
 
   if (statusEl) {
-    statusEl.textContent = `Saved: ${exercise_name} – ${reps} reps × ${weight} kg (Score ${score}).`;
+    statusEl.textContent = `Saved: ${exercise_name} â€“ ${reps} reps Ã— ${weight} kg (Score ${score}).`;
   }
   showXpPop("+25 XP (Challenge)");
   addXp(25);
@@ -1038,7 +1183,7 @@ async function loadLeaderboard() {
     const left = document.createElement("span");
     const right = document.createElement("strong");
 
-    left.textContent = `${index + 1}. ${row.username} – ${row.bestExercise}`;
+    left.textContent = `${index + 1}. ${row.username} â€“ ${row.bestExercise}`;
     right.textContent = `Score ${row.bestScore}`;
 
     li.append(left, right);
@@ -1255,6 +1400,8 @@ function initUI() {
   setupShareActions();
   setupNotifications();
   setupManualToggles();
+  setupMealCapture("wger");
+  setupMealCapture("manual");
   setupWgerFilters();
   setupWgerPrimaryLoggers();
   setupWgerFeeds();
@@ -1265,7 +1412,7 @@ function initUI() {
 
 initUI();
 
-// ─── AUTH ──────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ AUTH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const profile = document.getElementById("profile");
 const login = document.getElementById("login");
 

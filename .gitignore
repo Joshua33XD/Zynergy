@@ -2,3 +2,24 @@
 uecfood/
 fooddata/
 runs/
+# datasets
+UECFOOD256/
+
+# images
+*.jpg
+*.jpeg
+*.png
+
+# training outputs
+runs/
+outputs/
+checkpoints/
+*.pt
+*.pth
+
+# python cache
+__pycache__/
+*.pyc
+
+# editor config (keep workspace-only)
+.vscode/

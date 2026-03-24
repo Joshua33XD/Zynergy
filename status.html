@@ -23,6 +23,7 @@
           <li><a href="nutrition.html">Nutrition</a></li>
           <li><a href="sleep.html">Sleep</a></li>
           <li><a href="status.html" aria-current="page">Leaderboard</a></li>
+          <li><a href="history.html">History</a></li>
         </ul>
       </nav>
       <button id="themeToggleBtn" type="button">Switch Theme</button>
@@ -49,12 +50,19 @@
           <section class="card col-5">
             <h2>Weekly Progress</h2>
             <div class="meter-row">
-              <span>Workout Completion 60%</span>
+              <span>Workout Completion <span id="weeklyWorkoutLabel">0%</span></span>
               <div class="meter"><span id="weeklyWorkoutMeter" style="width: 60%"></span></div>
             </div>
             <div class="meter-row">
-              <span>Nutrition Consistency 74%</span>
+              <span>Nutrition Consistency <span id="weeklyNutritionLabel">0%</span></span>
               <div class="meter"><span id="weeklyNutritionMeter" style="width: 74%"></span></div>
+            </div>
+            <div class="meter-row">
+              <span>Sleep Consistency <span id="weeklySleepLabel">0%</span></span>
+              <div class="meter"><span id="weeklySleepMeter" style="width: 0%"></span></div>
+            </div>
+            <div class="action-row" style="margin-top: 8px;">
+              <a class="pill" href="history.html">Open Full History</a>
             </div>
           </section>
 

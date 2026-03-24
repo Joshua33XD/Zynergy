@@ -780,8 +780,12 @@ async function setupWgerFeeds() {
 
 // â”€â”€â”€ SAVE VIA WGER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function saveWorkoutViaWger() {
+  setButtonBusy("wgerWorkoutSaveBtn", true, "Log Selected Workout");
+  const statusLabel = document.getElementById("workoutSourceStatus");
   const userInfo = await getUserInfo();
   if (!userInfo) {
+    if (statusLabel) statusLabel.textContent = "Login required before saving workout.";
+    setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
     alert("You must be logged in to save workouts.");
     return;
   }
@@ -794,14 +798,20 @@ async function saveWorkoutViaWger() {
   const weightKg = Number(document.getElementById("wgerWorkoutWeight")?.value || 0);
 
   if (!exerciseSelect?.value || exerciseSelect.value === "") {
+    if (statusLabel) statusLabel.textContent = "Select an exercise result before saving.";
+    setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
     alert("Please search for and select an exercise first.");
     return;
   }
   if (weightKg <= 0) {
+    if (statusLabel) statusLabel.textContent = "Top set weight must be greater than 0kg.";
+    setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
     alert("Please enter a top set weight greater than 0 kg.");
     return;
   }
   if (sets <= 0 || reps <= 0) {
+    if (statusLabel) statusLabel.textContent = "Sets and reps must be greater than 0.";
+    setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
     alert("Sets and reps must be greater than 0.");
     return;
   }
@@ -839,6 +849,8 @@ async function saveWorkoutViaWger() {
   );
 
   if (error) {
+    if (statusLabel) statusLabel.textContent = "Workout save failed. Check form and try again.";
+    setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
     alert(handleError(error, "workout_daily", user_id, date));
     return;
   }
@@ -857,11 +869,17 @@ async function saveWorkoutViaWger() {
   }
 
   addXp(30);
+  if (statusLabel) statusLabel.textContent = "Workout saved to your daily log.";
+  setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
 }
 
 async function saveNutritionViaWger() {
+  setButtonBusy("wgerNutritionSaveBtn", true, "Log Selected Nutrition");
+  const statusLabel = document.getElementById("nutritionSourceStatus");
   const userInfo = await getUserInfo();
   if (!userInfo) {
+    if (statusLabel) statusLabel.textContent = "Login required before saving nutrition.";
+    setButtonBusy("wgerNutritionSaveBtn", false, "Log Selected Nutrition");
     alert("You must be logged in to save nutrition data.");
     return;
   }
@@ -875,10 +893,14 @@ async function saveNutritionViaWger() {
   const balancedMeal = document.getElementById("wgerBalancedMeal")?.checked || false;
 
   if (!ingredientSelect?.value || ingredientSelect.value === "") {
+    if (statusLabel) statusLabel.textContent = "Select an ingredient result before saving.";
+    setButtonBusy("wgerNutritionSaveBtn", false, "Log Selected Nutrition");
     alert("Please search for and select an ingredient first.");
     return;
   }
   if (grams <= 0) {
+    if (statusLabel) statusLabel.textContent = "Amount must be greater than 0 grams.";
+    setButtonBusy("wgerNutritionSaveBtn", false, "Log Selected Nutrition");
     alert("Amount must be greater than 0 grams.");
     return;
   }
@@ -925,6 +947,8 @@ async function saveNutritionViaWger() {
   );
 
   if (error) {
+    if (statusLabel) statusLabel.textContent = "Nutrition save failed. Check form and try again.";
+    setButtonBusy("wgerNutritionSaveBtn", false, "Log Selected Nutrition");
     alert(handleError(error, "daily_nutrition", user_id, entry_date));
     return;
   }
@@ -945,6 +969,8 @@ async function saveNutritionViaWger() {
   maybeNotify("Nutrition saved", `${ingredientName} logged through Wger.`);
   alert("Nutrition data saved successfully via Wger!");
   addXp(15);
+  if (statusLabel) statusLabel.textContent = "Nutrition saved to your daily log.";
+  setButtonBusy("wgerNutritionSaveBtn", false, "Log Selected Nutrition");
 }
 
 function setupWgerPrimaryLoggers() {
@@ -1347,14 +1373,258 @@ function setupMissionBoard() {
   updateMissionProgress();
 }
 
+function toLocalDateString(date) {
+  return date.toISOString().split("T")[0];
+}
+
+function daysAgoLocal(days) {
+  const now = new Date();
+  now.setDate(now.getDate() - days);
+  return toLocalDateString(now);
+}
+
+function setButtonBusy(buttonId, isBusy, idleLabel = "Save") {
+  const button = document.getElementById(buttonId);
+  if (!button) return;
+  if (isBusy) {
+    button.dataset.previousLabel = button.textContent || idleLabel;
+    button.textContent = "Saving...";
+    button.disabled = true;
+    return;
+  }
+  button.disabled = false;
+  button.textContent = button.dataset.previousLabel || idleLabel;
+}
+
+function computeDailyStreak(dates) {
+  const unique = new Set((dates || []).filter(Boolean));
+  if (!unique.size) return 0;
+  let streak = 0;
+  const cursor = new Date();
+  while (true) {
+    const key = toLocalDateString(cursor);
+    if (!unique.has(key)) break;
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+async function loadSidebarProfileStats() {
+  const userInfo = await getUserInfo();
+  if (!userInfo) return;
+
+  const { user_id } = userInfo;
+  const streakSources = [];
+  const today = toLocalDateString(new Date());
+
+  const { data: workouts } = await supabase
+    .from("workout_daily")
+    .select("date")
+    .eq("user_id", user_id)
+    .gte("date", daysAgoLocal(45))
+    .lte("date", today);
+  streakSources.push(...(workouts || []).map((row) => row.date));
+
+  const { data: sleep } = await supabase
+    .from("daily_sleep")
+    .select('"Date"')
+    .eq("user_id", user_id)
+    .gte("Date", daysAgoLocal(45))
+    .lte("Date", today);
+  streakSources.push(...(sleep || []).map((row) => row.Date));
+
+  const { data: nutrition } = await supabase
+    .from("daily_nutrition")
+    .select("entry_date")
+    .eq("user_id", user_id)
+    .gte("entry_date", daysAgoLocal(45))
+    .lte("entry_date", today);
+  streakSources.push(...(nutrition || []).map((row) => row.entry_date));
+
+  const streak = computeDailyStreak(streakSources);
+  const streakLabel = document.getElementById("workoutStreakLabel");
+  if (streakLabel) streakLabel.textContent = streak > 0 ? `${streak} day(s)` : "Start today";
+
+  const { data: profile } = await supabase
+    .from("user_profile")
+    .select("xp")
+    .eq("user_id", user_id)
+    .maybeSingle();
+  const xp = Number(profile?.xp || 0);
+  const level = getLevelFromXp(xp);
+  const levelLabel = document.getElementById("workoutLevelLabel");
+  if (levelLabel) levelLabel.textContent = `${level.level} - ${level.name}`;
+  const statusXpLabel = document.getElementById("statusXpLabel");
+  if (statusXpLabel) statusXpLabel.textContent = String(xp);
+}
+
+async function loadWeeklySummary() {
+  const userInfo = await getUserInfo();
+  if (!userInfo) return;
+  const { user_id } = userInfo;
+  const weekStart = daysAgoLocal(6);
+  const today = toLocalDateString(new Date());
+
+  const [{ data: workouts }, { data: nutrition }, { data: sleep }] = await Promise.all([
+    supabase.from("workout_daily").select("date").eq("user_id", user_id).gte("date", weekStart).lte("date", today),
+    supabase.from("daily_nutrition").select("entry_date").eq("user_id", user_id).gte("entry_date", weekStart).lte("entry_date", today),
+    supabase.from("daily_sleep").select('"Date"').eq("user_id", user_id).gte("Date", weekStart).lte("Date", today),
+  ]);
+
+  const workoutPct = Math.min(100, Math.round(((workouts || []).length / 7) * 100));
+  const nutritionPct = Math.min(100, Math.round(((nutrition || []).length / 7) * 100));
+  const sleepPct = Math.min(100, Math.round(((sleep || []).length / 7) * 100));
+
+  animateMeterById("weeklyWorkoutMeter", workoutPct);
+  animateMeterById("weeklyNutritionMeter", nutritionPct);
+  animateMeterById("weeklySleepMeter", sleepPct);
+  const wk = document.getElementById("weeklyWorkoutLabel");
+  const nt = document.getElementById("weeklyNutritionLabel");
+  const sl = document.getElementById("weeklySleepLabel");
+  if (wk) wk.textContent = `${workoutPct}%`;
+  if (nt) nt.textContent = `${nutritionPct}%`;
+  if (sl) sl.textContent = `${sleepPct}%`;
+}
+
+async function fetchHistoryRows(startDate, endDate, type = "all") {
+  const userInfo = await getUserInfo();
+  if (!userInfo) return [];
+  const { user_id } = userInfo;
+  const rows = [];
+
+  if (type === "all" || type === "workout") {
+    const { data } = await supabase
+      .from("workout_daily")
+      .select("date, workout_status, workout_intensity")
+      .eq("user_id", user_id)
+      .gte("date", startDate)
+      .lte("date", endDate)
+      .order("date", { ascending: false });
+    (data || []).forEach((row) => rows.push({ date: row.date, type: "workout", detail: `${row.workout_status} (${row.workout_intensity || "N/A"})` }));
+  }
+
+  if (type === "all" || type === "nutrition") {
+    const { data } = await supabase
+      .from("daily_nutrition")
+      .select("entry_date, breakfast, lunch, dinner, snacks")
+      .eq("user_id", user_id)
+      .gte("entry_date", startDate)
+      .lte("entry_date", endDate)
+      .order("entry_date", { ascending: false });
+    (data || []).forEach((row) => rows.push({ date: row.entry_date, type: "nutrition", detail: [row.breakfast, row.lunch, row.dinner, row.snacks].filter(Boolean).join(" | ") }));
+  }
+
+  if (type === "all" || type === "sleep") {
+    const { data } = await supabase
+      .from("daily_sleep")
+      .select('"Date", hours_slept, sleep_emoji')
+      .eq("user_id", user_id)
+      .gte("Date", startDate)
+      .lte("Date", endDate)
+      .order("Date", { ascending: false });
+    (data || []).forEach((row) => rows.push({ date: row.Date, type: "sleep", detail: `${row.hours_slept}h ${row.sleep_emoji || ""}`.trim() }));
+  }
+
+  return rows.sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+
+function downloadTextFile(filename, content, mime = "text/plain") {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function historyRowsToCsv(rows) {
+  const header = "date,type,detail";
+  const lines = rows.map((row) => {
+    const safeDetail = `"${String(row.detail || "").replace(/"/g, '""')}"`;
+    return `${row.date},${row.type},${safeDetail}`;
+  });
+  return [header, ...lines].join("\n");
+}
+
+function setupHistoryPage() {
+  const applyBtn = document.getElementById("historyApplyBtn");
+  if (!applyBtn) return;
+  const startInput = document.getElementById("historyStartDate");
+  const endInput = document.getElementById("historyEndDate");
+  const typeInput = document.getElementById("historyType");
+  const status = document.getElementById("historyStatus");
+  const list = document.getElementById("historyList");
+  const exportJsonBtn = document.getElementById("historyExportJsonBtn");
+  const exportCsvBtn = document.getElementById("historyExportCsvBtn");
+  let currentRows = [];
+
+  const initEnd = toLocalDateString(new Date());
+  const initStart = daysAgoLocal(7);
+  if (startInput && !startInput.value) startInput.value = initStart;
+  if (endInput && !endInput.value) endInput.value = initEnd;
+
+  const renderRows = (rows) => {
+    if (!list) return;
+    list.replaceChildren();
+    if (!rows.length) {
+      const empty = document.createElement("p");
+      empty.className = "muted";
+      empty.textContent = "No entries in this range.";
+      list.appendChild(empty);
+      return;
+    }
+    rows.forEach((row) => {
+      const item = document.createElement("div");
+      item.className = "api-item";
+      const title = document.createElement("h3");
+      title.textContent = `${row.date} - ${row.type}`;
+      const detail = document.createElement("p");
+      detail.textContent = row.detail || "-";
+      item.append(title, detail);
+      list.appendChild(item);
+    });
+  };
+
+  const run = async () => {
+    const startDate = startInput?.value || initStart;
+    const endDate = endInput?.value || initEnd;
+    const type = typeInput?.value || "all";
+    if (startDate > endDate) {
+      if (status) status.textContent = "Start date must be before end date.";
+      return;
+    }
+    if (status) status.textContent = "Loading history...";
+    setButtonBusy("historyApplyBtn", true, "Apply Filters");
+    currentRows = await fetchHistoryRows(startDate, endDate, type);
+    renderRows(currentRows);
+    if (status) status.textContent = `Loaded ${currentRows.length} entries.`;
+    setButtonBusy("historyApplyBtn", false, "Apply Filters");
+  };
+
+  applyBtn.addEventListener("click", run);
+  exportJsonBtn?.addEventListener("click", () => {
+    downloadTextFile(`zynergy-history-${toLocalDateString(new Date())}.json`, JSON.stringify(currentRows, null, 2), "application/json");
+    showXpPop("JSON exported");
+  });
+  exportCsvBtn?.addEventListener("click", () => {
+    downloadTextFile(`zynergy-history-${toLocalDateString(new Date())}.csv`, historyRowsToCsv(currentRows), "text/csv");
+    showXpPop("CSV exported");
+  });
+  run();
+}
+
 function setupLeaderboardRefresh() {
   const refreshBtn = document.getElementById("refreshBoardBtn");
   if (!refreshBtn) return;
   refreshBtn.addEventListener("click", () => {
     loadLeaderboard();
+    loadWeeklySummary();
     showXpPop("Leaderboard updated");
   });
   loadLeaderboard();
+  loadWeeklySummary();
 }
 
 function setupManualToggles() {
@@ -1412,6 +1682,8 @@ function initUI() {
   setupWgerPrimaryLoggers();
   setupWgerFeeds();
   setupChallengeSection();
+  setupHistoryPage();
+  loadSidebarProfileStats();
   setupScrollReveal();
   registerServiceWorker();
 }

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>History</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" type="text/css" href="common.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <h2 class="brand">ZYNERGY</h2>
+      <div class="profile-block">
+        <div class="profile-line"><strong>History:</strong> Last 30 days</div>
+        <div class="profile-line"><strong>Export:</strong> CSV / JSON</div>
+      </div>
+      <nav class="side-nav">
+        <ul>
+          <li><a href="index.html">Dashboard</a></li>
+          <li><a href="workouts.html">Workouts</a></li>
+          <li><a href="nutrition.html">Nutrition</a></li>
+          <li><a href="sleep.html">Sleep</a></li>
+          <li><a href="status.html">Leaderboard</a></li>
+          <li><a href="history.html" aria-current="page">History</a></li>
+        </ul>
+      </nav>
+      <button id="themeToggleBtn" type="button">Switch Theme</button>
+    </aside>
+
+    <div class="content">
+      <header>
+        <h1>History & Export</h1>
+        <p>Filter your logs and download your personal data.</p>
+      </header>
+
+      <main>
+        <div class="dashboard-grid">
+          <section class="card col-12">
+            <h2>Filters</h2>
+            <div class="dual-row">
+              <div class="form-row">
+                <label for="historyStartDate">Start Date</label>
+                <input type="date" id="historyStartDate">
+              </div>
+              <div class="form-row">
+                <label for="historyEndDate">End Date</label>
+                <input type="date" id="historyEndDate">
+              </div>
+            </div>
+            <div class="form-row">
+              <label for="historyType">Type</label>
+              <select id="historyType">
+                <option value="all">All</option>
+                <option value="workout">Workout</option>
+                <option value="nutrition">Nutrition</option>
+                <option value="sleep">Sleep</option>
+              </select>
+            </div>
+            <div class="action-row">
+              <button type="button" id="historyApplyBtn">Apply Filters</button>
+              <button type="button" id="historyExportJsonBtn">Export JSON</button>
+              <button type="button" id="historyExportCsvBtn">Export CSV</button>
+            </div>
+            <p class="muted" id="historyStatus">Set a date range and click Apply Filters.</p>
+          </section>
+
+          <section class="card col-12">
+            <h2>Entries</h2>
+            <div id="historyList" class="leaderboard"></div>
+          </section>
+        </div>
+      </main>
+
+      <footer>
+        <p>&copy; 2026 ZYNERGY. All rights reserved.</p>
+      </footer>
+    </div>
+  </div>
+  <div class="xp-pop" id="xpPop">History updated</div>
+  <script src="script.js" type="module"></script>
+</body>
+</html>

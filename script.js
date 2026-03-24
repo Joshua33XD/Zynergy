@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js";
+﻿import { createClient } from "https://esm.sh/@supabase/supabase-js";
 
 const supabase = createClient(
   "https://wamikmqjlwnfohaqnfpc.supabase.co",
@@ -485,6 +485,59 @@ function showXpPop(text) {
   xpPop.classList.add("show");
 }
 
+function showToast(message, type = "info") {
+  let container = document.getElementById("toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toast-container";
+    Object.assign(container.style, {
+      position: "fixed",
+      right: "20px",
+      bottom: "20px",
+      display: "grid",
+      gap: "10px",
+      zIndex: "9999",
+      pointerEvents: "none",
+      width: "min(320px, calc(100vw - 32px))",
+    });
+    document.body.appendChild(container);
+  }
+
+  const palette = {
+    info: { bg: "#183b5b", border: "#3b82f6" },
+    success: { bg: "#163824", border: "#22c55e" },
+    error: { bg: "#4c1d1d", border: "#ef4444" },
+  };
+  const colors = palette[type] || palette.info;
+  const toast = document.createElement("div");
+  Object.assign(toast.style, {
+    background: colors.bg,
+    border: `1px solid ${colors.border}`,
+    color: "#f8fafc",
+    borderRadius: "14px",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.24)",
+    padding: "12px 14px",
+    fontSize: "0.95rem",
+    lineHeight: "1.4",
+    opacity: "0",
+    transform: "translateY(8px)",
+    transition: "opacity 0.2s ease, transform 0.2s ease",
+  });
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.style.opacity = "1";
+    toast.style.transform = "translateY(0)";
+  });
+
+  window.setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(8px)";
+    window.setTimeout(() => toast.remove(), 220);
+  }, 2800);
+}
+
 function animateMeterById(id, percent) {
   const meter = document.getElementById(id);
   if (!meter) return;
@@ -901,7 +954,7 @@ async function saveWorkoutViaWger() {
   if (!userInfo) {
     if (statusLabel) statusLabel.textContent = "Login required before saving workout.";
     setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
-    alert("You must be logged in to save workouts.");
+    showToast("You must be logged in to save workouts.", "error");
     return;
   }
 
@@ -915,19 +968,19 @@ async function saveWorkoutViaWger() {
   if (!exerciseSelect?.value || exerciseSelect.value === "") {
     if (statusLabel) statusLabel.textContent = "Select an exercise result before saving.";
     setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
-    alert("Please search for and select an exercise first.");
+    showToast("Please search for and select an exercise first.", "error");
     return;
   }
   if (weightKg <= 0) {
     if (statusLabel) statusLabel.textContent = "Top set weight must be greater than 0kg.";
     setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
-    alert("Please enter a top set weight greater than 0 kg.");
+    showToast("Please enter a top set weight greater than 0 kg.", "error");
     return;
   }
   if (sets <= 0 || reps <= 0) {
     if (statusLabel) statusLabel.textContent = "Sets and reps must be greater than 0.";
     setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
-    alert("Sets and reps must be greater than 0.");
+    showToast("Sets and reps must be greater than 0.", "error");
     return;
   }
 
@@ -966,7 +1019,7 @@ async function saveWorkoutViaWger() {
   if (error) {
     if (statusLabel) statusLabel.textContent = "Workout save failed. Check form and try again.";
     setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
-    alert(handleError(error, "workout_daily", user_id, date));
+    showToast(handleError(error, "workout_daily", user_id, date), "error");
     return;
   }
 
@@ -975,7 +1028,7 @@ async function saveWorkoutViaWger() {
   animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
   showXpPop("+30 XP");
   maybeNotify("Workout saved", `${exerciseName} saved through Wger.`);
-  alert("Workout saved successfully via Wger!");
+  showToast("Workout saved successfully via Wger.", "success");
 
   // Prefill challenge exercise name for quick posting
   const challengeInput = document.getElementById("challengeExercise");
@@ -996,7 +1049,7 @@ async function saveNutritionViaWger() {
   if (!userInfo) {
     if (statusLabel) statusLabel.textContent = "Login required before saving nutrition.";
     setButtonBusy("wgerNutritionSaveBtn", false, "Log Selected Nutrition");
-    alert("You must be logged in to save nutrition data.");
+    showToast("You must be logged in to save nutrition data.", "error");
     return;
   }
 
@@ -1011,13 +1064,13 @@ async function saveNutritionViaWger() {
   if (!ingredientSelect?.value || ingredientSelect.value === "") {
     if (statusLabel) statusLabel.textContent = "Select an ingredient result before saving.";
     setButtonBusy("wgerNutritionSaveBtn", false, "Log Selected Nutrition");
-    alert("Please search for and select an ingredient first.");
+    showToast("Please search for and select an ingredient first.", "error");
     return;
   }
   if (grams <= 0) {
     if (statusLabel) statusLabel.textContent = "Amount must be greater than 0 grams.";
     setButtonBusy("wgerNutritionSaveBtn", false, "Log Selected Nutrition");
-    alert("Amount must be greater than 0 grams.");
+    showToast("Amount must be greater than 0 grams.", "error");
     return;
   }
 
@@ -1065,7 +1118,7 @@ async function saveNutritionViaWger() {
   if (error) {
     if (statusLabel) statusLabel.textContent = "Nutrition save failed. Check form and try again.";
     setButtonBusy("wgerNutritionSaveBtn", false, "Log Selected Nutrition");
-    alert(handleError(error, "daily_nutrition", user_id, entry_date));
+    showToast(handleError(error, "daily_nutrition", user_id, entry_date), "error");
     return;
   }
 
@@ -1083,7 +1136,7 @@ async function saveNutritionViaWger() {
   if (recoveryText) recoveryText.textContent = `${recoveryPct}%`;
   showXpPop("+15 XP");
   maybeNotify("Nutrition saved", `${ingredientName} logged through Wger.`);
-  alert("Nutrition data saved successfully via Wger!");
+  showToast("Nutrition data saved successfully via Wger.", "success");
   addXp(15);
   markMissionComplete("log_nutrition");
   if (statusLabel) statusLabel.textContent = "Nutrition saved to your daily log.";
@@ -1102,8 +1155,10 @@ function setupWgerPrimaryLoggers() {
 // â”€â”€â”€ ALL OTHER UNCHANGED LOGIC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function getValues() {
   const userInfo = await getUserInfo();
+  const workoutSaveStatus = document.getElementById("workoutSaveStatus");
   if (!userInfo) {
-    alert("You must be logged in to save workouts. Please log in first.");
+    if (workoutSaveStatus) workoutSaveStatus.textContent = "Please login to save workout data.";
+    showToast("You must be logged in to save workouts. Please log in first.", "error");
     return;
   }
   const { user_id, username } = userInfo;
@@ -1136,26 +1191,37 @@ async function getValues() {
   );
 
   if (error) {
-    alert(handleError(error, "workout_daily", user_id, date));
+    if (workoutSaveStatus) workoutSaveStatus.textContent = "Workout save failed. Try again.";
+    showToast(handleError(error, "workout_daily", user_id, date), "error");
   } else {
     uiState.sessionXp += 30;
     animateNumber("sessionXp", uiState.sessionXp);
     animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
     showXpPop("+30 XP");
     maybeNotify("Workout saved", "Mission progress increased.");
-    alert("Workout saved successfully!");
+    showToast("Workout saved successfully!", "success");
     addXp(30);
     markMissionComplete("log_workout");
+    if (workoutSaveStatus) workoutSaveStatus.textContent = "Workout log saved/updated for today.";
   }
 }
 
 async function saveSleepData() {
   const userInfo = await getUserInfo();
-  if (!userInfo) { alert("You must be logged in to save sleep data."); return; }
+  const statusEl = document.getElementById("sleepStatus");
+  if (!userInfo) {
+    if (statusEl) statusEl.textContent = "Please login to save sleep data.";
+    showToast("You must be logged in to save sleep data.", "error");
+    return;
+  }
   const { user_id, username } = userInfo;
   const hoursSleptRaw = document.getElementById("sleepInput")?.value;
   const emojiRaw = document.getElementById("emojiSelect")?.value;
-  if (!hoursSleptRaw || !emojiRaw) { alert("Please fill in all sleep fields."); return; }
+  if (!hoursSleptRaw || !emojiRaw) {
+    if (statusEl) statusEl.textContent = "Please fill in all sleep fields.";
+    showToast("Please fill in all sleep fields.", "error");
+    return;
+  }
   const hours_slept = parseFloat(hoursSleptRaw);
   const date = new Date().toISOString().split("T")[0];
   const emojiMap = {
@@ -1166,28 +1232,45 @@ async function saveSleepData() {
     emoji5: "\u{1F3C3}\u{200D}\u{2642}\u{FE0F}\u{1F4A8}\u{23F1}\u{FE0F}",
   };
   const sleep_emoji = emojiMap[emojiRaw] || emojiRaw;
-  if (hours_slept < 0 || hours_slept > 12) { alert(`Hours slept must be between 0 and 12.`); return; }
+  if (hours_slept < 0 || hours_slept > 12) {
+    if (statusEl) statusEl.textContent = "Hours slept must be between 0 and 12.";
+    showToast("Hours slept must be between 0 and 12.", "error");
+    return;
+  }
   const validEmojis = Object.values(emojiMap);
-  if (!validEmojis.includes(sleep_emoji)) { alert("Invalid sleep emoji."); return; }
+  if (!validEmojis.includes(sleep_emoji)) {
+    if (statusEl) statusEl.textContent = "Invalid wake-up feeling selected.";
+    showToast("Invalid sleep emoji.", "error");
+    return;
+  }
   const { data, error } = await upsertWithFallback(
     "daily_sleep",
     { user_id, username, Date: date, hours_slept, sleep_emoji },
     'user_id,"Date"'
   );
-  if (error) { alert(handleError(error, "daily_sleep", user_id, date)); }
+  if (error) {
+    if (statusEl) statusEl.textContent = "Sleep save failed. Try again.";
+    showToast(handleError(error, "daily_sleep", user_id, date), "error");
+  }
   else {
     showXpPop("+10 XP");
     animateMeterById("sleepMeter", Math.min(100, hours_slept * 10));
     maybeNotify("Sleep log saved", `Recovery updated: ${hours_slept}h`);
-    alert("Sleep data saved successfully!");
+    showToast("Sleep data saved successfully!", "success");
     addXp(10, "sleep_log");
     markMissionComplete("log_sleep");
+    if (statusEl) statusEl.textContent = "Sleep log saved/updated for today.";
   }
 }
 
 async function saveNutritionData() {
   const userInfo = await getUserInfo();
-  if (!userInfo) { alert("You must be logged in to save nutrition data."); return; }
+  const nutritionSaveStatus = document.getElementById("nutritionSaveStatus");
+  if (!userInfo) {
+    if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Please login to save nutrition data.";
+    showToast("You must be logged in to save nutrition data.", "error");
+    return;
+  }
   const { user_id, username } = userInfo;
   const breakfast = document.getElementById("breakfast")?.value?.trim() || "";
   const lunch = document.getElementById("lunch")?.value?.trim() || "";
@@ -1197,7 +1280,11 @@ async function saveNutritionData() {
   const protein = document.getElementById("protein")?.checked || false;
   const balancedMeal = document.getElementById("balanced_meal")?.checked || false;
   const notes = document.getElementById("notes")?.value?.trim() || null;
-  if (!breakfast || !lunch || !dinner || !snacks) { alert("Please fill in all meal fields."); return; }
+  if (!breakfast || !lunch || !dinner || !snacks) {
+    if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Please fill in all meal fields.";
+    showToast("Please fill in all meal fields.", "error");
+    return;
+  }
   const entry_date = new Date().toISOString().split("T")[0];
   const noteParts = [notes, ...getMealCaptureSummary("manual")];
   const { data, error } = await upsertWithFallback(
@@ -1211,7 +1298,10 @@ async function saveNutritionData() {
     },
     "user_id,entry_date"
   );
-  if (error) { alert(handleError(error, "daily_nutrition", user_id, entry_date)); }
+  if (error) {
+    if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Nutrition save failed. Try again.";
+    showToast(handleError(error, "daily_nutrition", user_id, entry_date), "error");
+  }
   else {
     const proteinPct = protein ? 82 : 48;
     const caloriePct = balancedMeal ? 65 : 40;
@@ -1224,9 +1314,10 @@ async function saveNutritionData() {
     document.getElementById("recoveryPct")?.textContent && (document.getElementById("recoveryPct").textContent = `${recoveryPct}%`);
     showXpPop("+15 XP");
     maybeNotify("Nutrition saved", "Fuel goals updated.");
-    alert("Nutrition data saved successfully!");
+    showToast("Nutrition data saved successfully!", "success");
     addXp(15, "nutrition_log");
     markMissionComplete("log_nutrition");
+    if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Nutrition log saved/updated for today.";
   }
 }
 
@@ -1238,7 +1329,7 @@ window.saveNutritionData = saveNutritionData;
 async function submitChallenge() {
   const userInfo = await getUserInfo();
   if (!userInfo) {
-    alert("You must be logged in to post a challenge.");
+    showToast("You must be logged in to post a challenge.", "error");
     return;
   }
   const { user_id, username } = userInfo;
@@ -1253,11 +1344,13 @@ async function submitChallenge() {
   const weight = Number(weightInput?.value || 0);
 
   if (!exercise_name) {
-    alert("Please enter an exercise name for the challenge.");
+    if (statusEl) statusEl.textContent = "Enter an exercise name to post a challenge.";
+    showToast("Please enter an exercise name for the challenge.", "error");
     return;
   }
   if (reps <= 0 || weight <= 0) {
-    alert("Reps and weight must be greater than 0.");
+    if (statusEl) statusEl.textContent = "Reps and weight must both be greater than 0.";
+    showToast("Reps and weight must be greater than 0.", "error");
     return;
   }
 
@@ -1277,7 +1370,7 @@ async function submitChallenge() {
   if (error) {
     console.error("Challenge save failed:", error);
     if (statusEl) statusEl.textContent = "Could not save challenge. Please try again.";
-    alert("Challenge save failed: " + error.message);
+    showToast("Challenge save failed: " + error.message, "error");
     return;
   }
 
@@ -1445,7 +1538,7 @@ function setupShareActions() {
   document.getElementById("copyShareBtn")?.addEventListener("click", async () => {
     const text = "NEW PR: Deadlift 140kg. Level Up -> 15";
     try { await navigator.clipboard.writeText(text); showXpPop("Copied"); }
-    catch { alert(text); }
+    catch { showToast("Copy failed. PR text: " + text, "error"); }
   });
   document.getElementById("downloadShareBtn")?.addEventListener("click", () => {
     const blob = new Blob(["NEW PR\nDeadlift 140kg\nLevel Up -> 15"], { type: "text/plain" });
@@ -1916,5 +2009,8 @@ if (session && profile && login) {
 document.getElementById("logout")?.addEventListener("click", async () => {
   const { error } = await supabase.auth.signOut();
   if (error) { console.error("Logout error:", error.message); }
-  else { alert("You have been logged out!"); window.location.reload(); }
+  else {
+    showToast("You have been logged out!", "success");
+    window.setTimeout(() => window.location.reload(), 1200);
+  }
  });

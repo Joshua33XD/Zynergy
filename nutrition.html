@@ -14,8 +14,8 @@
       <h2 class="brand">ZYNERGY</h2>
       <div class="profile-block">
         <div class="profile-line"><strong>Protein Goal:</strong> 120g</div>
-        <div class="profile-line"><strong>Current Avg:</strong> 102g</div>
-        <div class="profile-line"><strong>Nutrition XP:</strong> 340</div>
+        <div class="profile-line"><strong>Current Avg:</strong> <span id="nutritionAvgLabel">-</span></div>
+        <div class="profile-line"><strong>Nutrition XP:</strong> <span id="nutritionXpLabel">-</span></div>
       </div>
       <nav class="side-nav">
         <ul>
@@ -41,7 +41,7 @@
         <div class="dashboard-grid">
           <section class="card col-8" id="wgerNutritionCard">
             <h2>Wger Nutrition Logger (Primary)</h2>
-            <p class="muted" id="nutritionSourceStatus">Wger available. Logging through Wger flow.</p>
+            <p class="muted" id="nutritionSourceStatus">Login to save nutrition logs. One log per day; saving again updates today.</p>
             <div class="flow-steps">
               <span class="flow-step active">1. Choose Focus</span>
               <span class="flow-step">2. Search Food</span>
@@ -145,12 +145,13 @@
                 <button id="wgerNutritionSaveBtn" type="button">Log Selected Nutrition</button>
                 <button id="nutritionManualToggle" type="button">Use Manual Logger</button>
               </div>
+              <p class="muted" id="nutritionSaveStatus">No nutrition log saved yet today.</p>
             </div>
           </section>
 
           <section class="card col-8 hidden" id="manualNutritionCard">
             <h2>Meal Log</h2>
-            <p class="muted">Fallback logger when Wger is unavailable.</p>
+            <p class="muted">Fallback logger when Wger is unavailable. Saving again updates today's nutrition log.</p>
             <form class="nutrition-form" onsubmit="event.preventDefault(); saveNutritionData();">
               <div class="form-row">
                 <label for="breakfast">Breakfast</label>

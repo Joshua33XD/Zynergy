@@ -13,10 +13,10 @@
     <aside class="sidebar">
       <h2 class="brand">ZYNERGY</h2>
       <div class="profile-block">
-        <div class="profile-line"><strong>Level:</strong> 12 - Iron Disciple</div>
-        <div class="profile-line"><strong>Rank:</strong> Silver</div>
-        <div class="profile-line"><strong>Streak:</strong> 9 days</div>
-        <div class="profile-line"><strong>Protein Avg:</strong> 102g</div>
+        <div class="profile-line"><strong>Level:</strong> <span id="dashboardLevelLabel">-</span></div>
+        <div class="profile-line"><strong>Rank:</strong> <span id="dashboardRankLabel">-</span></div>
+        <div class="profile-line"><strong>Streak:</strong> <span id="dashboardStreakLabel">-</span></div>
+        <div class="profile-line"><strong>Protein Avg:</strong> <span id="dashboardProteinAvgLabel">-</span></div>
       </div>
       <nav class="side-nav">
         <ul>
@@ -44,19 +44,19 @@
 
     <div class="content">
       <header>
-        <h1>Level 12 - Iron Disciple</h1>
-        <p>Open, log, earn XP, and keep your streak alive.</p>
+        <h1 id="dashboardHeaderTitle">Your Dashboard</h1>
+        <p id="dashboardHeaderSubtitle">Login to see your live progress, streak, and rank.</p>
       </header>
 
       <main>
         <div class="dashboard-grid">
           <section class="card col-7">
             <h2>XP Progress</h2>
-            <p class="xp-value"><span id="xpValue">780</span> XP</p>
+            <p class="xp-value"><span id="xpValue">0</span> XP</p>
             <div class="meter">
-              <span id="xpMeter" style="width: 78%"></span>
+              <span id="xpMeter" style="width: 0%"></span>
             </div>
-            <p class="muted">78% to Level 13</p>
+            <p class="muted" id="xpMetaLabel">No data yet.</p>
           </section>
 
           <section class="card col-5">
@@ -90,12 +90,12 @@
           <section class="card col-6">
             <h3>Recovery Meter</h3>
             <div class="meter-row">
-              <span>Sleep Quality 72%</span>
-              <div class="meter"><span style="width: 72%"></span></div>
+              <span>Sleep Quality <strong id="dashboardSleepQualityLabel">0%</strong></span>
+              <div class="meter"><span id="dashboardSleepQualityMeter" style="width: 0%"></span></div>
             </div>
             <div class="meter-row">
-              <span>Hydration 65%</span>
-              <div class="meter"><span style="width: 65%"></span></div>
+              <span>Hydration <strong id="dashboardHydrationLabel">0%</strong></span>
+              <div class="meter"><span id="dashboardHydrationMeter" style="width: 0%"></span></div>
             </div>
           </section>
 

@@ -438,7 +438,7 @@ function fillWgerExerciseSelect(exercises) {
   if (!exercises.length) {
     const opt = document.createElement("option");
     opt.value = "";
-    opt.textContent = "No exercises found â€” try a different search";
+    opt.textContent = "No exercises found - try a different search";
     select.appendChild(opt);
     return;
   }
@@ -460,7 +460,7 @@ function fillWgerIngredientSelect(ingredients) {
   if (!ingredients.length) {
     const opt = document.createElement("option");
     opt.value = "";
-    opt.textContent = "No ingredients found â€” try a different search";
+    opt.textContent = "No ingredients found - try a different search";
     select.appendChild(opt);
     return;
   }
@@ -512,7 +512,7 @@ async function runExerciseSearch() {
     return;
   }
 
-  if (statusEl) statusEl.textContent = "Searching local exercise libraryâ€¦";
+  if (statusEl) statusEl.textContent = "Searching local exercise library...";
   fillWgerExerciseSelect([]);
 
   // Filter local exercises by name + optional muscle group
@@ -572,7 +572,7 @@ async function runIngredientSearch() {
     return;
   }
 
-  if (statusEl) statusEl.textContent = "Searching ingredientsâ€¦";
+  if (statusEl) statusEl.textContent = "Searching ingredients...";
   fillWgerIngredientSelect([]);
 
   try {
@@ -1014,10 +1014,16 @@ async function saveSleepData() {
   if (!hoursSleptRaw || !emojiRaw) { alert("Please fill in all sleep fields."); return; }
   const hours_slept = parseFloat(hoursSleptRaw);
   const date = new Date().toISOString().split("T")[0];
-  const emojiMap = { emoji1: "ðŸ˜´ðŸ›ŒðŸ’¤", emoji2: "ðŸ˜ƒâ˜€ï¸ðŸŒž", emoji3: "ðŸ˜¬â˜•ðŸ¥±", emoji4: "ðŸ˜¡â°ðŸ˜’", emoji5: "ðŸƒâ€â™‚ï¸ðŸ’¨â±ï¸" };
+  const emojiMap = {
+    emoji1: "\u{1F634}\u{1F6CC}\u{1F4A4}",
+    emoji2: "\u{1F603}\u{2600}\u{FE0F}\u{1F31E}",
+    emoji3: "\u{1F62C}\u{2615}\u{1F971}",
+    emoji4: "\u{1F621}\u{23F0}\u{1F612}",
+    emoji5: "\u{1F3C3}\u{200D}\u{2642}\u{FE0F}\u{1F4A8}\u{23F1}\u{FE0F}",
+  };
   const sleep_emoji = emojiMap[emojiRaw] || emojiRaw;
   if (hours_slept < 0 || hours_slept > 12) { alert(`Hours slept must be between 0 and 12.`); return; }
-  const validEmojis = ["ðŸ˜´ðŸ›ŒðŸ’¤", "ðŸ˜ƒâ˜€ï¸ðŸŒž", "ðŸ˜¬â˜•ðŸ¥±", "ðŸ˜¡â°ðŸ˜’", "ðŸƒâ€â™‚ï¸ðŸ’¨â±ï¸"];
+  const validEmojis = Object.values(emojiMap);
   if (!validEmojis.includes(sleep_emoji)) { alert("Invalid sleep emoji."); return; }
   const { data, error } = await upsertWithFallback(
     "daily_sleep",
@@ -1109,7 +1115,7 @@ async function submitChallenge() {
 
   const score = reps * weight;
 
-  if (statusEl) statusEl.textContent = "Saving challengeâ€¦";
+  if (statusEl) statusEl.textContent = "Saving challenge...";
 
   const { error } = await supabase.from("workout_challenges").insert({
     user_id,
@@ -1128,7 +1134,7 @@ async function submitChallenge() {
   }
 
   if (statusEl) {
-    statusEl.textContent = `Saved: ${exercise_name} â€“ ${reps} reps Ã— ${weight} kg (Score ${score}).`;
+    statusEl.textContent = `Saved: ${exercise_name} - ${reps} reps x ${weight} kg (Score ${score}).`;
   }
   showXpPop("+25 XP (Challenge)");
   addXp(25);
@@ -1183,7 +1189,7 @@ async function loadLeaderboard() {
     const left = document.createElement("span");
     const right = document.createElement("strong");
 
-    left.textContent = `${index + 1}. ${row.username} â€“ ${row.bestExercise}`;
+    left.textContent = `${index + 1}. ${row.username} - ${row.bestExercise}`;
     right.textContent = `Score ${row.bestScore}`;
 
     li.append(left, right);

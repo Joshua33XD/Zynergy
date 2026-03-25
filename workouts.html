@@ -39,12 +39,12 @@
       <main>
         <div class="dashboard-grid">
           <section class="card col-8 workout-form" id="wgerWorkoutCard">
-            <h2>Workout Logger (Exercise Library)</h2>
-            <p class="muted" id="workoutSourceStatus">Login to save workout logs. One log per day; saving again updates today.</p>
+            <h2>Workout Logger</h2>
+            <p class="muted" id="workoutSourceStatus">Local exercise library ready. Saving again updates today's workout log.</p>
             <div class="flow-steps">
               <span class="flow-step active">1. Choose Muscle</span>
               <span class="flow-step">2. Search Exercise</span>
-              <span class="flow-step">3. Select + Log</span>
+              <span class="flow-step">3. Enter Sets + Log</span>
             </div>
 
             <div class="form-row">
@@ -76,86 +76,35 @@
 
             <div class="dual-row">
               <div class="form-row">
-                <label for="wgerSets">Sets</label>
+                <label for="wgerSets">Number Of Sets</label>
                 <input type="number" id="wgerSets" min="1" value="3">
               </div>
               <div class="form-row">
-                <label for="wgerReps">Reps</label>
-                <input type="number" id="wgerReps" min="1" value="10">
+                <label for="wgerWorkoutIntensity">Intensity</label>
+                <select name="workout-intensity" id="wgerWorkoutIntensity">
+                  <option value="light">Light</option>
+                  <option value="moderate" selected>Moderate</option>
+                  <option value="intense">Intense</option>
+                </select>
               </div>
             </div>
 
-            <div class="form-row">
-              <label for="wgerWorkoutIntensity">Intensity</label>
-              <select name="workout-intensity" id="wgerWorkoutIntensity">
-                <option value="light">Light</option>
-                <option value="moderate" selected>Moderate</option>
-                <option value="intense">Intense</option>
-              </select>
-            </div>
-
-            <div class="form-row">
-              <label for="wgerWorkoutWeight">Top Set Weight (kg)</label>
-              <input type="number" id="wgerWorkoutWeight" min="0" step="2.5" value="40">
-            </div>
+            <section class="workout-set-builder" aria-label="Workout sets">
+              <div class="workout-set-head">
+                <div>
+                  <h3>Set Weights</h3>
+                  <p class="muted">Each set now has its own reps and weight.</p>
+                </div>
+                <button id="addSetBtn" type="button">+ Add Set</button>
+              </div>
+              <div id="workoutSetList" class="workout-set-list"></div>
+            </section>
 
             <div class="action-row">
               <button id="wgerWorkoutSaveBtn" type="button">Log Selected Workout</button>
-              <button id="workoutManualToggle" type="button">Use Manual Logger</button>
+              <button id="repeatWorkoutBtn" type="button">Repeat Last</button>
             </div>
             <p class="muted" id="workoutSaveStatus">No workout log saved yet today.</p>
-          </section>
-
-          <section class="card col-8 workout-form hidden" id="manualWorkoutCard">
-            <h2>Workout Logger</h2>
-            <p class="muted">Fallback logger when exercise library is unavailable. Saving again updates today's workout log.</p>
-
-            <div class="form-row">
-              <label for="workout-intensity">Intensity</label>
-              <select name="workout-intensity" id="workout-intensity">
-                <option value="light">Light</option>
-                <option value="moderate">Moderate</option>
-                <option value="intense">Intense</option>
-              </select>
-            </div>
-
-            <div class="dual-row">
-              <div class="form-row">
-                <label for="muscle-group">Primary Muscle Group</label>
-                <select name="muscle-group" id="muscle-group">
-                  <option value="chest">Chest</option>
-                  <option value="back">Back</option>
-                  <option value="legs">Legs</option>
-                  <option value="bicep">Bicep</option>
-                  <option value="tricep">Tricep</option>
-                  <option value="shoulders">Shoulders</option>
-                </select>
-              </div>
-
-              <div class="form-row">
-                <label for="muscle-group2">Secondary Muscle Group</label>
-                <select name="muscle-group" id="muscle-group2">
-                  <option value="chest">Chest</option>
-                  <option value="back">Back</option>
-                  <option value="legs">Leg</option>
-                  <option value="bicep">Bicep</option>
-                  <option value="tricep">Tricep</option>
-                  <option value="shoulders">Shoulders</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-row">
-              <label for="workout-weight">Top Set Weight (kg)</label>
-              <input type="number" id="workout-weight" min="0" step="2.5" value="40">
-            </div>
-
-            <div class="action-row">
-              <button id="addSetBtn" type="button">+ Add Set</button>
-              <button id="addWeightBtn" type="button">+5kg</button>
-              <button id="repeatWorkoutBtn" type="button">Repeat Last</button>
-              <button id="workout" type="button" onclick="getValues()">Complete Workout</button>
-            </div>
           </section>
 
           <section class="card col-4">
@@ -175,7 +124,7 @@
               <div class="form-row">
                 <label for="challengeExercise">Exercise Name</label>
                 <input type="text" id="challengeExercise" placeholder="e.g. Bench Press" autocomplete="off">
-                <small class="field-hint">If you logged via Wger above, this will auto-fill when you save.</small>
+                <small class="field-hint">If you log a workout above, this will auto-fill when you save.</small>
               </div>
 
               <div class="dual-row">

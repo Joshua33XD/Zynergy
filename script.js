@@ -93,6 +93,7 @@ function handleError(error, tableName, user_id, date) {
 
 const uiState = { setCount: 0, sessionXp: 0 };
 const mealCaptureState = {};
+const workoutBuilderState = { sets: [] };
 const gamificationState = {
   dailyMissions: [],
   completedMissionKeys: new Set(),
@@ -243,11 +244,180 @@ function combineNoteParts(parts) {
   return parts.map((part) => part?.trim()).filter(Boolean).join(" | ") || null;
 }
 
+function clampNumber(value, min, max) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return min;
+  return Math.min(max, Math.max(min, numeric));
+}
+
 function roundTo(value, digits = 1) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return 0;
   const factor = 10 ** digits;
   return Math.round(numeric * factor) / factor;
+}
+
+function getWorkoutPresetStorageKey() {
+  return "lastWorkoutPreset";
+}
+
+function buildWorkoutSet(values = {}) {
+  return {
+    reps: clampNumber(values.reps ?? 10, 1, 100),
+    weight: clampNumber(values.weight ?? 40, 0, 1000),
+  };
+}
+
+function syncWorkoutSetCounter() {
+  const setCount = workoutBuilderState.sets.length;
+  uiState.setCount = setCount;
+  const counter = document.getElementById("setCounter");
+  if (counter) counter.textContent = `Sets planned: ${setCount}`;
+  const setCountInput = document.getElementById("wgerSets");
+  if (setCountInput) setCountInput.value = String(setCount || 1);
+}
+
+function renderWorkoutSetRows() {
+  const listEl = document.getElementById("workoutSetList");
+  if (!listEl) return;
+
+  listEl.replaceChildren();
+  workoutBuilderState.sets.forEach((setRow, index) => {
+    const row = document.createElement("div");
+    row.className = "workout-set-row";
+    row.innerHTML = `
+      <div class="workout-set-label">Set ${index + 1}</div>
+      <label class="form-row">
+        <span>Reps</span>
+        <input type="number" min="1" max="100" step="1" data-role="set-reps" value="${setRow.reps}">
+      </label>
+      <label class="form-row">
+        <span>Weight (kg)</span>
+        <input type="number" min="0" max="1000" step="0.5" data-role="set-weight" value="${setRow.weight}">
+      </label>
+      <button type="button" class="workout-set-remove" data-role="remove-set" aria-label="Remove set ${index + 1}">Remove</button>
+    `;
+
+    const repsInput = row.querySelector('[data-role="set-reps"]');
+    const weightInput = row.querySelector('[data-role="set-weight"]');
+    const removeBtn = row.querySelector('[data-role="remove-set"]');
+
+    repsInput?.addEventListener("input", () => {
+      workoutBuilderState.sets[index].reps = clampNumber(repsInput.value, 1, 100);
+    });
+    weightInput?.addEventListener("input", () => {
+      workoutBuilderState.sets[index].weight = clampNumber(weightInput.value, 0, 1000);
+    });
+    removeBtn?.addEventListener("click", () => {
+      if (workoutBuilderState.sets.length <= 1) return;
+      workoutBuilderState.sets.splice(index, 1);
+      renderWorkoutSetRows();
+      syncWorkoutSetCounter();
+    });
+
+    listEl.appendChild(row);
+  });
+
+  syncWorkoutSetCounter();
+}
+
+function ensureWorkoutSetCount(targetCount, { preserveExisting = true } = {}) {
+  const count = clampNumber(targetCount, 1, 12);
+  const next = preserveExisting ? [...workoutBuilderState.sets] : [];
+
+  while (next.length < count) {
+    const previous = next[next.length - 1];
+    next.push(buildWorkoutSet(previous || {}));
+  }
+  next.length = count;
+  workoutBuilderState.sets = next.map((item) => buildWorkoutSet(item));
+  renderWorkoutSetRows();
+}
+
+function getWorkoutSetSummary() {
+  const validSets = workoutBuilderState.sets
+    .map((setRow) => ({
+      reps: clampNumber(setRow.reps, 1, 100),
+      weight: clampNumber(setRow.weight, 0, 1000),
+    }))
+    .filter((setRow) => setRow.reps > 0);
+
+  return {
+    sets: validSets,
+    topWeight: validSets.reduce((max, setRow) => Math.max(max, setRow.weight), 0),
+    totalVolume: roundTo(
+      validSets.reduce((sum, setRow) => sum + setRow.reps * setRow.weight, 0),
+      1
+    ),
+    description: validSets
+      .map((setRow, index) => `S${index + 1} ${setRow.reps}x${setRow.weight}kg`)
+      .join(" | "),
+  };
+}
+
+function getSleepMoodScore(emojiValue) {
+  const scoreMap = {
+    emoji1: 40,
+    emoji2: 88,
+    emoji3: 56,
+    emoji4: 32,
+    emoji5: 96,
+    "😴🛌💤": 40,
+    "😃☀️🌞": 88,
+    "😬☕🥱": 56,
+    "😡⏰😒": 32,
+    "🏃‍♂️💨⏱️": 96,
+  };
+  return scoreMap[emojiValue] ?? 60;
+}
+
+function getSleepRecoverySnapshot(hoursSlept, emojiValue) {
+  const sleepBankPct = clampNumber(Math.round((Number(hoursSlept || 0) / 8) * 100), 0, 100);
+  const morningPct = clampNumber(Math.round(getSleepMoodScore(emojiValue)), 0, 100);
+  const stressPct = clampNumber(
+    Math.round(100 - (sleepBankPct * 0.55 + morningPct * 0.45)),
+    0,
+    100
+  );
+  const tier =
+    sleepBankPct >= 85 && morningPct >= 80 ? "Elite" :
+    sleepBankPct >= 70 ? "Stable" :
+    sleepBankPct >= 50 ? "Recovering" :
+    "Needs work";
+  return { sleepBankPct, morningPct, stressPct, tier };
+}
+
+function applySleepRecoveryUi(snapshot, extras = {}) {
+  if (!snapshot) return;
+  const { sleepBankPct, morningPct, stressPct, tier } = snapshot;
+
+  animateMeterById("sleepMeter", sleepBankPct);
+  animateMeterById("morningMeter", morningPct);
+  animateMeterById("stressMeter", stressPct);
+  animateMeterById("dashboardSleepQualityMeter", sleepBankPct);
+  animateMeterById("dashboardHydrationMeter", clampNumber(extras.hydrationPct ?? 0, 0, 100));
+
+  const mappings = [
+    ["sleepBankLabel", `${sleepBankPct}%`],
+    ["morningLabel", `${morningPct}%`],
+    ["stressLabel", `${stressPct}%`],
+    ["sleepRecoveryTierLabel", tier],
+    ["dashboardSleepQualityLabel", `${sleepBankPct}%`],
+    ["dashboardHydrationLabel", `${clampNumber(extras.hydrationPct ?? 0, 0, 100)}%`],
+  ];
+  mappings.forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  });
+
+  const avgSleepEl = document.getElementById("sleepAvgLabel");
+  if (avgSleepEl && extras.avgSleepHours != null) {
+    avgSleepEl.textContent = `${roundTo(extras.avgSleepHours, 1)} h`;
+  }
+  const lateNightsEl = document.getElementById("sleepLateNightsLabel");
+  if (lateNightsEl && extras.lateNights != null) {
+    lateNightsEl.textContent = String(extras.lateNights);
+  }
 }
 
 function scaleAiNutrition(per100g, grams) {
@@ -715,6 +885,27 @@ function getMissionStorageKey() {
   return `zynergy_daily_missions_${new Date().toISOString().split("T")[0]}`;
 }
 
+function getMissionSelectionStorageKey() {
+  return `zynergy_daily_mission_selection_${new Date().toISOString().split("T")[0]}`;
+}
+
+function loadSelectedMissionKeys() {
+  const raw = localStorage.getItem(getMissionSelectionStorageKey());
+  if (!raw) return getDailyMissionCatalog().map((mission) => mission.key);
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length
+      ? parsed.filter(Boolean)
+      : getDailyMissionCatalog().map((mission) => mission.key);
+  } catch {
+    return getDailyMissionCatalog().map((mission) => mission.key);
+  }
+}
+
+function saveSelectedMissionKeys(keys) {
+  localStorage.setItem(getMissionSelectionStorageKey(), JSON.stringify(Array.from(new Set(keys))));
+}
+
 function loadMissionProgress() {
   const raw = localStorage.getItem(getMissionStorageKey());
   if (!raw) return new Set();
@@ -728,6 +919,37 @@ function loadMissionProgress() {
 
 function saveMissionProgress(setValue) {
   localStorage.setItem(getMissionStorageKey(), JSON.stringify(Array.from(setValue)));
+}
+
+async function syncMissionProgressFromActivity() {
+  const selectedKeys = loadSelectedMissionKeys();
+  gamificationState.dailyMissions = getDailyMissionCatalog().filter((mission) =>
+    selectedKeys.includes(mission.key)
+  );
+
+  const nextCompleted = new Set();
+  const stored = loadMissionProgress();
+  if (stored.has("post_challenge")) nextCompleted.add("post_challenge");
+  if (stored.has("__daily_bonus__")) nextCompleted.add("__daily_bonus__");
+
+  const userInfo = await getUserInfo();
+  if (userInfo) {
+    const today = toLocalDateString(new Date());
+    const { user_id } = userInfo;
+    const [{ data: workouts }, { data: nutrition }, { data: sleep }] = await Promise.all([
+      supabase.from("workout_daily").select("date").eq("user_id", user_id).eq("date", today).limit(1),
+      supabase.from("daily_nutrition").select("entry_date").eq("user_id", user_id).eq("entry_date", today).limit(1),
+      supabase.from("daily_sleep").select('"Date"').eq("user_id", user_id).eq("Date", today).limit(1),
+    ]);
+
+    if ((workouts || []).length) nextCompleted.add("log_workout");
+    if ((nutrition || []).length) nextCompleted.add("log_nutrition");
+    if ((sleep || []).length) nextCompleted.add("log_sleep");
+  }
+
+  gamificationState.completedMissionKeys = nextCompleted;
+  saveMissionProgress(nextCompleted);
+  renderMissionBoard();
 }
 
 function markMissionComplete(key, { suppressXpPop = false } = {}) {
@@ -762,6 +984,18 @@ function renderMissionBoard() {
   if (!missionList) return;
 
   missionList.replaceChildren();
+  if (!gamificationState.dailyMissions.length) {
+    const empty = document.createElement("li");
+    empty.innerHTML = "<span>No missions selected yet.</span><button class=\"mission-toggle\" type=\"button\" disabled>Plan first</button>";
+    missionList.appendChild(empty);
+    const missionPct = document.getElementById("missionPct");
+    if (missionPct) missionPct.textContent = "0%";
+    animateMeterById("missionMeter", 0);
+    const bonusLabel = document.getElementById("missionBonusLabel");
+    if (bonusLabel) bonusLabel.textContent = "Choose today's missions to enable auto-tracking.";
+    return;
+  }
+
   gamificationState.dailyMissions.forEach((mission) => {
     const done = gamificationState.completedMissionKeys.has(mission.key);
     const li = document.createElement("li");
@@ -773,8 +1007,8 @@ function renderMissionBoard() {
     btn.type = "button";
     btn.dataset.key = mission.key;
     btn.dataset.xp = String(mission.xp);
-    btn.textContent = done ? "Done" : "Pending";
-    btn.addEventListener("click", () => markMissionComplete(mission.key));
+    btn.textContent = done ? "Done" : "Auto";
+    btn.disabled = true;
     li.append(text, btn);
     missionList.appendChild(li);
   });
@@ -1287,15 +1521,12 @@ async function setupWgerFeeds() {
   wgerState.workoutReady = wgerReady;
   wgerState.nutritionReady = wgerReady;
 
-  setSourceMode({
-    ready: wgerReady,
-    wgerCardId: "wgerWorkoutCard",
-    manualCardId: "manualWorkoutCard",
-    statusId: "workoutSourceStatus",
-    manualToggleId: "workoutManualToggle",
-    readyText: "Exercise library ready. Search for an exercise to begin.",
-    fallbackText: "Exercise library unavailable. Manual workout logger enabled.",
-  });
+  const workoutStatus = document.getElementById("workoutSourceStatus");
+  if (workoutStatus) {
+    workoutStatus.textContent = wgerReady
+      ? "Local exercise library ready. Search for an exercise to begin."
+      : "Exercise library unavailable.";
+  }
 
   setSourceMode({
     ready: wgerReady,
@@ -1331,10 +1562,8 @@ async function saveWorkoutViaWger() {
 
   const muscleFocus = document.getElementById("wgerMuscleFocus")?.value || "";
   const exerciseSelect = document.getElementById("wgerExerciseSelect");
-  const sets = Number(document.getElementById("wgerSets")?.value || 0);
-  const reps = Number(document.getElementById("wgerReps")?.value || 0);
   const intensityRaw = document.getElementById("wgerWorkoutIntensity")?.value || "moderate";
-  const weightKg = Number(document.getElementById("wgerWorkoutWeight")?.value || 0);
+  const workoutSets = getWorkoutSetSummary();
 
   if (!exerciseSelect?.value || exerciseSelect.value === "") {
     if (statusLabel) statusLabel.textContent = "Select an exercise result before saving.";
@@ -1342,16 +1571,16 @@ async function saveWorkoutViaWger() {
     showToast("Please search for and select an exercise first.", "error");
     return;
   }
-  if (weightKg <= 0) {
-    if (statusLabel) statusLabel.textContent = "Top set weight must be greater than 0kg.";
+  if (!workoutSets.sets.length) {
+    if (statusLabel) statusLabel.textContent = "Add at least one set before saving.";
     setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
-    showToast("Please enter a top set weight greater than 0 kg.", "error");
+    showToast("Please add at least one set before saving.", "error");
     return;
   }
-  if (sets <= 0 || reps <= 0) {
-    if (statusLabel) statusLabel.textContent = "Sets and reps must be greater than 0.";
+  if (workoutSets.sets.some((setRow) => setRow.weight <= 0)) {
+    if (statusLabel) statusLabel.textContent = "Each set needs a weight greater than 0kg.";
     setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
-    showToast("Sets and reps must be greater than 0.", "error");
+    showToast("Each set needs a weight greater than 0 kg.", "error");
     return;
   }
 
@@ -1379,7 +1608,7 @@ async function saveWorkoutViaWger() {
       user_id,
       username,
       date,
-      workout_status: `Wger log: ${exerciseName} (${sets}x${reps} @ ${weightKg}kg)`,
+      workout_status: `${exerciseName}: ${workoutSets.description} | Volume ${workoutSets.totalVolume} kg-reps`,
       workout_intensity: intensity,
       muscle_groups: muscleFocus ? [wgerState.muscleLookup[muscleFocus] || muscleFocus] : [],
       energy_level,
@@ -1398,18 +1627,37 @@ async function saveWorkoutViaWger() {
   animateNumber("sessionXp", uiState.sessionXp);
   animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
   showXpPop("+30 XP");
-  maybeNotify("Workout saved", `${exerciseName} saved through Wger.`);
-  showToast("Workout saved successfully via Wger.", "success");
+  maybeNotify("Workout saved", `${exerciseName} saved through the local library.`);
+  showToast("Workout saved successfully.", "success");
 
-  // Prefill challenge exercise name for quick posting
   const challengeInput = document.getElementById("challengeExercise");
   if (challengeInput && !challengeInput.value) {
     challengeInput.value = exerciseName;
   }
+  const challengeWeight = document.getElementById("challengeWeight");
+  if (challengeWeight) challengeWeight.value = String(workoutSets.topWeight);
+  const challengeReps = document.getElementById("challengeReps");
+  if (challengeReps && workoutSets.sets[0]) {
+    challengeReps.value = String(workoutSets.sets[0].reps);
+  }
+
+  localStorage.setItem(
+    getWorkoutPresetStorageKey(),
+    JSON.stringify({
+      intensity: intensityRaw,
+      muscleFocus,
+      exerciseSearch: document.getElementById("wgerExerciseSearch")?.value || "",
+      exerciseId: exerciseSelect.value,
+      exerciseName,
+      sets: workoutSets.sets,
+    })
+  );
 
   addXp(30);
   markMissionComplete("log_workout");
   if (statusLabel) statusLabel.textContent = "Workout saved to your daily log.";
+  loadSidebarProfileStats();
+  loadDashboardOverview();
   setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
 }
 
@@ -1511,6 +1759,7 @@ async function saveNutritionViaWger() {
   addXp(15);
   markMissionComplete("log_nutrition");
   if (statusLabel) statusLabel.textContent = "Nutrition saved to your daily log.";
+  loadDashboardOverview();
   setButtonBusy("wgerNutritionSaveBtn", false, "Log Selected Nutrition");
 }
 
@@ -1525,56 +1774,26 @@ function setupWgerPrimaryLoggers() {
 
 // â”€â”€â”€ ALL OTHER UNCHANGED LOGIC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function getValues() {
-  const userInfo = await getUserInfo();
-  const workoutSaveStatus = document.getElementById("workoutSaveStatus");
-  if (!userInfo) {
-    if (workoutSaveStatus) workoutSaveStatus.textContent = "Please login to save workout data.";
-    showToast("You must be logged in to save workouts. Please log in first.", "error");
-    return;
-  }
-  const { user_id, username } = userInfo;
-  const intensityRaw = document.getElementById("workout-intensity")?.value;
-  const mg1Raw = document.getElementById("muscle-group")?.value;
-  const mg2Raw = document.getElementById("muscle-group2")?.value;
-  const workout_intensity = intensityRaw
-    ? intensityRaw[0].toUpperCase() + intensityRaw.slice(1).toLowerCase()
-    : null;
-  const muscleMap = {
-    chest: "Chest", back: "Back", legs: "Leg", leg: "Leg",
-    bicep: "Bicep", tricep: "Tricep", shoulders: "Shoulder", shoulder: "Shoulder",
-  };
-  const mg1 = mg1Raw ? muscleMap[mg1Raw] ?? null : null;
-  const mg2 = mg2Raw ? muscleMap[mg2Raw] ?? null : null;
-  const muscle_groups = [mg1, mg2].filter(Boolean);
-  const date = new Date().toISOString().split("T")[0];
+  return saveWorkoutViaWger();
+}
 
-  // Auto-pick an energy_level based on intensity so the DB check constraint
-  // is satisfied without showing the field in the UI.
-  let energy_level = null;
-  if (intensityRaw === "light") energy_level = 4;
-  else if (intensityRaw === "intense") energy_level = 2;
-  else if (intensityRaw === "moderate") energy_level = 3;
+function renderMissionPlanner() {
+  const planner = document.getElementById("missionPlannerList");
+  if (!planner) return;
+  const selected = new Set(loadSelectedMissionKeys());
+  planner.replaceChildren();
 
-  const { data, error } = await upsertWithFallback(
-    "workout_daily",
-    { user_id, username, date, workout_status: "Workout done", workout_intensity, muscle_groups, energy_level },
-    "user_id,date"
-  );
-
-  if (error) {
-    if (workoutSaveStatus) workoutSaveStatus.textContent = "Workout save failed. Try again.";
-    showToast(handleError(error, "workout_daily", user_id, date), "error");
-  } else {
-    uiState.sessionXp += 30;
-    animateNumber("sessionXp", uiState.sessionXp);
-    animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
-    showXpPop("+30 XP");
-    maybeNotify("Workout saved", "Mission progress increased.");
-    showToast("Workout saved successfully!", "success");
-    addXp(30);
-    markMissionComplete("log_workout");
-    if (workoutSaveStatus) workoutSaveStatus.textContent = "Workout log saved/updated for today.";
-  }
+  getDailyMissionCatalog().forEach((mission) => {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = mission.key;
+    input.checked = selected.has(mission.key);
+    const text = document.createElement("span");
+    text.textContent = `${mission.label} (+${mission.xp} XP)`;
+    label.append(input, text);
+    planner.appendChild(label);
+  });
 }
 
 async function saveSleepData() {
@@ -1624,13 +1843,15 @@ async function saveSleepData() {
     showToast(handleError(error, "daily_sleep", user_id, date), "error");
   }
   else {
+    const snapshot = getSleepRecoverySnapshot(hours_slept, emojiRaw);
     showXpPop("+10 XP");
-    animateMeterById("sleepMeter", Math.min(100, hours_slept * 10));
+    applySleepRecoveryUi(snapshot);
     maybeNotify("Sleep log saved", `Recovery updated: ${hours_slept}h`);
     showToast("Sleep data saved successfully!", "success");
     addXp(10, "sleep_log");
     markMissionComplete("log_sleep");
     if (statusEl) statusEl.textContent = "Sleep log saved/updated for today.";
+    loadSleepOverview();
   }
 }
 
@@ -1689,6 +1910,7 @@ async function saveNutritionData() {
     addXp(15, "nutrition_log");
     markMissionComplete("log_nutrition");
     if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Nutrition log saved/updated for today.";
+    loadDashboardOverview();
   }
 }
 
@@ -1751,6 +1973,8 @@ async function submitChallenge() {
   showXpPop("+25 XP (Challenge)");
   addXp(25);
   markMissionComplete("post_challenge");
+  loadDashboardOverview();
+  loadSidebarProfileStats();
 }
 
 async function loadLeaderboard() {
@@ -1849,42 +2073,49 @@ function setupChallengeSection() {
 }
 
 function setupWorkoutShortcuts() {
-  const workoutPage = document.getElementById("workout");
-  if (!workoutPage) return;
-  const setCounter = document.getElementById("setCounter");
+  const workoutSaveBtn = document.getElementById("wgerWorkoutSaveBtn");
+  if (!workoutSaveBtn) return;
   const addSetBtn = document.getElementById("addSetBtn");
-  const addWeightBtn = document.getElementById("addWeightBtn");
   const repeatWorkoutBtn = document.getElementById("repeatWorkoutBtn");
-  const weightInput = document.getElementById("workout-weight");
-  const intensity = document.getElementById("workout-intensity");
-  const muscle1 = document.getElementById("muscle-group");
-  const muscle2 = document.getElementById("muscle-group2");
+  const setCountInput = document.getElementById("wgerSets");
+  const intensity = document.getElementById("wgerWorkoutIntensity");
+  const muscleFocus = document.getElementById("wgerMuscleFocus");
+  const exerciseSearch = document.getElementById("wgerExerciseSearch");
+  const exerciseSelect = document.getElementById("wgerExerciseSelect");
+
+  ensureWorkoutSetCount(Number(setCountInput?.value || 3), { preserveExisting: false });
 
   const addSet = () => {
-    uiState.setCount += 1;
-    uiState.sessionXp += 20;
-    if (setCounter) setCounter.textContent = `Sets logged: ${uiState.setCount}`;
-    animateNumber("sessionXp", uiState.sessionXp);
-    animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
-    showXpPop("+20 XP");
+    ensureWorkoutSetCount(workoutBuilderState.sets.length + 1);
+    showXpPop("Set added");
   };
 
   addSetBtn?.addEventListener("click", addSet);
-  addWeightBtn?.addEventListener("click", () => {
-    if (!weightInput) return;
-    const next = (parseFloat(weightInput.value || "0") || 0) + 5;
-    weightInput.value = String(next);
-    showXpPop("+5kg");
+  setCountInput?.addEventListener("input", () => {
+    ensureWorkoutSetCount(Number(setCountInput.value || 1));
   });
   repeatWorkoutBtn?.addEventListener("click", () => {
-    const cached = localStorage.getItem("lastWorkoutPreset");
+    const cached = localStorage.getItem(getWorkoutPresetStorageKey());
     if (!cached) return;
     try {
       const value = JSON.parse(cached);
       if (intensity && value.intensity) intensity.value = value.intensity;
-      if (muscle1 && value.muscle1) muscle1.value = value.muscle1;
-      if (muscle2 && value.muscle2) muscle2.value = value.muscle2;
-      if (weightInput && value.weight) weightInput.value = value.weight;
+      if (muscleFocus && value.muscleFocus) muscleFocus.value = value.muscleFocus;
+      if (exerciseSearch && value.exerciseSearch) exerciseSearch.value = value.exerciseSearch;
+      if (exerciseSelect && value.exerciseId) {
+        const existingOption = [...exerciseSelect.options].find((option) => option.value === value.exerciseId);
+        if (!existingOption && value.exerciseName) {
+          const opt = document.createElement("option");
+          opt.value = value.exerciseId;
+          opt.textContent = value.exerciseName;
+          exerciseSelect.appendChild(opt);
+        }
+        exerciseSelect.value = value.exerciseId;
+      }
+      if (Array.isArray(value.sets) && value.sets.length) {
+        workoutBuilderState.sets = value.sets.map((setRow) => buildWorkoutSet(setRow));
+        renderWorkoutSetRows();
+      }
       showXpPop("Preset loaded");
     } catch { /* ignore */ }
   });
@@ -1892,16 +2123,8 @@ function setupWorkoutShortcuts() {
     const activeTag = document.activeElement?.tagName;
     const typing = activeTag === "INPUT" || activeTag === "TEXTAREA";
     if (event.code === "Space" && !typing) { event.preventDefault(); addSet(); }
-    if (event.key === "ArrowRight" && !typing) { event.preventDefault(); addWeightBtn?.click(); }
-    if (event.key === "Enter" && !typing) { event.preventDefault(); workoutPage.click(); }
+    if (event.key === "Enter" && !typing) { event.preventDefault(); workoutSaveBtn.click(); }
     if ((event.key === "r" || event.key === "R") && !typing) { event.preventDefault(); repeatWorkoutBtn?.click(); }
-  });
-  workoutPage.addEventListener("click", () => {
-    const payload = {
-      intensity: intensity?.value, muscle1: muscle1?.value,
-      muscle2: muscle2?.value, weight: weightInput?.value,
-    };
-    localStorage.setItem("lastWorkoutPreset", JSON.stringify(payload));
   });
 }
 
@@ -1936,29 +2159,80 @@ function setupNotifications() {
   });
 }
 
+function ensureGlobalThemeButton() {
+  let floatingBtn = document.getElementById("globalThemeToggleBtn");
+  if (floatingBtn) return floatingBtn;
+
+  floatingBtn = document.createElement("button");
+  floatingBtn.id = "globalThemeToggleBtn";
+  floatingBtn.type = "button";
+  floatingBtn.className = "theme-fab";
+  floatingBtn.setAttribute("data-theme-toggle", "global");
+  floatingBtn.setAttribute("aria-label", "Toggle theme");
+  document.body.appendChild(floatingBtn);
+  return floatingBtn;
+}
+
 function setupThemeToggle() {
   const themeBtn = document.getElementById("themeToggleBtn");
+  const floatingBtn = ensureGlobalThemeButton();
+  const themeButtons = [themeBtn, floatingBtn].filter(Boolean);
   const rawTheme = localStorage.getItem("zynergyTheme") || "default";
   const savedTheme = rawTheme === "ion" ? "ion" : "default";
-  applyTheme(savedTheme);
-  if (!themeBtn) return;
   const labelMap = { default: "Theme: Black", ion: "Theme: Blue" };
-  themeBtn.textContent = labelMap[savedTheme] || labelMap.default;
-  themeBtn.addEventListener("click", () => {
+  const applyThemeUi = (themeName) => {
+    applyTheme(themeName);
+    themeButtons.forEach((button) => {
+      button.textContent = labelMap[themeName] || labelMap.default;
+      button.dataset.theme = themeName;
+    });
+  };
+
+  applyThemeUi(savedTheme);
+  if (!themeButtons.length) return;
+
+  const handleToggle = () => {
     const current = document.body.getAttribute("data-theme") || "default";
     const next = current === "default" ? "ion" : "default";
     localStorage.setItem("zynergyTheme", next);
-    applyTheme(next);
-    themeBtn.textContent = labelMap[next] || labelMap.default;
+    applyThemeUi(next);
     showXpPop("Theme switched");
+  };
+
+  themeButtons.forEach((button) => {
+    button.addEventListener("click", handleToggle);
   });
 }
 
-function setupMissionBoard() {
+function setupMissionPlanner() {
+  const planner = document.getElementById("missionPlannerList");
+  const saveBtn = document.getElementById("missionPlannerSaveBtn");
+  const statusEl = document.getElementById("missionPlannerStatus");
+  if (!planner || !saveBtn) return;
+
+  renderMissionPlanner();
+  saveBtn.addEventListener("click", async () => {
+    const selectedKeys = [...planner.querySelectorAll('input[type="checkbox"]:checked')]
+      .map((input) => input.value)
+      .filter(Boolean);
+
+    if (!selectedKeys.length) {
+      if (statusEl) statusEl.textContent = "Pick at least one mission for today.";
+      showToast("Pick at least one mission for today.", "error");
+      return;
+    }
+
+    saveSelectedMissionKeys(selectedKeys);
+    if (statusEl) statusEl.textContent = "Today's mission plan saved. Progress will update automatically.";
+    await syncMissionProgressFromActivity();
+    showToast("Today's missions saved.", "success");
+  });
+}
+
+async function setupMissionBoard() {
   if (!document.getElementById("missionList")) return;
-  gamificationState.dailyMissions = getDailyMissionCatalog();
-  gamificationState.completedMissionKeys = loadMissionProgress();
-  renderMissionBoard();
+  renderMissionPlanner();
+  await syncMissionProgressFromActivity();
 }
 
 function buildBadgeCatalog() {
@@ -2071,6 +2345,28 @@ function computeDailyStreak(dates) {
   return streak;
 }
 
+function getLevelProgress(xp) {
+  const thresholds = [
+    { level: 1, name: "Rookie", min: 0 },
+    { level: 5, name: "Grind Starter", min: 250 },
+    { level: 10, name: "Iron Disciple", min: 750 },
+    { level: 15, name: "Plate Stacker", min: 1500 },
+    { level: 20, name: "Volume Slayer", min: 2500 },
+  ];
+  const current = getLevelFromXp(xp);
+  const currentIndex = thresholds.findIndex((item) => item.level === current.level);
+  const next = thresholds[currentIndex + 1] || null;
+  if (!next) {
+    return { pct: 100, label: `${xp} XP total` };
+  }
+  const span = Math.max(1, next.min - current.min);
+  const pct = Math.round(((xp - current.min) / span) * 100);
+  return {
+    pct: clampNumber(pct, 0, 100),
+    label: `${xp} / ${next.min} XP to ${next.name}`,
+  };
+}
+
 async function loadSidebarProfileStats() {
   const userInfo = await getUserInfo();
   if (!userInfo) return;
@@ -2107,17 +2403,125 @@ async function loadSidebarProfileStats() {
   const streakLabel = document.getElementById("workoutStreakLabel");
   if (streakLabel) streakLabel.textContent = streak > 0 ? `${streak} day(s)` : "Start today";
 
-  const { data: profile } = await supabase
-    .from("user_profile")
-    .select("xp")
-    .eq("user_id", user_id)
-    .maybeSingle();
+  const profile = await getOrCreateUserProfile();
   const xp = Number(profile?.xp || 0);
   const level = getLevelFromXp(xp);
   const levelLabel = document.getElementById("workoutLevelLabel");
   if (levelLabel) levelLabel.textContent = `${level.level} - ${level.name}`;
   const statusXpLabel = document.getElementById("statusXpLabel");
   if (statusXpLabel) statusXpLabel.textContent = String(xp);
+}
+
+async function loadSleepOverview() {
+  if (!document.getElementById("sleepRecoveryTierLabel") && !document.getElementById("sleepBankLabel")) {
+    return;
+  }
+  const userInfo = await getUserInfo();
+  if (!userInfo) return;
+
+  const { user_id } = userInfo;
+  const today = toLocalDateString(new Date());
+  const { data: sleepRows } = await supabase
+    .from("daily_sleep")
+    .select('"Date", hours_slept, sleep_emoji')
+    .eq("user_id", user_id)
+    .gte("Date", daysAgoLocal(13))
+    .lte("Date", today)
+    .order("Date", { ascending: false });
+
+  if (!(sleepRows || []).length) return;
+
+  const latest = sleepRows[0];
+  const avgSleepHours =
+    sleepRows.reduce((sum, row) => sum + Number(row.hours_slept || 0), 0) / sleepRows.length;
+  const lateNights = sleepRows.filter((row) => Number(row.hours_slept || 0) < 6).length;
+  const snapshot = getSleepRecoverySnapshot(latest.hours_slept, latest.sleep_emoji);
+  applySleepRecoveryUi(snapshot, { avgSleepHours, lateNights });
+}
+
+async function loadDashboardOverview() {
+  if (!document.getElementById("dashboardLevelLabel")) return;
+
+  const userInfo = await getUserInfo();
+  if (!userInfo) return;
+
+  const { user_id, username } = userInfo;
+  const today = toLocalDateString(new Date());
+  const weekStart = daysAgoLocal(6);
+  const streakStart = daysAgoLocal(45);
+  const profile = await getOrCreateUserProfile();
+
+  const [
+    { data: workoutRows },
+    { data: nutritionRows },
+    { data: sleepRows },
+    { data: leaderboardRows },
+  ] = await Promise.all([
+    supabase.from("workout_daily").select("date").eq("user_id", user_id).gte("date", streakStart).lte("date", today),
+    supabase.from("daily_nutrition").select("entry_date, protein_goal_met, hydration_goal_met").eq("user_id", user_id).gte("entry_date", streakStart).lte("entry_date", today),
+    supabase.from("daily_sleep").select('"Date", hours_slept, sleep_emoji').eq("user_id", user_id).gte("Date", streakStart).lte("Date", today),
+    supabase.from("user_profile").select("user_id, xp").order("xp", { ascending: false }).limit(200),
+  ]);
+
+  const xp = Number(profile?.xp || 0);
+  const level = getLevelFromXp(xp);
+  const levelProgress = getLevelProgress(xp);
+  const streak = computeDailyStreak([
+    ...(workoutRows || []).map((row) => row.date),
+    ...(nutritionRows || []).map((row) => row.entry_date),
+    ...(sleepRows || []).map((row) => row.Date),
+  ]);
+
+  const rank =
+    (leaderboardRows || []).findIndex((row) => row.user_id === user_id) >= 0
+      ? (leaderboardRows || []).findIndex((row) => row.user_id === user_id) + 1
+      : null;
+
+  const weeklyNutrition = (nutritionRows || []).filter((row) => row.entry_date >= weekStart);
+  const proteinAvg = weeklyNutrition.length
+    ? Math.round(
+        (weeklyNutrition.filter((row) => String(row.protein_goal_met).toLowerCase() === "yes").length /
+          weeklyNutrition.length) *
+          100
+      )
+    : 0;
+  const hydrationPct = weeklyNutrition.length
+    ? Math.round(
+        (weeklyNutrition.filter((row) => String(row.hydration_goal_met).toLowerCase() === "yes").length /
+          weeklyNutrition.length) *
+          100
+      )
+    : 0;
+
+  const recentSleep = (sleepRows || []).filter((row) => row.Date >= weekStart);
+  const latestSleep = recentSleep[0] || sleepRows?.[0];
+  const sleepSnapshot = latestSleep
+    ? getSleepRecoverySnapshot(latestSleep.hours_slept, latestSleep.sleep_emoji)
+    : null;
+
+  const mappings = [
+    ["dashboardLevelLabel", `${level.level} - ${level.name}`],
+    ["dashboardRankLabel", rank ? `#${rank}` : "Unranked"],
+    ["dashboardStreakLabel", streak ? `${streak} day(s)` : "Start today"],
+    ["dashboardProteinAvgLabel", `${proteinAvg}%`],
+    ["xpValue", String(xp)],
+    ["xpMetaLabel", levelProgress.label],
+    ["dashboardHeaderTitle", `${username}'s Dashboard`],
+    ["dashboardHeaderSubtitle", "Live progress from your workout, nutrition, sleep, and challenge logs."],
+  ];
+  mappings.forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  });
+
+  animateMeterById("xpMeter", levelProgress.pct);
+  if (sleepSnapshot) {
+    applySleepRecoveryUi(sleepSnapshot, { hydrationPct });
+  } else {
+    animateMeterById("dashboardHydrationMeter", hydrationPct);
+    const hydrationLabel = document.getElementById("dashboardHydrationLabel");
+    if (hydrationLabel) hydrationLabel.textContent = `${hydrationPct}%`;
+  }
 }
 
 async function loadWeeklySummary() {
@@ -2289,13 +2693,6 @@ function setupLeaderboardRefresh() {
 }
 
 function setupManualToggles() {
-  document.getElementById("workoutManualToggle")?.addEventListener("click", () => {
-    const card = document.getElementById("manualWorkoutCard");
-    if (!card) return;
-    const showing = !card.classList.contains("hidden");
-    card.classList.toggle("hidden", showing);
-    document.getElementById("workoutManualToggle").textContent = showing ? "Use Manual Logger" : "Hide Manual Logger";
-  });
   document.getElementById("nutritionManualToggle")?.addEventListener("click", () => {
     const card = document.getElementById("manualNutritionCard");
     if (!card) return;
@@ -2331,6 +2728,7 @@ async function registerServiceWorker() {
 
 function initUI() {
   setupThemeToggle();
+  setupMissionPlanner();
   setupMissionBoard();
   setupLeaderboardRefresh();
   setupWorkoutShortcuts();
@@ -2346,6 +2744,8 @@ function initUI() {
   setupChallengeSection();
   setupHistoryPage();
   loadSidebarProfileStats();
+  loadDashboardOverview();
+  loadSleepOverview();
   loadGamificationBadgesAndQuest();
   setupScrollReveal();
   registerServiceWorker();

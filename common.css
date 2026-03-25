@@ -276,6 +276,28 @@ main {
   min-width: 84px;
 }
 
+.mission-toggle[disabled] {
+  cursor: default;
+  transform: none;
+}
+
+.mission-planner {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mission-planner label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line-color);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  font-weight: 600;
+}
+
 .dual-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -286,6 +308,10 @@ main {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 10px;
+}
+
+.single-action {
+  grid-template-columns: 1fr;
 }
 
 .action-row button {
@@ -440,6 +466,19 @@ input[type="submit"]:hover {
   transform: translateY(-1px);
 }
 
+.theme-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1200;
+  border-radius: 999px;
+  padding: 12px 16px;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28);
+  background:
+    linear-gradient(135deg, var(--accent-soft), rgba(255, 255, 255, 0.04)),
+    var(--surface-1);
+}
+
 .pill {
   display: inline-flex;
   align-items: center;
@@ -561,6 +600,10 @@ footer {
   .dual-row {
     grid-template-columns: 1fr;
   }
+
+  .mission-planner {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
@@ -620,6 +663,13 @@ footer {
   .card {
     border-radius: 12px;
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+  }
+
+  .theme-fab {
+    right: 12px;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+    justify-content: center;
   }
 
   button,

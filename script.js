@@ -2175,3 +2175,22 @@ document.getElementById("logout")?.addEventListener("click", async () => {
   if (error) { console.error("Logout error:", error.message); }
   else { showToast("You have been logged out!", "success"); setTimeout(() => window.location.reload(), 1500); }
  });
+
+ async function sendMessage() {
+
+  const msgEl = document.getElementById("msg");
+  const chatEl = document.getElementById("chat");
+  if (!msgEl || !chatEl) return;
+
+  const msg = msgEl.value;
+
+  const res = await fetch("/chat", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ message: msg })
+  });
+
+  const data = await res.json();
+
+  chatEl.innerHTML += "<p>AI: " + (data.reply || "") + "</p>";
+}

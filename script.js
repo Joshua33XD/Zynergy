@@ -1,4 +1,4 @@
-﻿import { createClient } from "https://esm.sh/@supabase/supabase-js";
+import { createClient } from "https://esm.sh/@supabase/supabase-js";
 
 const supabase = createClient(
   "https://wamikmqjlwnfohaqnfpc.supabase.co",
@@ -93,7 +93,6 @@ function handleError(error, tableName, user_id, date) {
 
 const uiState = { setCount: 0, sessionXp: 0 };
 const mealCaptureState = {};
-const workoutBuilderState = { sets: [] };
 const gamificationState = {
   dailyMissions: [],
   completedMissionKeys: new Set(),
@@ -244,539 +243,6 @@ function combineNoteParts(parts) {
   return parts.map((part) => part?.trim()).filter(Boolean).join(" | ") || null;
 }
 
-function clampNumber(value, min, max) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return min;
-  return Math.min(max, Math.max(min, numeric));
-}
-
-function roundTo(value, digits = 1) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return 0;
-  const factor = 10 ** digits;
-  return Math.round(numeric * factor) / factor;
-}
-
-function getWorkoutPresetStorageKey() {
-  return "lastWorkoutPreset";
-}
-
-function buildWorkoutSet(values = {}) {
-  return {
-    reps: clampNumber(values.reps ?? 10, 1, 100),
-    weight: clampNumber(values.weight ?? 40, 0, 1000),
-  };
-}
-
-function syncWorkoutSetCounter() {
-  const setCount = workoutBuilderState.sets.length;
-  uiState.setCount = setCount;
-  const counter = document.getElementById("setCounter");
-  if (counter) counter.textContent = `Sets planned: ${setCount}`;
-  const setCountInput = document.getElementById("wgerSets");
-  if (setCountInput) setCountInput.value = String(setCount || 1);
-}
-
-function renderWorkoutSetRows() {
-  const listEl = document.getElementById("workoutSetList");
-  if (!listEl) return;
-
-  listEl.replaceChildren();
-  workoutBuilderState.sets.forEach((setRow, index) => {
-    const row = document.createElement("div");
-    row.className = "workout-set-row";
-    row.innerHTML = `
-      <div class="workout-set-label">Set ${index + 1}</div>
-      <label class="form-row">
-        <span>Reps</span>
-        <input type="number" min="1" max="100" step="1" data-role="set-reps" value="${setRow.reps}">
-      </label>
-      <label class="form-row">
-        <span>Weight (kg)</span>
-        <input type="number" min="0" max="1000" step="0.5" data-role="set-weight" value="${setRow.weight}">
-      </label>
-      <button type="button" class="workout-set-remove" data-role="remove-set" aria-label="Remove set ${index + 1}">Remove</button>
-    `;
-
-    const repsInput = row.querySelector('[data-role="set-reps"]');
-    const weightInput = row.querySelector('[data-role="set-weight"]');
-    const removeBtn = row.querySelector('[data-role="remove-set"]');
-
-    repsInput?.addEventListener("input", () => {
-      workoutBuilderState.sets[index].reps = clampNumber(repsInput.value, 1, 100);
-    });
-    weightInput?.addEventListener("input", () => {
-      workoutBuilderState.sets[index].weight = clampNumber(weightInput.value, 0, 1000);
-    });
-    removeBtn?.addEventListener("click", () => {
-      if (workoutBuilderState.sets.length <= 1) return;
-      workoutBuilderState.sets.splice(index, 1);
-      renderWorkoutSetRows();
-      syncWorkoutSetCounter();
-    });
-
-    listEl.appendChild(row);
-  });
-
-  syncWorkoutSetCounter();
-}
-
-function ensureWorkoutSetCount(targetCount, { preserveExisting = true } = {}) {
-  const count = clampNumber(targetCount, 1, 12);
-  const next = preserveExisting ? [...workoutBuilderState.sets] : [];
-
-  while (next.length < count) {
-    const previous = next[next.length - 1];
-    next.push(buildWorkoutSet(previous || {}));
-  }
-  next.length = count;
-  workoutBuilderState.sets = next.map((item) => buildWorkoutSet(item));
-  renderWorkoutSetRows();
-}
-
-function getWorkoutSetSummary() {
-  const validSets = workoutBuilderState.sets
-    .map((setRow) => ({
-      reps: clampNumber(setRow.reps, 1, 100),
-      weight: clampNumber(setRow.weight, 0, 1000),
-    }))
-    .filter((setRow) => setRow.reps > 0);
-
-  return {
-    sets: validSets,
-    topWeight: validSets.reduce((max, setRow) => Math.max(max, setRow.weight), 0),
-    totalVolume: roundTo(
-      validSets.reduce((sum, setRow) => sum + setRow.reps * setRow.weight, 0),
-      1
-    ),
-    description: validSets
-      .map((setRow, index) => `S${index + 1} ${setRow.reps}x${setRow.weight}kg`)
-      .join(" | "),
-  };
-}
-
-function getSleepMoodScore(emojiValue) {
-  const scoreMap = {
-    emoji1: 40,
-    emoji2: 88,
-    emoji3: 56,
-    emoji4: 32,
-    emoji5: 96,
-    "😴🛌💤": 40,
-    "😃☀️🌞": 88,
-    "😬☕🥱": 56,
-    "😡⏰😒": 32,
-    "🏃‍♂️💨⏱️": 96,
-  };
-  return scoreMap[emojiValue] ?? 60;
-}
-
-function getSleepRecoverySnapshot(hoursSlept, emojiValue) {
-  const sleepBankPct = clampNumber(Math.round((Number(hoursSlept || 0) / 8) * 100), 0, 100);
-  const morningPct = clampNumber(Math.round(getSleepMoodScore(emojiValue)), 0, 100);
-  const stressPct = clampNumber(
-    Math.round(100 - (sleepBankPct * 0.55 + morningPct * 0.45)),
-    0,
-    100
-  );
-  const tier =
-    sleepBankPct >= 85 && morningPct >= 80 ? "Elite" :
-    sleepBankPct >= 70 ? "Stable" :
-    sleepBankPct >= 50 ? "Recovering" :
-    "Needs work";
-  return { sleepBankPct, morningPct, stressPct, tier };
-}
-
-function applySleepRecoveryUi(snapshot, extras = {}) {
-  if (!snapshot) return;
-  const { sleepBankPct, morningPct, stressPct, tier } = snapshot;
-
-  animateMeterById("sleepMeter", sleepBankPct);
-  animateMeterById("morningMeter", morningPct);
-  animateMeterById("stressMeter", stressPct);
-  animateMeterById("dashboardSleepQualityMeter", sleepBankPct);
-  animateMeterById("dashboardHydrationMeter", clampNumber(extras.hydrationPct ?? 0, 0, 100));
-
-  const mappings = [
-    ["sleepBankLabel", `${sleepBankPct}%`],
-    ["morningLabel", `${morningPct}%`],
-    ["stressLabel", `${stressPct}%`],
-    ["sleepRecoveryTierLabel", tier],
-    ["dashboardSleepQualityLabel", `${sleepBankPct}%`],
-    ["dashboardHydrationLabel", `${clampNumber(extras.hydrationPct ?? 0, 0, 100)}%`],
-  ];
-  mappings.forEach(([id, value]) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
-  });
-
-  const avgSleepEl = document.getElementById("sleepAvgLabel");
-  if (avgSleepEl && extras.avgSleepHours != null) {
-    avgSleepEl.textContent = `${roundTo(extras.avgSleepHours, 1)} h`;
-  }
-  const lateNightsEl = document.getElementById("sleepLateNightsLabel");
-  if (lateNightsEl && extras.lateNights != null) {
-    lateNightsEl.textContent = String(extras.lateNights);
-  }
-}
-
-function scaleAiNutrition(per100g, grams) {
-  if (!per100g) return null;
-  const factor = Math.max(0, Number(grams) || 0) / 100;
-  return {
-    calories: roundTo((per100g.calories || 0) * factor, 1),
-    protein_g: roundTo((per100g.protein_g || 0) * factor, 1),
-    carbs_g: roundTo((per100g.carbs_g || 0) * factor, 1),
-    fat_g: roundTo((per100g.fat_g || 0) * factor, 1),
-  };
-}
-
-function normalizeAiDetection(item, index) {
-  const defaultGrams = Math.max(
-    30,
-    Math.min(600, roundTo(item?.grams ?? item?.default_grams ?? 150, 0))
-  );
-  const nutritionPer100g = item?.nutrition_per_100g || null;
-  return {
-    id: item?.id || `ai-food-${index + 1}`,
-    label: item?.label || `Food ${index + 1}`,
-    confidence: Number(item?.confidence) || null,
-    candidates: Array.isArray(item?.candidates) ? item.candidates : [],
-    bbox: item?.bbox || null,
-    defaultGrams,
-    grams: defaultGrams,
-    enabled: true,
-    nutrition_source: item?.nutrition_source || null,
-    nutrition_meta: item?.nutrition_meta || null,
-    nutrition_per_100g: nutritionPer100g,
-    nutrition: scaleAiNutrition(nutritionPer100g, defaultGrams),
-  };
-}
-
-function getActiveAiDetections() {
-  return aiMealScanState.detections.filter((item) => item.enabled);
-}
-
-function getAiTotals() {
-  const totals = { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
-  getActiveAiDetections().forEach((item) => {
-    if (!item.nutrition) return;
-    totals.calories += Number(item.nutrition.calories) || 0;
-    totals.protein_g += Number(item.nutrition.protein_g) || 0;
-    totals.carbs_g += Number(item.nutrition.carbs_g) || 0;
-    totals.fat_g += Number(item.nutrition.fat_g) || 0;
-  });
-  return {
-    calories: roundTo(totals.calories, 1),
-    protein_g: roundTo(totals.protein_g, 1),
-    carbs_g: roundTo(totals.carbs_g, 1),
-    fat_g: roundTo(totals.fat_g, 1),
-  };
-}
-
-function setAiStatus(message, type = "info") {
-  const statusEl = document.getElementById("aiMealStatus");
-  if (!statusEl) return;
-  statusEl.textContent = message;
-  statusEl.style.color =
-    type === "error" ? "#fca5a5" :
-    type === "success" ? "#86efac" :
-    "";
-}
-
-function updateAiSummary() {
-  const totals = getAiTotals();
-  const activeFoods = getActiveAiDetections().length;
-  const foodsCountEl = document.getElementById("aiFoodsCount");
-  const caloriesEl = document.getElementById("aiCaloriesTotal");
-  const proteinEl = document.getElementById("aiProteinTotal");
-  const carbsFatEl = document.getElementById("aiCarbsFatTotal");
-  const applyBtn = document.getElementById("aiMealApplyBtn");
-
-  if (foodsCountEl) foodsCountEl.textContent = String(activeFoods);
-  if (caloriesEl) caloriesEl.textContent = `${roundTo(totals.calories, 0)} kcal`;
-  if (proteinEl) proteinEl.textContent = `${totals.protein_g} g`;
-  if (carbsFatEl) carbsFatEl.textContent = `${totals.carbs_g} g / ${totals.fat_g} g`;
-  if (applyBtn) applyBtn.disabled = activeFoods === 0;
-}
-
-function renderAiDetectedFoods() {
-  const listEl = document.getElementById("aiDetectedFoods");
-  if (!listEl) return;
-
-  listEl.replaceChildren();
-  if (!aiMealScanState.detections.length) {
-    const empty = document.createElement("div");
-    empty.className = "ai-empty-state";
-    empty.innerHTML = "<p class=\"muted\">No AI detections yet. Once your image is analyzed, each food gets its own editable portion slider here.</p>";
-    listEl.appendChild(empty);
-    updateAiSummary();
-    return;
-  }
-
-  aiMealScanState.detections.forEach((item, index) => {
-    const article = document.createElement("article");
-    article.className = "ai-detected-item";
-
-    const candidateHtml = (item.candidates || [])
-      .slice(0, 4)
-      .map((candidate) => {
-        const confidenceText = candidate?.confidence
-          ? ` ${Math.round(candidate.confidence * 100)}%`
-          : "";
-        return `<span class="ai-chip">${candidate?.label || "Candidate"}${confidenceText}</span>`;
-      })
-      .join("");
-
-    article.innerHTML = `
-      <div class="ai-item-head">
-        <div>
-          <h3>${item.label}</h3>
-          <p class="muted">
-            ${item.confidence ? `Detection confidence ${Math.round(item.confidence * 100)}%. ` : ""}
-            ${item.nutrition_source ? `Nutrition fallback: ${item.nutrition_source.replaceAll("_", " ")}.` : "Nutrition fallback unavailable for this item."}
-          </p>
-        </div>
-        <label class="ai-item-toggle">
-          <input type="checkbox" data-role="enabled-toggle" checked>
-          Include
-        </label>
-      </div>
-      ${candidateHtml ? `<div class="ai-item-candidates">${candidateHtml}</div>` : ""}
-      <div class="ai-portion-controls">
-        <div class="ai-portion-topline">
-          <span>Portion Size</span>
-          <span data-role="portion-label">0 g</span>
-        </div>
-        <div class="ai-portion-inputs">
-          <input type="range" min="30" max="600" step="5" data-role="grams-range">
-          <input type="number" min="30" max="600" step="5" data-role="grams-input">
-        </div>
-      </div>
-      <div class="ai-macro-grid">
-        <div class="ai-macro-card">
-          <span>Calories</span>
-          <strong data-role="calories-value">0 kcal</strong>
-        </div>
-        <div class="ai-macro-card">
-          <span>Protein</span>
-          <strong data-role="protein-value">0 g</strong>
-        </div>
-        <div class="ai-macro-card">
-          <span>Carbs</span>
-          <strong data-role="carbs-value">0 g</strong>
-        </div>
-        <div class="ai-macro-card">
-          <span>Fat</span>
-          <strong data-role="fat-value">0 g</strong>
-        </div>
-      </div>
-    `;
-
-    const enabledToggle = article.querySelector('[data-role="enabled-toggle"]');
-    const gramsRange = article.querySelector('[data-role="grams-range"]');
-    const gramsInput = article.querySelector('[data-role="grams-input"]');
-    const portionLabel = article.querySelector('[data-role="portion-label"]');
-    const caloriesValue = article.querySelector('[data-role="calories-value"]');
-    const proteinValue = article.querySelector('[data-role="protein-value"]');
-    const carbsValue = article.querySelector('[data-role="carbs-value"]');
-    const fatValue = article.querySelector('[data-role="fat-value"]');
-
-    const paintCard = () => {
-      article.style.opacity = item.enabled ? "1" : "0.55";
-      article.style.filter = item.enabled ? "none" : "grayscale(0.2)";
-      gramsRange.value = String(item.grams);
-      gramsInput.value = String(item.grams);
-      gramsRange.disabled = !item.enabled;
-      gramsInput.disabled = !item.enabled;
-      portionLabel.textContent = `${roundTo(item.grams, 0)} g`;
-
-      if (item.nutrition) {
-        caloriesValue.textContent = `${roundTo(item.nutrition.calories, 0)} kcal`;
-        proteinValue.textContent = `${item.nutrition.protein_g} g`;
-        carbsValue.textContent = `${item.nutrition.carbs_g} g`;
-        fatValue.textContent = `${item.nutrition.fat_g} g`;
-      } else {
-        caloriesValue.textContent = "N/A";
-        proteinValue.textContent = "N/A";
-        carbsValue.textContent = "N/A";
-        fatValue.textContent = "N/A";
-      }
-    };
-
-    const updateGrams = (nextValue) => {
-      const numeric = Math.max(30, Math.min(600, roundTo(nextValue || item.defaultGrams, 0)));
-      item.grams = numeric;
-      item.nutrition = scaleAiNutrition(item.nutrition_per_100g, numeric);
-      paintCard();
-      updateAiSummary();
-    };
-
-    enabledToggle?.addEventListener("change", () => {
-      item.enabled = enabledToggle.checked;
-      paintCard();
-      updateAiSummary();
-    });
-
-    gramsRange?.addEventListener("input", () => updateGrams(Number(gramsRange.value)));
-    gramsInput?.addEventListener("input", () => updateGrams(Number(gramsInput.value)));
-
-    paintCard();
-    listEl.appendChild(article);
-  });
-
-  updateAiSummary();
-}
-
-async function analyzeAiMealPhoto() {
-  const fileInput = document.getElementById("aiMealPhoto");
-  const file = fileInput?.files?.[0];
-  if (!file) {
-    setAiStatus("Choose a meal photo before running AI analysis.", "error");
-    showToast("Please upload a meal photo first.", "error");
-    return;
-  }
-
-  setButtonBusy("aiMealAnalyzeBtn", true, "Analyze Meal Photo");
-  setAiStatus("Analyzing your meal photo with LogMeal and nutrition fallbacks...");
-
-  const formData = new FormData();
-  formData.append("image", file);
-
-  try {
-    const response = await fetch(`${FOOD_AI_API_BASE}/api/food/analyze`, {
-      method: "POST",
-      body: formData,
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || payload?.ok === false) {
-      throw new Error(payload?.error || "Meal analysis failed.");
-    }
-
-    aiMealScanState.imageId = payload?.image_id || null;
-    aiMealScanState.detections = Array.isArray(payload?.detections)
-      ? payload.detections.map(normalizeAiDetection)
-      : [];
-
-    renderAiDetectedFoods();
-
-    if (!aiMealScanState.detections.length) {
-      setAiStatus("The image uploaded successfully, but no foods were detected. Try a clearer top-down meal photo.", "error");
-      return;
-    }
-
-    const warningText = Array.isArray(payload?.warnings) && payload.warnings.length
-      ? ` ${payload.warnings[0]}`
-      : "";
-    setAiStatus(
-      `Detected ${aiMealScanState.detections.length} food item(s). Adjust the sliders, then apply the result to your logger.${warningText}`,
-      "success"
-    );
-    showToast("Meal analysis completed.", "success");
-  } catch (error) {
-    aiMealScanState.imageId = null;
-    aiMealScanState.detections = [];
-    renderAiDetectedFoods();
-    setAiStatus(error.message || "Meal analysis failed.", "error");
-    showToast(error.message || "Meal analysis failed.", "error");
-  } finally {
-    setButtonBusy("aiMealAnalyzeBtn", false, "Analyze Meal Photo");
-  }
-}
-
-function applyAiMealToLogger() {
-  const detections = getActiveAiDetections();
-  if (!detections.length) {
-    setAiStatus("Include at least one detected food before applying the scan.", "error");
-    showToast("No detected foods are selected.", "error");
-    return;
-  }
-
-  const mealType = document.getElementById("aiMealType")?.value || "lunch";
-  const mealSummary = detections
-    .map((item) => `${item.label} (${roundTo(item.grams, 0)}g)`)
-    .join(", ");
-  const totals = getAiTotals();
-  const totalGrams = roundTo(
-    detections.reduce((sum, item) => sum + (Number(item.grams) || 0), 0),
-    0
-  );
-  const nutritionSources = [...new Set(
-    detections
-      .map((item) => item.nutrition_source)
-      .filter(Boolean)
-      .map((source) => source.replaceAll("_", " "))
-  )];
-
-  const manualCard = document.getElementById("manualNutritionCard");
-  if (manualCard) manualCard.classList.remove("hidden");
-  const manualToggle = document.getElementById("nutritionManualToggle");
-  if (manualToggle) manualToggle.textContent = "Hide Manual Logger";
-
-  const manualField = document.getElementById(mealType);
-  if (manualField) manualField.value = mealSummary;
-
-  const notesEl = document.getElementById("notes");
-  const noteFragments = [
-    `AI meal scan: ${mealSummary}`,
-    `AI totals: ${roundTo(totals.calories, 0)} kcal, ${totals.protein_g}g protein, ${totals.carbs_g}g carbs, ${totals.fat_g}g fat`,
-    nutritionSources.length ? `Nutrition sources: ${nutritionSources.join(", ")}` : null,
-  ].filter(Boolean);
-  if (notesEl) {
-    const existing = notesEl.value.trim();
-    const nextNotes = noteFragments.join(" | ");
-    notesEl.value = existing ? `${existing} | ${nextNotes}` : nextNotes;
-  }
-
-  const wgerSearch = document.getElementById("wgerIngredientSearch");
-  if (wgerSearch) wgerSearch.value = detections[0].label;
-  const wgerMealType = document.getElementById("wgerMealType");
-  if (wgerMealType) wgerMealType.value = mealType;
-  const wgerGrams = document.getElementById("wgerGrams");
-  if (wgerGrams) wgerGrams.value = String(totalGrams);
-
-  setAiStatus("AI meal scan applied to the logger. Review the fields and save when ready.", "success");
-  showToast("AI meal scan applied to the logger.", "success");
-}
-
-function setupAiMealScan() {
-  const fileInput = document.getElementById("aiMealPhoto");
-  const previewWrap = document.getElementById("aiMealPhotoPreviewWrap");
-  const previewImg = document.getElementById("aiMealPhotoPreview");
-  const analyzeBtn = document.getElementById("aiMealAnalyzeBtn");
-  const applyBtn = document.getElementById("aiMealApplyBtn");
-
-  if (!fileInput || !previewWrap || !previewImg || !analyzeBtn || !applyBtn) return;
-
-  fileInput.addEventListener("change", () => {
-    if (aiMealScanState.photoObjectUrl) {
-      URL.revokeObjectURL(aiMealScanState.photoObjectUrl);
-      aiMealScanState.photoObjectUrl = null;
-    }
-
-    const file = fileInput.files?.[0];
-    aiMealScanState.imageId = null;
-    aiMealScanState.detections = [];
-    renderAiDetectedFoods();
-
-    if (!file) {
-      previewImg.removeAttribute("src");
-      previewWrap.classList.add("hidden");
-      setAiStatus("Upload a meal photo to start AI analysis.");
-      return;
-    }
-
-    aiMealScanState.photoObjectUrl = URL.createObjectURL(file);
-    previewImg.src = aiMealScanState.photoObjectUrl;
-    previewWrap.classList.remove("hidden");
-    setAiStatus("Photo ready. Run analysis to detect foods and estimate nutrition.");
-  });
-
-  analyzeBtn.addEventListener("click", analyzeAiMealPhoto);
-  applyBtn.addEventListener("click", applyAiMealToLogger);
-  renderAiDetectedFoods();
-}
-
 // Simple client-side level curve based on XP
 function getLevelFromXp(xp) {
   const thresholds = [
@@ -885,27 +351,6 @@ function getMissionStorageKey() {
   return `zynergy_daily_missions_${new Date().toISOString().split("T")[0]}`;
 }
 
-function getMissionSelectionStorageKey() {
-  return `zynergy_daily_mission_selection_${new Date().toISOString().split("T")[0]}`;
-}
-
-function loadSelectedMissionKeys() {
-  const raw = localStorage.getItem(getMissionSelectionStorageKey());
-  if (!raw) return getDailyMissionCatalog().map((mission) => mission.key);
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length
-      ? parsed.filter(Boolean)
-      : getDailyMissionCatalog().map((mission) => mission.key);
-  } catch {
-    return getDailyMissionCatalog().map((mission) => mission.key);
-  }
-}
-
-function saveSelectedMissionKeys(keys) {
-  localStorage.setItem(getMissionSelectionStorageKey(), JSON.stringify(Array.from(new Set(keys))));
-}
-
 function loadMissionProgress() {
   const raw = localStorage.getItem(getMissionStorageKey());
   if (!raw) return new Set();
@@ -919,37 +364,6 @@ function loadMissionProgress() {
 
 function saveMissionProgress(setValue) {
   localStorage.setItem(getMissionStorageKey(), JSON.stringify(Array.from(setValue)));
-}
-
-async function syncMissionProgressFromActivity() {
-  const selectedKeys = loadSelectedMissionKeys();
-  gamificationState.dailyMissions = getDailyMissionCatalog().filter((mission) =>
-    selectedKeys.includes(mission.key)
-  );
-
-  const nextCompleted = new Set();
-  const stored = loadMissionProgress();
-  if (stored.has("post_challenge")) nextCompleted.add("post_challenge");
-  if (stored.has("__daily_bonus__")) nextCompleted.add("__daily_bonus__");
-
-  const userInfo = await getUserInfo();
-  if (userInfo) {
-    const today = toLocalDateString(new Date());
-    const { user_id } = userInfo;
-    const [{ data: workouts }, { data: nutrition }, { data: sleep }] = await Promise.all([
-      supabase.from("workout_daily").select("date").eq("user_id", user_id).eq("date", today).limit(1),
-      supabase.from("daily_nutrition").select("entry_date").eq("user_id", user_id).eq("entry_date", today).limit(1),
-      supabase.from("daily_sleep").select('"Date"').eq("user_id", user_id).eq("Date", today).limit(1),
-    ]);
-
-    if ((workouts || []).length) nextCompleted.add("log_workout");
-    if ((nutrition || []).length) nextCompleted.add("log_nutrition");
-    if ((sleep || []).length) nextCompleted.add("log_sleep");
-  }
-
-  gamificationState.completedMissionKeys = nextCompleted;
-  saveMissionProgress(nextCompleted);
-  renderMissionBoard();
 }
 
 function markMissionComplete(key, { suppressXpPop = false } = {}) {
@@ -984,18 +398,6 @@ function renderMissionBoard() {
   if (!missionList) return;
 
   missionList.replaceChildren();
-  if (!gamificationState.dailyMissions.length) {
-    const empty = document.createElement("li");
-    empty.innerHTML = "<span>No missions selected yet.</span><button class=\"mission-toggle\" type=\"button\" disabled>Plan first</button>";
-    missionList.appendChild(empty);
-    const missionPct = document.getElementById("missionPct");
-    if (missionPct) missionPct.textContent = "0%";
-    animateMeterById("missionMeter", 0);
-    const bonusLabel = document.getElementById("missionBonusLabel");
-    if (bonusLabel) bonusLabel.textContent = "Choose today's missions to enable auto-tracking.";
-    return;
-  }
-
   gamificationState.dailyMissions.forEach((mission) => {
     const done = gamificationState.completedMissionKeys.has(mission.key);
     const li = document.createElement("li");
@@ -1007,8 +409,8 @@ function renderMissionBoard() {
     btn.type = "button";
     btn.dataset.key = mission.key;
     btn.dataset.xp = String(mission.xp);
-    btn.textContent = done ? "Done" : "Auto";
-    btn.disabled = true;
+    btn.textContent = done ? "Done" : "Pending";
+    btn.addEventListener("click", () => markMissionComplete(mission.key));
     li.append(text, btn);
     missionList.appendChild(li);
   });
@@ -1073,13 +475,6 @@ const wgerState = {
   nutritionReady: false,
 };
 
-const FOOD_AI_API_BASE = window.FOOD_AI_API_BASE_URL || "http://127.0.0.1:8000";
-const aiMealScanState = {
-  photoObjectUrl: null,
-  detections: [],
-  imageId: null,
-};
-
 // â”€â”€â”€ UI helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function showXpPop(text) {
   const xpPop = document.getElementById("xpPop");
@@ -1097,38 +492,36 @@ function showToast(message, type = "info") {
     container.id = "toast-container";
     Object.assign(container.style, {
       position: "fixed",
-      right: "20px",
-      bottom: "20px",
-      display: "grid",
-      gap: "10px",
+      bottom: "80px",
+      left: "50%",
+      transform: "translateX(-50%)",
+      display: "flex",
+      flexDirection: "column",
+      gap: "8px",
       zIndex: "9999",
       pointerEvents: "none",
-      width: "min(320px, calc(100vw - 32px))",
+      width: "max-content",
+      maxWidth: "90vw"
     });
     document.body.appendChild(container);
   }
 
-  const palette = {
-    info: { bg: "#183b5b", border: "#3b82f6" },
-    success: { bg: "#163824", border: "#22c55e" },
-    error: { bg: "#4c1d1d", border: "#ef4444" },
-  };
-  const colors = palette[type] || palette.info;
   const toast = document.createElement("div");
   Object.assign(toast.style, {
-    background: colors.bg,
-    border: `1px solid ${colors.border}`,
-    color: "#f8fafc",
-    borderRadius: "14px",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.24)",
-    padding: "12px 14px",
-    fontSize: "0.95rem",
-    lineHeight: "1.4",
+    background: type === "error" ? "#e74c3c" : type === "success" ? "#2ecc71" : "#3498db",
+    color: "#ffffff",
+    padding: "10px 16px",
+    borderRadius: "8px",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+    fontSize: "14px",
+    fontWeight: "500",
     opacity: "0",
-    transform: "translateY(8px)",
-    transition: "opacity 0.2s ease, transform 0.2s ease",
+    transition: "opacity 0.3s ease, transform 0.3s ease",
+    transform: "translateY(10px)",
+    textAlign: "center"
   });
   toast.textContent = message;
+
   container.appendChild(toast);
 
   requestAnimationFrame(() => {
@@ -1136,11 +529,11 @@ function showToast(message, type = "info") {
     toast.style.transform = "translateY(0)";
   });
 
-  window.setTimeout(() => {
+  setTimeout(() => {
     toast.style.opacity = "0";
-    toast.style.transform = "translateY(8px)";
-    window.setTimeout(() => toast.remove(), 220);
-  }, 2800);
+    toast.style.transform = "translateY(10px)";
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
 }
 
 function animateMeterById(id, percent) {
@@ -1195,6 +588,12 @@ function formatMacro(label, value) {
 function renderApiError(statusEl, listEl, message) {
   if (statusEl) statusEl.textContent = message;
   if (listEl) listEl.replaceChildren();
+}
+
+function showLoginRequiredMessage(targetId, message = "Please login to view data.") {
+  const target = document.getElementById(targetId);
+  if (!target) return;
+  target.textContent = message;
 }
 
 function capitalizeFirst(text) {
@@ -1521,12 +920,15 @@ async function setupWgerFeeds() {
   wgerState.workoutReady = wgerReady;
   wgerState.nutritionReady = wgerReady;
 
-  const workoutStatus = document.getElementById("workoutSourceStatus");
-  if (workoutStatus) {
-    workoutStatus.textContent = wgerReady
-      ? "Local exercise library ready. Search for an exercise to begin."
-      : "Exercise library unavailable.";
-  }
+  setSourceMode({
+    ready: wgerReady,
+    wgerCardId: "wgerWorkoutCard",
+    manualCardId: "manualWorkoutCard",
+    statusId: "workoutSourceStatus",
+    manualToggleId: "workoutManualToggle",
+    readyText: "Exercise library ready. Search for an exercise to begin.",
+    fallbackText: "Exercise library unavailable. Manual workout logger enabled.",
+  });
 
   setSourceMode({
     ready: wgerReady,
@@ -1562,8 +964,10 @@ async function saveWorkoutViaWger() {
 
   const muscleFocus = document.getElementById("wgerMuscleFocus")?.value || "";
   const exerciseSelect = document.getElementById("wgerExerciseSelect");
+  const sets = Number(document.getElementById("wgerSets")?.value || 0);
+  const reps = Number(document.getElementById("wgerReps")?.value || 0);
   const intensityRaw = document.getElementById("wgerWorkoutIntensity")?.value || "moderate";
-  const workoutSets = getWorkoutSetSummary();
+  const weightKg = Number(document.getElementById("wgerWorkoutWeight")?.value || 0);
 
   if (!exerciseSelect?.value || exerciseSelect.value === "") {
     if (statusLabel) statusLabel.textContent = "Select an exercise result before saving.";
@@ -1571,16 +975,16 @@ async function saveWorkoutViaWger() {
     showToast("Please search for and select an exercise first.", "error");
     return;
   }
-  if (!workoutSets.sets.length) {
-    if (statusLabel) statusLabel.textContent = "Add at least one set before saving.";
+  if (weightKg <= 0) {
+    if (statusLabel) statusLabel.textContent = "Top set weight must be greater than 0kg.";
     setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
-    showToast("Please add at least one set before saving.", "error");
+    showToast("Please enter a top set weight greater than 0 kg.", "error");
     return;
   }
-  if (workoutSets.sets.some((setRow) => setRow.weight <= 0)) {
-    if (statusLabel) statusLabel.textContent = "Each set needs a weight greater than 0kg.";
+  if (sets <= 0 || reps <= 0) {
+    if (statusLabel) statusLabel.textContent = "Sets and reps must be greater than 0.";
     setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
-    showToast("Each set needs a weight greater than 0 kg.", "error");
+    showToast("Sets and reps must be greater than 0.", "error");
     return;
   }
 
@@ -1608,7 +1012,7 @@ async function saveWorkoutViaWger() {
       user_id,
       username,
       date,
-      workout_status: `${exerciseName}: ${workoutSets.description} | Volume ${workoutSets.totalVolume} kg-reps`,
+      workout_status: `Wger log: ${exerciseName} (${sets}x${reps} @ ${weightKg}kg)`,
       workout_intensity: intensity,
       muscle_groups: muscleFocus ? [wgerState.muscleLookup[muscleFocus] || muscleFocus] : [],
       energy_level,
@@ -1627,37 +1031,20 @@ async function saveWorkoutViaWger() {
   animateNumber("sessionXp", uiState.sessionXp);
   animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
   showXpPop("+30 XP");
-  maybeNotify("Workout saved", `${exerciseName} saved through the local library.`);
-  showToast("Workout saved successfully.", "success");
+  maybeNotify("Workout saved", `${exerciseName} saved through Wger.`);
+  showToast("Workout saved successfully via Wger!", "success");
 
+  // Prefill challenge exercise name for quick posting
   const challengeInput = document.getElementById("challengeExercise");
   if (challengeInput && !challengeInput.value) {
     challengeInput.value = exerciseName;
   }
-  const challengeWeight = document.getElementById("challengeWeight");
-  if (challengeWeight) challengeWeight.value = String(workoutSets.topWeight);
-  const challengeReps = document.getElementById("challengeReps");
-  if (challengeReps && workoutSets.sets[0]) {
-    challengeReps.value = String(workoutSets.sets[0].reps);
-  }
-
-  localStorage.setItem(
-    getWorkoutPresetStorageKey(),
-    JSON.stringify({
-      intensity: intensityRaw,
-      muscleFocus,
-      exerciseSearch: document.getElementById("wgerExerciseSearch")?.value || "",
-      exerciseId: exerciseSelect.value,
-      exerciseName,
-      sets: workoutSets.sets,
-    })
-  );
 
   addXp(30);
   markMissionComplete("log_workout");
   if (statusLabel) statusLabel.textContent = "Workout saved to your daily log.";
-  loadSidebarProfileStats();
-  loadDashboardOverview();
+  const workoutSaveStatus = document.getElementById("workoutSaveStatus");
+  if (workoutSaveStatus) workoutSaveStatus.textContent = "Workout log saved/updated for today.";
   setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
 }
 
@@ -1755,11 +1142,12 @@ async function saveNutritionViaWger() {
   if (recoveryText) recoveryText.textContent = `${recoveryPct}%`;
   showXpPop("+15 XP");
   maybeNotify("Nutrition saved", `${ingredientName} logged through Wger.`);
-  showToast("Nutrition data saved successfully via Wger.", "success");
+  showToast("Nutrition data saved successfully via Wger!", "success");
   addXp(15);
   markMissionComplete("log_nutrition");
   if (statusLabel) statusLabel.textContent = "Nutrition saved to your daily log.";
-  loadDashboardOverview();
+  const nutritionSaveStatus = document.getElementById("nutritionSaveStatus");
+  if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Nutrition log saved/updated for today.";
   setButtonBusy("wgerNutritionSaveBtn", false, "Log Selected Nutrition");
 }
 
@@ -1774,26 +1162,92 @@ function setupWgerPrimaryLoggers() {
 
 // â”€â”€â”€ ALL OTHER UNCHANGED LOGIC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function getValues() {
-  return saveWorkoutViaWger();
+  const userInfo = await getUserInfo();
+  if (!userInfo) {
+    const workoutSaveStatus = document.getElementById("workoutSaveStatus");
+    if (workoutSaveStatus) workoutSaveStatus.textContent = "Please login to save workout data.";
+    showToast("You must be logged in to save workouts. Please log in first.", "error");
+    return;
+  }
+  const { user_id, username } = userInfo;
+  const intensityRaw = document.getElementById("workout-intensity")?.value;
+  const mg1Raw = document.getElementById("muscle-group")?.value;
+  const mg2Raw = document.getElementById("muscle-group2")?.value;
+  const workout_intensity = intensityRaw
+    ? intensityRaw[0].toUpperCase() + intensityRaw.slice(1).toLowerCase()
+    : null;
+  const muscleMap = {
+    chest: "Chest", back: "Back", legs: "Leg", leg: "Leg",
+    bicep: "Bicep", tricep: "Tricep", shoulders: "Shoulder", shoulder: "Shoulder",
+  };
+  const mg1 = mg1Raw ? muscleMap[mg1Raw] ?? null : null;
+  const mg2 = mg2Raw ? muscleMap[mg2Raw] ?? null : null;
+  const muscle_groups = [mg1, mg2].filter(Boolean);
+  const date = new Date().toISOString().split("T")[0];
+
+  // Auto-pick an energy_level based on intensity so the DB check constraint
+  // is satisfied without showing the field in the UI.
+  let energy_level = null;
+  if (intensityRaw === "light") energy_level = 4;
+  else if (intensityRaw === "intense") energy_level = 2;
+  else if (intensityRaw === "moderate") energy_level = 3;
+
+  const { data, error } = await upsertWithFallback(
+    "workout_daily",
+    { user_id, username, date, workout_status: "Workout done", workout_intensity, muscle_groups, energy_level },
+    "user_id,date"
+  );
+
+  if (error) {
+    showToast(handleError(error, "workout_daily", user_id, date), "error");
+  } else {
+    uiState.sessionXp += 30;
+    animateNumber("sessionXp", uiState.sessionXp);
+    animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
+    showXpPop("+30 XP");
+    maybeNotify("Workout saved", "Mission progress increased.");
+    showToast("Workout saved successfully!", "success");
+    addXp(30);
+    markMissionComplete("log_workout");
+    const workoutSaveStatus = document.getElementById("workoutSaveStatus");
+    if (workoutSaveStatus) workoutSaveStatus.textContent = "Workout log saved/updated for today.";
+  }
 }
 
-function renderMissionPlanner() {
-  const planner = document.getElementById("missionPlannerList");
-  if (!planner) return;
-  const selected = new Set(loadSelectedMissionKeys());
-  planner.replaceChildren();
+async function loadTodaySleepEntry() {
+  const userInfo = await getUserInfo();
+  const statusEl = document.getElementById("sleepStatus");
+  if (!userInfo) {
+    if (statusEl) statusEl.textContent = "Please login to load or save sleep data.";
+    return;
+  }
 
-  getDailyMissionCatalog().forEach((mission) => {
-    const label = document.createElement("label");
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.value = mission.key;
-    input.checked = selected.has(mission.key);
-    const text = document.createElement("span");
-    text.textContent = `${mission.label} (+${mission.xp} XP)`;
-    label.append(input, text);
-    planner.appendChild(label);
-  });
+  const today = new Date().toISOString().split("T")[0];
+  const { data, error } = await supabase
+    .from("daily_sleep")
+    .select('"Date", hours_slept, sleep_emoji')
+    .eq("user_id", userInfo.user_id)
+    .eq("Date", today)
+    .maybeSingle();
+  if (error || !data) {
+    if (statusEl) statusEl.textContent = "No sleep log yet today. Save to create one.";
+    return;
+  }
+
+  const emojiToSelect = {
+    "\u{1F634}\u{1F6CC}\u{1F4A4}": "emoji1",
+    "\u{1F603}\u{2600}\u{FE0F}\u{1F31E}": "emoji2",
+    "\u{1F62C}\u{2615}\u{1F971}": "emoji3",
+    "\u{1F621}\u{23F0}\u{1F612}": "emoji4",
+    "\u{1F3C3}\u{200D}\u{2642}\u{FE0F}\u{1F4A8}\u{23F1}\u{FE0F}": "emoji5",
+  };
+  const sleepInput = document.getElementById("sleepInput");
+  const emojiSelect = document.getElementById("emojiSelect");
+  if (sleepInput) sleepInput.value = String(data.hours_slept ?? "");
+  if (emojiSelect && data.sleep_emoji && emojiToSelect[data.sleep_emoji]) {
+    emojiSelect.value = emojiToSelect[data.sleep_emoji];
+  }
+  if (statusEl) statusEl.textContent = "Today's sleep log loaded. Edit and save to update.";
 }
 
 async function saveSleepData() {
@@ -1824,15 +1278,11 @@ async function saveSleepData() {
   const sleep_emoji = emojiMap[emojiRaw] || emojiRaw;
   if (hours_slept < 0 || hours_slept > 12) {
     if (statusEl) statusEl.textContent = "Hours slept must be between 0 and 12.";
-    showToast("Hours slept must be between 0 and 12.", "error");
+    showToast(`Hours slept must be between 0 and 12.`, "error");
     return;
   }
   const validEmojis = Object.values(emojiMap);
-  if (!validEmojis.includes(sleep_emoji)) {
-    if (statusEl) statusEl.textContent = "Invalid wake-up feeling selected.";
-    showToast("Invalid sleep emoji.", "error");
-    return;
-  }
+  if (!validEmojis.includes(sleep_emoji)) { showToast("Invalid sleep emoji.", "error"); return; }
   const { data, error } = await upsertWithFallback(
     "daily_sleep",
     { user_id, username, Date: date, hours_slept, sleep_emoji },
@@ -1843,15 +1293,24 @@ async function saveSleepData() {
     showToast(handleError(error, "daily_sleep", user_id, date), "error");
   }
   else {
-    const snapshot = getSleepRecoverySnapshot(hours_slept, emojiRaw);
     showXpPop("+10 XP");
-    applySleepRecoveryUi(snapshot);
+    const sleepPct = Math.min(100, Math.round((hours_slept / 10) * 100));
+    const morningPct = Math.min(100, Math.round((hours_slept / 9) * 100));
+    const stressPct = Math.max(0, 100 - Math.round((hours_slept / 10) * 70));
+    animateMeterById("sleepMeter", sleepPct);
+    animateMeterById("morningMeter", morningPct);
+    animateMeterById("stressMeter", stressPct);
+    const sleepBankLabel = document.getElementById("sleepBankLabel");
+    const morningLabel = document.getElementById("morningLabel");
+    const stressLabel = document.getElementById("stressLabel");
+    if (sleepBankLabel) sleepBankLabel.textContent = `${sleepPct}%`;
+    if (morningLabel) morningLabel.textContent = `${morningPct}%`;
+    if (stressLabel) stressLabel.textContent = `${stressPct}%`;
     maybeNotify("Sleep log saved", `Recovery updated: ${hours_slept}h`);
     showToast("Sleep data saved successfully!", "success");
     addXp(10, "sleep_log");
     markMissionComplete("log_sleep");
     if (statusEl) statusEl.textContent = "Sleep log saved/updated for today.";
-    loadSleepOverview();
   }
 }
 
@@ -1872,11 +1331,7 @@ async function saveNutritionData() {
   const protein = document.getElementById("protein")?.checked || false;
   const balancedMeal = document.getElementById("balanced_meal")?.checked || false;
   const notes = document.getElementById("notes")?.value?.trim() || null;
-  if (!breakfast || !lunch || !dinner || !snacks) {
-    if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Please fill in all meal fields.";
-    showToast("Please fill in all meal fields.", "error");
-    return;
-  }
+  if (!breakfast || !lunch || !dinner || !snacks) { showToast("Please fill in all meal fields.", "error"); return; }
   const entry_date = new Date().toISOString().split("T")[0];
   const noteParts = [notes, ...getMealCaptureSummary("manual")];
   const { data, error } = await upsertWithFallback(
@@ -1890,10 +1345,7 @@ async function saveNutritionData() {
     },
     "user_id,entry_date"
   );
-  if (error) {
-    if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Nutrition save failed. Try again.";
-    showToast(handleError(error, "daily_nutrition", user_id, entry_date), "error");
-  }
+  if (error) { showToast(handleError(error, "daily_nutrition", user_id, entry_date), "error"); }
   else {
     const proteinPct = protein ? 82 : 48;
     const caloriePct = balancedMeal ? 65 : 40;
@@ -1910,7 +1362,6 @@ async function saveNutritionData() {
     addXp(15, "nutrition_log");
     markMissionComplete("log_nutrition");
     if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Nutrition log saved/updated for today.";
-    loadDashboardOverview();
   }
 }
 
@@ -1937,12 +1388,10 @@ async function submitChallenge() {
   const weight = Number(weightInput?.value || 0);
 
   if (!exercise_name) {
-    if (statusEl) statusEl.textContent = "Enter an exercise name to post a challenge.";
     showToast("Please enter an exercise name for the challenge.", "error");
     return;
   }
   if (reps <= 0 || weight <= 0) {
-    if (statusEl) statusEl.textContent = "Reps and weight must both be greater than 0.";
     showToast("Reps and weight must be greater than 0.", "error");
     return;
   }
@@ -1973,8 +1422,6 @@ async function submitChallenge() {
   showXpPop("+25 XP (Challenge)");
   addXp(25);
   markMissionComplete("post_challenge");
-  loadDashboardOverview();
-  loadSidebarProfileStats();
 }
 
 async function loadLeaderboard() {
@@ -1982,6 +1429,15 @@ async function loadLeaderboard() {
   if (!list) return;
 
   list.replaceChildren();
+  const userInfo = await getUserInfo();
+  if (!userInfo) {
+    const li = document.createElement("li");
+    li.textContent = "Please login to view leaderboard data.";
+    list.appendChild(li);
+    showLoginRequiredMessage("rivalLabel");
+    showLoginRequiredMessage("statusRankLabel");
+    return;
+  }
 
   const { data, error } = await supabase
     .from("workout_challenges")
@@ -2016,8 +1472,15 @@ async function loadLeaderboard() {
   const rows = Array.from(aggregated.values()).sort(
     (a, b) => b.bestScore - a.bestScore
   );
+  if (!rows.length) {
+    const li = document.createElement("li");
+    li.textContent = "No leaderboard data yet. Post the first challenge.";
+    list.appendChild(li);
+    showLoginRequiredMessage("rivalLabel", "No rivals yet. Be the first to post a challenge.");
+    showLoginRequiredMessage("statusRankLabel", "Not ranked");
+    return;
+  }
 
-  const userInfo = await getUserInfo();
   const myId = userInfo?.user_id;
   let myRank = null;
   let rival = null;
@@ -2073,49 +1536,42 @@ function setupChallengeSection() {
 }
 
 function setupWorkoutShortcuts() {
-  const workoutSaveBtn = document.getElementById("wgerWorkoutSaveBtn");
-  if (!workoutSaveBtn) return;
+  const workoutPage = document.getElementById("workout");
+  if (!workoutPage) return;
+  const setCounter = document.getElementById("setCounter");
   const addSetBtn = document.getElementById("addSetBtn");
+  const addWeightBtn = document.getElementById("addWeightBtn");
   const repeatWorkoutBtn = document.getElementById("repeatWorkoutBtn");
-  const setCountInput = document.getElementById("wgerSets");
-  const intensity = document.getElementById("wgerWorkoutIntensity");
-  const muscleFocus = document.getElementById("wgerMuscleFocus");
-  const exerciseSearch = document.getElementById("wgerExerciseSearch");
-  const exerciseSelect = document.getElementById("wgerExerciseSelect");
-
-  ensureWorkoutSetCount(Number(setCountInput?.value || 3), { preserveExisting: false });
+  const weightInput = document.getElementById("workout-weight");
+  const intensity = document.getElementById("workout-intensity");
+  const muscle1 = document.getElementById("muscle-group");
+  const muscle2 = document.getElementById("muscle-group2");
 
   const addSet = () => {
-    ensureWorkoutSetCount(workoutBuilderState.sets.length + 1);
-    showXpPop("Set added");
+    uiState.setCount += 1;
+    uiState.sessionXp += 20;
+    if (setCounter) setCounter.textContent = `Sets logged: ${uiState.setCount}`;
+    animateNumber("sessionXp", uiState.sessionXp);
+    animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
+    showXpPop("+20 XP");
   };
 
   addSetBtn?.addEventListener("click", addSet);
-  setCountInput?.addEventListener("input", () => {
-    ensureWorkoutSetCount(Number(setCountInput.value || 1));
+  addWeightBtn?.addEventListener("click", () => {
+    if (!weightInput) return;
+    const next = (parseFloat(weightInput.value || "0") || 0) + 5;
+    weightInput.value = String(next);
+    showXpPop("+5kg");
   });
   repeatWorkoutBtn?.addEventListener("click", () => {
-    const cached = localStorage.getItem(getWorkoutPresetStorageKey());
+    const cached = localStorage.getItem("lastWorkoutPreset");
     if (!cached) return;
     try {
       const value = JSON.parse(cached);
       if (intensity && value.intensity) intensity.value = value.intensity;
-      if (muscleFocus && value.muscleFocus) muscleFocus.value = value.muscleFocus;
-      if (exerciseSearch && value.exerciseSearch) exerciseSearch.value = value.exerciseSearch;
-      if (exerciseSelect && value.exerciseId) {
-        const existingOption = [...exerciseSelect.options].find((option) => option.value === value.exerciseId);
-        if (!existingOption && value.exerciseName) {
-          const opt = document.createElement("option");
-          opt.value = value.exerciseId;
-          opt.textContent = value.exerciseName;
-          exerciseSelect.appendChild(opt);
-        }
-        exerciseSelect.value = value.exerciseId;
-      }
-      if (Array.isArray(value.sets) && value.sets.length) {
-        workoutBuilderState.sets = value.sets.map((setRow) => buildWorkoutSet(setRow));
-        renderWorkoutSetRows();
-      }
+      if (muscle1 && value.muscle1) muscle1.value = value.muscle1;
+      if (muscle2 && value.muscle2) muscle2.value = value.muscle2;
+      if (weightInput && value.weight) weightInput.value = value.weight;
       showXpPop("Preset loaded");
     } catch { /* ignore */ }
   });
@@ -2123,8 +1579,16 @@ function setupWorkoutShortcuts() {
     const activeTag = document.activeElement?.tagName;
     const typing = activeTag === "INPUT" || activeTag === "TEXTAREA";
     if (event.code === "Space" && !typing) { event.preventDefault(); addSet(); }
-    if (event.key === "Enter" && !typing) { event.preventDefault(); workoutSaveBtn.click(); }
+    if (event.key === "ArrowRight" && !typing) { event.preventDefault(); addWeightBtn?.click(); }
+    if (event.key === "Enter" && !typing) { event.preventDefault(); workoutPage.click(); }
     if ((event.key === "r" || event.key === "R") && !typing) { event.preventDefault(); repeatWorkoutBtn?.click(); }
+  });
+  workoutPage.addEventListener("click", () => {
+    const payload = {
+      intensity: intensity?.value, muscle1: muscle1?.value,
+      muscle2: muscle2?.value, weight: weightInput?.value,
+    };
+    localStorage.setItem("lastWorkoutPreset", JSON.stringify(payload));
   });
 }
 
@@ -2132,7 +1596,7 @@ function setupShareActions() {
   document.getElementById("copyShareBtn")?.addEventListener("click", async () => {
     const text = "NEW PR: Deadlift 140kg. Level Up -> 15";
     try { await navigator.clipboard.writeText(text); showXpPop("Copied"); }
-    catch { showToast("Copy failed. PR text: " + text, "error"); }
+    catch { showToast("Failed to copy. " + text, "error"); }
   });
   document.getElementById("downloadShareBtn")?.addEventListener("click", () => {
     const blob = new Blob(["NEW PR\nDeadlift 140kg\nLevel Up -> 15"], { type: "text/plain" });
@@ -2159,80 +1623,29 @@ function setupNotifications() {
   });
 }
 
-function ensureGlobalThemeButton() {
-  let floatingBtn = document.getElementById("globalThemeToggleBtn");
-  if (floatingBtn) return floatingBtn;
-
-  floatingBtn = document.createElement("button");
-  floatingBtn.id = "globalThemeToggleBtn";
-  floatingBtn.type = "button";
-  floatingBtn.className = "theme-fab";
-  floatingBtn.setAttribute("data-theme-toggle", "global");
-  floatingBtn.setAttribute("aria-label", "Toggle theme");
-  document.body.appendChild(floatingBtn);
-  return floatingBtn;
-}
-
 function setupThemeToggle() {
   const themeBtn = document.getElementById("themeToggleBtn");
-  const floatingBtn = ensureGlobalThemeButton();
-  const themeButtons = [themeBtn, floatingBtn].filter(Boolean);
   const rawTheme = localStorage.getItem("zynergyTheme") || "default";
   const savedTheme = rawTheme === "ion" ? "ion" : "default";
+  applyTheme(savedTheme);
+  if (!themeBtn) return;
   const labelMap = { default: "Theme: Black", ion: "Theme: Blue" };
-  const applyThemeUi = (themeName) => {
-    applyTheme(themeName);
-    themeButtons.forEach((button) => {
-      button.textContent = labelMap[themeName] || labelMap.default;
-      button.dataset.theme = themeName;
-    });
-  };
-
-  applyThemeUi(savedTheme);
-  if (!themeButtons.length) return;
-
-  const handleToggle = () => {
+  themeBtn.textContent = labelMap[savedTheme] || labelMap.default;
+  themeBtn.addEventListener("click", () => {
     const current = document.body.getAttribute("data-theme") || "default";
     const next = current === "default" ? "ion" : "default";
     localStorage.setItem("zynergyTheme", next);
-    applyThemeUi(next);
+    applyTheme(next);
+    themeBtn.textContent = labelMap[next] || labelMap.default;
     showXpPop("Theme switched");
-  };
-
-  themeButtons.forEach((button) => {
-    button.addEventListener("click", handleToggle);
   });
 }
 
-function setupMissionPlanner() {
-  const planner = document.getElementById("missionPlannerList");
-  const saveBtn = document.getElementById("missionPlannerSaveBtn");
-  const statusEl = document.getElementById("missionPlannerStatus");
-  if (!planner || !saveBtn) return;
-
-  renderMissionPlanner();
-  saveBtn.addEventListener("click", async () => {
-    const selectedKeys = [...planner.querySelectorAll('input[type="checkbox"]:checked')]
-      .map((input) => input.value)
-      .filter(Boolean);
-
-    if (!selectedKeys.length) {
-      if (statusEl) statusEl.textContent = "Pick at least one mission for today.";
-      showToast("Pick at least one mission for today.", "error");
-      return;
-    }
-
-    saveSelectedMissionKeys(selectedKeys);
-    if (statusEl) statusEl.textContent = "Today's mission plan saved. Progress will update automatically.";
-    await syncMissionProgressFromActivity();
-    showToast("Today's missions saved.", "success");
-  });
-}
-
-async function setupMissionBoard() {
+function setupMissionBoard() {
   if (!document.getElementById("missionList")) return;
-  renderMissionPlanner();
-  await syncMissionProgressFromActivity();
+  gamificationState.dailyMissions = getDailyMissionCatalog();
+  gamificationState.completedMissionKeys = loadMissionProgress();
+  renderMissionBoard();
 }
 
 function buildBadgeCatalog() {
@@ -2345,31 +1758,21 @@ function computeDailyStreak(dates) {
   return streak;
 }
 
-function getLevelProgress(xp) {
-  const thresholds = [
-    { level: 1, name: "Rookie", min: 0 },
-    { level: 5, name: "Grind Starter", min: 250 },
-    { level: 10, name: "Iron Disciple", min: 750 },
-    { level: 15, name: "Plate Stacker", min: 1500 },
-    { level: 20, name: "Volume Slayer", min: 2500 },
-  ];
-  const current = getLevelFromXp(xp);
-  const currentIndex = thresholds.findIndex((item) => item.level === current.level);
-  const next = thresholds[currentIndex + 1] || null;
-  if (!next) {
-    return { pct: 100, label: `${xp} XP total` };
-  }
-  const span = Math.max(1, next.min - current.min);
-  const pct = Math.round(((xp - current.min) / span) * 100);
-  return {
-    pct: clampNumber(pct, 0, 100),
-    label: `${xp} / ${next.min} XP to ${next.name}`,
-  };
-}
-
 async function loadSidebarProfileStats() {
   const userInfo = await getUserInfo();
-  if (!userInfo) return;
+  if (!userInfo) {
+    showLoginRequiredMessage("workoutLevelLabel");
+    showLoginRequiredMessage("workoutStreakLabel");
+    showLoginRequiredMessage("dashboardLevelLabel");
+    showLoginRequiredMessage("dashboardRankLabel");
+    showLoginRequiredMessage("dashboardStreakLabel");
+    showLoginRequiredMessage("dashboardProteinAvgLabel");
+    showLoginRequiredMessage("nutritionAvgLabel");
+    showLoginRequiredMessage("nutritionXpLabel");
+    showLoginRequiredMessage("statusXpLabel");
+    showLoginRequiredMessage("dashboardHeaderSubtitle", "Please login to view your live progress.");
+    return;
+  }
 
   const { user_id } = userInfo;
   const streakSources = [];
@@ -2403,130 +1806,83 @@ async function loadSidebarProfileStats() {
   const streakLabel = document.getElementById("workoutStreakLabel");
   if (streakLabel) streakLabel.textContent = streak > 0 ? `${streak} day(s)` : "Start today";
 
-  const profile = await getOrCreateUserProfile();
+  const { data: profile } = await supabase
+    .from("user_profile")
+    .select("xp")
+    .eq("user_id", user_id)
+    .maybeSingle();
   const xp = Number(profile?.xp || 0);
   const level = getLevelFromXp(xp);
   const levelLabel = document.getElementById("workoutLevelLabel");
   if (levelLabel) levelLabel.textContent = `${level.level} - ${level.name}`;
   const statusXpLabel = document.getElementById("statusXpLabel");
   if (statusXpLabel) statusXpLabel.textContent = String(xp);
-}
+  const xpValue = document.getElementById("xpValue");
+  if (xpValue) xpValue.textContent = String(xp);
+  const xpPct = Math.min(100, Math.round((xp % 1000) / 10));
+  animateMeterById("xpMeter", xpPct);
+  const xpMetaLabel = document.getElementById("xpMetaLabel");
+  if (xpMetaLabel) xpMetaLabel.textContent = `${xpPct}% to next milestone`;
 
-async function loadSleepOverview() {
-  if (!document.getElementById("sleepRecoveryTierLabel") && !document.getElementById("sleepBankLabel")) {
-    return;
+  const dashboardLevel = document.getElementById("dashboardLevelLabel");
+  const dashboardStreak = document.getElementById("dashboardStreakLabel");
+  const dashboardRank = document.getElementById("dashboardRankLabel");
+  const headerTitle = document.getElementById("dashboardHeaderTitle");
+  const headerSubtitle = document.getElementById("dashboardHeaderSubtitle");
+  if (dashboardLevel) dashboardLevel.textContent = `${level.level} - ${level.name}`;
+  if (dashboardStreak) dashboardStreak.textContent = streak > 0 ? `${streak} day(s)` : "Start today";
+  if (dashboardRank) dashboardRank.textContent = "Syncing...";
+  if (headerTitle) headerTitle.textContent = `Level ${level.level} - ${level.name}`;
+  if (headerSubtitle) headerSubtitle.textContent = "Open, log, earn XP, and keep your streak alive.";
+
+  const { data: rankRows } = await supabase
+    .from("workout_challenges")
+    .select("user_id, score")
+    .order("score", { ascending: false })
+    .limit(200);
+  if (Array.isArray(rankRows) && rankRows.length) {
+    const bestByUser = new Map();
+    rankRows.forEach((row) => {
+      const current = bestByUser.get(row.user_id) || 0;
+      if (row.score > current) bestByUser.set(row.user_id, row.score);
+    });
+    const sortedIds = Array.from(bestByUser.entries()).sort((a, b) => b[1] - a[1]).map((x) => x[0]);
+    const rankIndex = sortedIds.findIndex((id) => id === user_id);
+    if (dashboardRank) dashboardRank.textContent = rankIndex >= 0 ? `#${rankIndex + 1}` : "Not ranked";
+  } else if (dashboardRank) {
+    dashboardRank.textContent = "No data";
   }
-  const userInfo = await getUserInfo();
-  if (!userInfo) return;
 
-  const { user_id } = userInfo;
-  const today = toLocalDateString(new Date());
-  const { data: sleepRows } = await supabase
-    .from("daily_sleep")
-    .select('"Date", hours_slept, sleep_emoji')
+  const proteinAvgLabel = document.getElementById("dashboardProteinAvgLabel");
+  const nutritionAvgLabel = document.getElementById("nutritionAvgLabel");
+  const nutritionXpLabel = document.getElementById("nutritionXpLabel");
+  const { data: recentNutrition } = await supabase
+    .from("daily_nutrition")
+    .select("protein_goal_met")
     .eq("user_id", user_id)
-    .gte("Date", daysAgoLocal(13))
-    .lte("Date", today)
-    .order("Date", { ascending: false });
-
-  if (!(sleepRows || []).length) return;
-
-  const latest = sleepRows[0];
-  const avgSleepHours =
-    sleepRows.reduce((sum, row) => sum + Number(row.hours_slept || 0), 0) / sleepRows.length;
-  const lateNights = sleepRows.filter((row) => Number(row.hours_slept || 0) < 6).length;
-  const snapshot = getSleepRecoverySnapshot(latest.hours_slept, latest.sleep_emoji);
-  applySleepRecoveryUi(snapshot, { avgSleepHours, lateNights });
-}
-
-async function loadDashboardOverview() {
-  if (!document.getElementById("dashboardLevelLabel")) return;
-
-  const userInfo = await getUserInfo();
-  if (!userInfo) return;
-
-  const { user_id, username } = userInfo;
-  const today = toLocalDateString(new Date());
-  const weekStart = daysAgoLocal(6);
-  const streakStart = daysAgoLocal(45);
-  const profile = await getOrCreateUserProfile();
-
-  const [
-    { data: workoutRows },
-    { data: nutritionRows },
-    { data: sleepRows },
-    { data: leaderboardRows },
-  ] = await Promise.all([
-    supabase.from("workout_daily").select("date").eq("user_id", user_id).gte("date", streakStart).lte("date", today),
-    supabase.from("daily_nutrition").select("entry_date, protein_goal_met, hydration_goal_met").eq("user_id", user_id).gte("entry_date", streakStart).lte("entry_date", today),
-    supabase.from("daily_sleep").select('"Date", hours_slept, sleep_emoji').eq("user_id", user_id).gte("Date", streakStart).lte("Date", today),
-    supabase.from("user_profile").select("user_id, xp").order("xp", { ascending: false }).limit(200),
-  ]);
-
-  const xp = Number(profile?.xp || 0);
-  const level = getLevelFromXp(xp);
-  const levelProgress = getLevelProgress(xp);
-  const streak = computeDailyStreak([
-    ...(workoutRows || []).map((row) => row.date),
-    ...(nutritionRows || []).map((row) => row.entry_date),
-    ...(sleepRows || []).map((row) => row.Date),
-  ]);
-
-  const rank =
-    (leaderboardRows || []).findIndex((row) => row.user_id === user_id) >= 0
-      ? (leaderboardRows || []).findIndex((row) => row.user_id === user_id) + 1
-      : null;
-
-  const weeklyNutrition = (nutritionRows || []).filter((row) => row.entry_date >= weekStart);
-  const proteinAvg = weeklyNutrition.length
-    ? Math.round(
-        (weeklyNutrition.filter((row) => String(row.protein_goal_met).toLowerCase() === "yes").length /
-          weeklyNutrition.length) *
-          100
-      )
-    : 0;
-  const hydrationPct = weeklyNutrition.length
-    ? Math.round(
-        (weeklyNutrition.filter((row) => String(row.hydration_goal_met).toLowerCase() === "yes").length /
-          weeklyNutrition.length) *
-          100
-      )
-    : 0;
-
-  const recentSleep = (sleepRows || []).filter((row) => row.Date >= weekStart);
-  const latestSleep = recentSleep[0] || sleepRows?.[0];
-  const sleepSnapshot = latestSleep
-    ? getSleepRecoverySnapshot(latestSleep.hours_slept, latestSleep.sleep_emoji)
-    : null;
-
-  const mappings = [
-    ["dashboardLevelLabel", `${level.level} - ${level.name}`],
-    ["dashboardRankLabel", rank ? `#${rank}` : "Unranked"],
-    ["dashboardStreakLabel", streak ? `${streak} day(s)` : "Start today"],
-    ["dashboardProteinAvgLabel", `${proteinAvg}%`],
-    ["xpValue", String(xp)],
-    ["xpMetaLabel", levelProgress.label],
-    ["dashboardHeaderTitle", `${username}'s Dashboard`],
-    ["dashboardHeaderSubtitle", "Live progress from your workout, nutrition, sleep, and challenge logs."],
-  ];
-  mappings.forEach(([id, value]) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
-  });
-
-  animateMeterById("xpMeter", levelProgress.pct);
-  if (sleepSnapshot) {
-    applySleepRecoveryUi(sleepSnapshot, { hydrationPct });
+    .gte("entry_date", daysAgoLocal(14))
+    .order("entry_date", { ascending: false });
+  if (Array.isArray(recentNutrition) && recentNutrition.length) {
+    const metCount = recentNutrition.filter((row) => row.protein_goal_met === "Yes").length;
+    const pct = Math.round((metCount / recentNutrition.length) * 100);
+    const label = `${pct}% goal hits`;
+    if (proteinAvgLabel) proteinAvgLabel.textContent = label;
+    if (nutritionAvgLabel) nutritionAvgLabel.textContent = label;
   } else {
-    animateMeterById("dashboardHydrationMeter", hydrationPct);
-    const hydrationLabel = document.getElementById("dashboardHydrationLabel");
-    if (hydrationLabel) hydrationLabel.textContent = `${hydrationPct}%`;
+    if (proteinAvgLabel) proteinAvgLabel.textContent = "No data";
+    if (nutritionAvgLabel) nutritionAvgLabel.textContent = "No data";
   }
+  if (nutritionXpLabel) nutritionXpLabel.textContent = String(xp);
 }
 
 async function loadWeeklySummary() {
   const userInfo = await getUserInfo();
-  if (!userInfo) return;
+  if (!userInfo) {
+    showLoginRequiredMessage("weeklyWorkoutLabel");
+    showLoginRequiredMessage("weeklyNutritionLabel");
+    showLoginRequiredMessage("weeklySleepLabel");
+    return;
+  }
   const { user_id } = userInfo;
   const weekStart = daysAgoLocal(6);
   const today = toLocalDateString(new Date());
@@ -2534,7 +1890,7 @@ async function loadWeeklySummary() {
   const [{ data: workouts }, { data: nutrition }, { data: sleep }] = await Promise.all([
     supabase.from("workout_daily").select("date").eq("user_id", user_id).gte("date", weekStart).lte("date", today),
     supabase.from("daily_nutrition").select("entry_date").eq("user_id", user_id).gte("entry_date", weekStart).lte("entry_date", today),
-    supabase.from("daily_sleep").select('"Date"').eq("user_id", user_id).gte("Date", weekStart).lte("Date", today),
+    supabase.from("daily_sleep").select('"Date", hours_slept').eq("user_id", user_id).gte("Date", weekStart).lte("Date", today),
   ]);
 
   const workoutPct = Math.min(100, Math.round(((workouts || []).length / 7) * 100));
@@ -2550,6 +1906,32 @@ async function loadWeeklySummary() {
   if (wk) wk.textContent = `${workoutPct}%`;
   if (nt) nt.textContent = `${nutritionPct}%`;
   if (sl) sl.textContent = `${sleepPct}%`;
+  const dashboardSleepQualityLabel = document.getElementById("dashboardSleepQualityLabel");
+  const dashboardHydrationLabel = document.getElementById("dashboardHydrationLabel");
+  if (dashboardSleepQualityLabel) dashboardSleepQualityLabel.textContent = `${sleepPct}%`;
+  if (dashboardHydrationLabel) dashboardHydrationLabel.textContent = `${nutritionPct}%`;
+  animateMeterById("dashboardSleepQualityMeter", sleepPct);
+  animateMeterById("dashboardHydrationMeter", nutritionPct);
+
+  const sleepRecoveryTier = document.getElementById("sleepRecoveryTierLabel");
+  const sleepAvgLabel = document.getElementById("sleepAvgLabel");
+  const sleepLateNights = document.getElementById("sleepLateNightsLabel");
+  if (sleepRecoveryTier) {
+    const tier = sleepPct >= 80 ? "A" : sleepPct >= 60 ? "B" : sleepPct >= 40 ? "C" : "D";
+    sleepRecoveryTier.textContent = tier;
+  }
+  if (sleepAvgLabel) {
+    if ((sleep || []).length) {
+      const avg = (sleep || []).reduce((sum, row) => sum + Number(row.hours_slept || 0), 0) / (sleep || []).length;
+      sleepAvgLabel.textContent = `${avg.toFixed(1)} hrs`;
+    } else {
+      sleepAvgLabel.textContent = "No data";
+    }
+  }
+  if (sleepLateNights) {
+    const lowSleep = (sleep || []).filter((row) => Number(row.hours_slept || 0) < 6).length;
+    sleepLateNights.textContent = `${lowSleep} this week`;
+  }
 }
 
 async function fetchHistoryRows(startDate, endDate, type = "all") {
@@ -2653,6 +2035,12 @@ function setupHistoryPage() {
   };
 
   const run = async () => {
+    const userInfo = await getUserInfo();
+    if (!userInfo) {
+      if (status) status.textContent = "Please login to view history and export data.";
+      if (list) list.replaceChildren();
+      return;
+    }
     const startDate = startInput?.value || initStart;
     const endDate = endInput?.value || initEnd;
     const type = typeInput?.value || "all";
@@ -2693,6 +2081,13 @@ function setupLeaderboardRefresh() {
 }
 
 function setupManualToggles() {
+  document.getElementById("workoutManualToggle")?.addEventListener("click", () => {
+    const card = document.getElementById("manualWorkoutCard");
+    if (!card) return;
+    const showing = !card.classList.contains("hidden");
+    card.classList.toggle("hidden", showing);
+    document.getElementById("workoutManualToggle").textContent = showing ? "Use Manual Logger" : "Hide Manual Logger";
+  });
   document.getElementById("nutritionManualToggle")?.addEventListener("click", () => {
     const card = document.getElementById("manualNutritionCard");
     if (!card) return;
@@ -2728,7 +2123,6 @@ async function registerServiceWorker() {
 
 function initUI() {
   setupThemeToggle();
-  setupMissionPlanner();
   setupMissionBoard();
   setupLeaderboardRefresh();
   setupWorkoutShortcuts();
@@ -2737,15 +2131,13 @@ function initUI() {
   setupManualToggles();
   setupMealCapture("wger");
   setupMealCapture("manual");
-  setupAiMealScan();
   setupWgerFilters();
   setupWgerPrimaryLoggers();
   setupWgerFeeds();
   setupChallengeSection();
   setupHistoryPage();
   loadSidebarProfileStats();
-  loadDashboardOverview();
-  loadSleepOverview();
+  loadTodaySleepEntry();
   loadGamificationBadgesAndQuest();
   setupScrollReveal();
   registerServiceWorker();
@@ -2781,8 +2173,5 @@ if (session && profile && login) {
 document.getElementById("logout")?.addEventListener("click", async () => {
   const { error } = await supabase.auth.signOut();
   if (error) { console.error("Logout error:", error.message); }
-  else {
-    showToast("You have been logged out!", "success");
-    window.setTimeout(() => window.location.reload(), 1200);
-  }
+  else { showToast("You have been logged out!", "success"); setTimeout(() => window.location.reload(), 1500); }
  });

@@ -74,7 +74,7 @@ body {
   background: var(--surface-1);
   border-right: 1px solid var(--line-color);
   padding: var(--spacing-md);
-  position: sticky;
+  position: scroll;
   top: 0;
   height: 100vh;
   display: grid;

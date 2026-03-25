@@ -1,76 +1,157 @@
 # Database Setup Guide
 
-This guide explains how to set up the database schema and RLS policies for the daily tracking application.
+This guide reflects the files that actually exist in this repo.
 
-## Step 1: Add Username Column to Tables
+The repo does **not** currently include `add_username_migration.sql` or `rls_policies.sql`.
+The only SQL file present here is `gamification_schema.sql`, which is separate from the core daily tracking tables.
 
-Run the SQL migration file `add_username_migration.sql` in your Supabase SQL Editor:
+## Core Tracking Tables
+
+The app expects these Supabase tables to exist:
+
+- `workout_daily`
+- `daily_sleep`
+- `daily_nutrition`
+
+At minimum, those tables should include a `user_id` column and the date columns used by the app:
+
+- `workout_daily.date`
+- `daily_sleep.Date`
+- `daily_nutrition.entry_date`
+
+The current frontend also writes a `username` column to all three tables.
+
+## Add Missing `username` Columns
+
+Run this in the Supabase SQL Editor if the columns are missing:
 
 ```sql
--- This adds the username column to all three tables:
--- workout_daily, daily_sleep, daily_nutrition
+alter table public.workout_daily
+add column if not exists username text;
+
+alter table public.daily_sleep
+add column if not exists username text;
+
+alter table public.daily_nutrition
+add column if not exists username text;
 ```
 
-**Location:** Supabase Dashboard → SQL Editor → Run `add_username_migration.sql`
+## Enable Row Level Security
 
-## Step 2: Enable Row Level Security (RLS)
-
-For each table, enable RLS:
-
-1. Go to **Table Editor** in Supabase
-2. Select each table: `workout_daily`, `daily_sleep`, `daily_nutrition`
-3. Click **Settings** → Enable **Row Level Security**
-
-## Step 3: Create RLS Policies
-
-Run the SQL file `rls_policies.sql` in your Supabase SQL Editor:
+Run:
 
 ```sql
--- This creates INSERT, UPDATE, and SELECT policies for all three tables
--- Policies ensure users can only access their own data (auth.uid() = user_id)
+alter table public.workout_daily enable row level security;
+alter table public.daily_sleep enable row level security;
+alter table public.daily_nutrition enable row level security;
 ```
 
-**Location:** Supabase Dashboard → SQL Editor → Run `rls_policies.sql`
+## Create Basic Per-User Policies
 
-## Step 4: Verify Tables Have Username Column
+These policies let authenticated users read and write only their own rows.
 
-After running the migration, verify each table has a `username` column:
+```sql
+create policy "workout_daily_select_own"
+on public.workout_daily
+for select
+using (auth.uid() = user_id);
 
-- `workout_daily.username` (text, nullable)
-- `daily_sleep.username` (text, nullable)
-- `daily_nutrition.username` (text, nullable)
+create policy "workout_daily_insert_own"
+on public.workout_daily
+for insert
+with check (auth.uid() = user_id);
 
-## Summary of Changes
+create policy "workout_daily_update_own"
+on public.workout_daily
+for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
 
-### Code Changes:
-- ✅ Added `getUserInfo()` helper function to get user_id and username from session
-- ✅ Added `upsertWithFallback()` helper function for consistent upsert logic
-- ✅ Added `handleError()` helper function for consistent error handling
-- ✅ Updated `getValues()` to include username field
-- ✅ Created `saveSleepData()` function for sleep tracking
-- ✅ Created `saveNutritionData()` function for nutrition tracking
-- ✅ Updated HTML files to connect forms to JavaScript functions
+create policy "daily_sleep_select_own"
+on public.daily_sleep
+for select
+using (auth.uid() = user_id);
 
-### Database Schema:
-- ✅ Added `username` column to `workout_daily`
-- ✅ Added `username` column to `daily_sleep`
-- ✅ Added `username` column to `daily_nutrition`
+create policy "daily_sleep_insert_own"
+on public.daily_sleep
+for insert
+with check (auth.uid() = user_id);
 
-### RLS Policies:
-- ✅ INSERT policies for all tables
-- ✅ UPDATE policies for all tables
-- ✅ SELECT policies for all tables
+create policy "daily_sleep_update_own"
+on public.daily_sleep
+for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+create policy "daily_nutrition_select_own"
+on public.daily_nutrition
+for select
+using (auth.uid() = user_id);
+
+create policy "daily_nutrition_insert_own"
+on public.daily_nutrition
+for insert
+with check (auth.uid() = user_id);
+
+create policy "daily_nutrition_update_own"
+on public.daily_nutrition
+for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+```
+
+If policies with those names already exist, skip them or drop/recreate them in Supabase.
+
+## Verify Required Columns
+
+Check that these exist:
+
+- `workout_daily.user_id`
+- `workout_daily.username`
+- `workout_daily.date`
+- `daily_sleep.user_id`
+- `daily_sleep.username`
+- `daily_sleep.Date`
+- `daily_nutrition.user_id`
+- `daily_nutrition.username`
+- `daily_nutrition.entry_date`
 
 ## Testing
 
-After setup, test each form:
+After setup, test each page:
 
-1. **Workouts** (`workouts.html`): Select intensity, muscle groups, energy level → Submit
-2. **Sleep** (`sleep.html`): Enter hours slept, select emoji → Save Sleep Data
-3. **Nutrition** (`nutrition.html`): Fill meals, check goals, add notes → Submit
+1. `workouts.html`
+2. `sleep.html`
+3. `nutrition.html`
 
-All forms should:
-- Check authentication before saving
-- Include username in database records
-- Handle duplicate entries (upsert)
-- Show clear error messages if RLS or validation fails
+All saves should:
+
+- require authentication
+- attach `user_id` and `username`
+- update the current day when the same user saves again
+- fail with a clear RLS error if policies are misconfigured
+
+## AI Meal Scan Backend
+
+The nutrition page now includes an AI meal scan flow that uploads a meal photo to the local Flask backend, detects foods with LogMeal, and resolves nutrition with API Ninjas or Open Food Facts.
+
+### Required environment variables
+
+- `LOGMEAL_API_TOKEN` or `LOGMEAL_TOKEN`
+- `API_NINJAS_API_KEY`
+
+### Optional environment variables
+
+- `LOGMEAL_API_BASE` defaults to `https://api.logmeal.com`
+- `LOGMEAL_SEGMENTATION_PATH` defaults to `/v2/image/segmentation/complete`
+- `OPENFOODFACTS_API_BASE` defaults to `https://world.openfoodfacts.org`
+- `API_NINJAS_API_BASE` defaults to `https://api.api-ninjas.com`
+- `FOOD_API_TIMEOUT` defaults to `30`
+
+### Run the backend
+
+```bash
+python backend.py
+```
+
+The frontend expects the backend at `http://127.0.0.1:8000`.

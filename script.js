@@ -243,6 +243,370 @@ function combineNoteParts(parts) {
   return parts.map((part) => part?.trim()).filter(Boolean).join(" | ") || null;
 }
 
+function roundTo(value, digits = 1) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 0;
+  const factor = 10 ** digits;
+  return Math.round(numeric * factor) / factor;
+}
+
+function scaleAiNutrition(per100g, grams) {
+  if (!per100g) return null;
+  const factor = Math.max(0, Number(grams) || 0) / 100;
+  return {
+    calories: roundTo((per100g.calories || 0) * factor, 1),
+    protein_g: roundTo((per100g.protein_g || 0) * factor, 1),
+    carbs_g: roundTo((per100g.carbs_g || 0) * factor, 1),
+    fat_g: roundTo((per100g.fat_g || 0) * factor, 1),
+  };
+}
+
+function normalizeAiDetection(item, index) {
+  const defaultGrams = Math.max(
+    30,
+    Math.min(600, roundTo(item?.grams ?? item?.default_grams ?? 150, 0))
+  );
+  const nutritionPer100g = item?.nutrition_per_100g || null;
+  return {
+    id: item?.id || `ai-food-${index + 1}`,
+    label: item?.label || `Food ${index + 1}`,
+    confidence: Number(item?.confidence) || null,
+    candidates: Array.isArray(item?.candidates) ? item.candidates : [],
+    bbox: item?.bbox || null,
+    defaultGrams,
+    grams: defaultGrams,
+    enabled: true,
+    nutrition_source: item?.nutrition_source || null,
+    nutrition_meta: item?.nutrition_meta || null,
+    nutrition_per_100g: nutritionPer100g,
+    nutrition: scaleAiNutrition(nutritionPer100g, defaultGrams),
+  };
+}
+
+function getActiveAiDetections() {
+  return aiMealScanState.detections.filter((item) => item.enabled);
+}
+
+function getAiTotals() {
+  const totals = { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
+  getActiveAiDetections().forEach((item) => {
+    if (!item.nutrition) return;
+    totals.calories += Number(item.nutrition.calories) || 0;
+    totals.protein_g += Number(item.nutrition.protein_g) || 0;
+    totals.carbs_g += Number(item.nutrition.carbs_g) || 0;
+    totals.fat_g += Number(item.nutrition.fat_g) || 0;
+  });
+  return {
+    calories: roundTo(totals.calories, 1),
+    protein_g: roundTo(totals.protein_g, 1),
+    carbs_g: roundTo(totals.carbs_g, 1),
+    fat_g: roundTo(totals.fat_g, 1),
+  };
+}
+
+function setAiStatus(message, type = "info") {
+  const statusEl = document.getElementById("aiMealStatus");
+  if (!statusEl) return;
+  statusEl.textContent = message;
+  statusEl.style.color =
+    type === "error" ? "#fca5a5" :
+    type === "success" ? "#86efac" :
+    "";
+}
+
+function updateAiSummary() {
+  const totals = getAiTotals();
+  const activeFoods = getActiveAiDetections().length;
+  const foodsCountEl = document.getElementById("aiFoodsCount");
+  const caloriesEl = document.getElementById("aiCaloriesTotal");
+  const proteinEl = document.getElementById("aiProteinTotal");
+  const carbsFatEl = document.getElementById("aiCarbsFatTotal");
+  const applyBtn = document.getElementById("aiMealApplyBtn");
+
+  if (foodsCountEl) foodsCountEl.textContent = String(activeFoods);
+  if (caloriesEl) caloriesEl.textContent = `${roundTo(totals.calories, 0)} kcal`;
+  if (proteinEl) proteinEl.textContent = `${totals.protein_g} g`;
+  if (carbsFatEl) carbsFatEl.textContent = `${totals.carbs_g} g / ${totals.fat_g} g`;
+  if (applyBtn) applyBtn.disabled = activeFoods === 0;
+}
+
+function renderAiDetectedFoods() {
+  const listEl = document.getElementById("aiDetectedFoods");
+  if (!listEl) return;
+
+  listEl.replaceChildren();
+  if (!aiMealScanState.detections.length) {
+    const empty = document.createElement("div");
+    empty.className = "ai-empty-state";
+    empty.innerHTML = "<p class=\"muted\">No AI detections yet. Once your image is analyzed, each food gets its own editable portion slider here.</p>";
+    listEl.appendChild(empty);
+    updateAiSummary();
+    return;
+  }
+
+  aiMealScanState.detections.forEach((item, index) => {
+    const article = document.createElement("article");
+    article.className = "ai-detected-item";
+
+    const candidateHtml = (item.candidates || [])
+      .slice(0, 4)
+      .map((candidate) => {
+        const confidenceText = candidate?.confidence
+          ? ` ${Math.round(candidate.confidence * 100)}%`
+          : "";
+        return `<span class="ai-chip">${candidate?.label || "Candidate"}${confidenceText}</span>`;
+      })
+      .join("");
+
+    article.innerHTML = `
+      <div class="ai-item-head">
+        <div>
+          <h3>${item.label}</h3>
+          <p class="muted">
+            ${item.confidence ? `Detection confidence ${Math.round(item.confidence * 100)}%. ` : ""}
+            ${item.nutrition_source ? `Nutrition fallback: ${item.nutrition_source.replaceAll("_", " ")}.` : "Nutrition fallback unavailable for this item."}
+          </p>
+        </div>
+        <label class="ai-item-toggle">
+          <input type="checkbox" data-role="enabled-toggle" checked>
+          Include
+        </label>
+      </div>
+      ${candidateHtml ? `<div class="ai-item-candidates">${candidateHtml}</div>` : ""}
+      <div class="ai-portion-controls">
+        <div class="ai-portion-topline">
+          <span>Portion Size</span>
+          <span data-role="portion-label">0 g</span>
+        </div>
+        <div class="ai-portion-inputs">
+          <input type="range" min="30" max="600" step="5" data-role="grams-range">
+          <input type="number" min="30" max="600" step="5" data-role="grams-input">
+        </div>
+      </div>
+      <div class="ai-macro-grid">
+        <div class="ai-macro-card">
+          <span>Calories</span>
+          <strong data-role="calories-value">0 kcal</strong>
+        </div>
+        <div class="ai-macro-card">
+          <span>Protein</span>
+          <strong data-role="protein-value">0 g</strong>
+        </div>
+        <div class="ai-macro-card">
+          <span>Carbs</span>
+          <strong data-role="carbs-value">0 g</strong>
+        </div>
+        <div class="ai-macro-card">
+          <span>Fat</span>
+          <strong data-role="fat-value">0 g</strong>
+        </div>
+      </div>
+    `;
+
+    const enabledToggle = article.querySelector('[data-role="enabled-toggle"]');
+    const gramsRange = article.querySelector('[data-role="grams-range"]');
+    const gramsInput = article.querySelector('[data-role="grams-input"]');
+    const portionLabel = article.querySelector('[data-role="portion-label"]');
+    const caloriesValue = article.querySelector('[data-role="calories-value"]');
+    const proteinValue = article.querySelector('[data-role="protein-value"]');
+    const carbsValue = article.querySelector('[data-role="carbs-value"]');
+    const fatValue = article.querySelector('[data-role="fat-value"]');
+
+    const paintCard = () => {
+      article.style.opacity = item.enabled ? "1" : "0.55";
+      article.style.filter = item.enabled ? "none" : "grayscale(0.2)";
+      gramsRange.value = String(item.grams);
+      gramsInput.value = String(item.grams);
+      gramsRange.disabled = !item.enabled;
+      gramsInput.disabled = !item.enabled;
+      portionLabel.textContent = `${roundTo(item.grams, 0)} g`;
+
+      if (item.nutrition) {
+        caloriesValue.textContent = `${roundTo(item.nutrition.calories, 0)} kcal`;
+        proteinValue.textContent = `${item.nutrition.protein_g} g`;
+        carbsValue.textContent = `${item.nutrition.carbs_g} g`;
+        fatValue.textContent = `${item.nutrition.fat_g} g`;
+      } else {
+        caloriesValue.textContent = "N/A";
+        proteinValue.textContent = "N/A";
+        carbsValue.textContent = "N/A";
+        fatValue.textContent = "N/A";
+      }
+    };
+
+    const updateGrams = (nextValue) => {
+      const numeric = Math.max(30, Math.min(600, roundTo(nextValue || item.defaultGrams, 0)));
+      item.grams = numeric;
+      item.nutrition = scaleAiNutrition(item.nutrition_per_100g, numeric);
+      paintCard();
+      updateAiSummary();
+    };
+
+    enabledToggle?.addEventListener("change", () => {
+      item.enabled = enabledToggle.checked;
+      paintCard();
+      updateAiSummary();
+    });
+
+    gramsRange?.addEventListener("input", () => updateGrams(Number(gramsRange.value)));
+    gramsInput?.addEventListener("input", () => updateGrams(Number(gramsInput.value)));
+
+    paintCard();
+    listEl.appendChild(article);
+  });
+
+  updateAiSummary();
+}
+
+async function analyzeAiMealPhoto() {
+  const fileInput = document.getElementById("aiMealPhoto");
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    setAiStatus("Choose a meal photo before running AI analysis.", "error");
+    showToast("Please upload a meal photo first.", "error");
+    return;
+  }
+
+  setButtonBusy("aiMealAnalyzeBtn", true, "Analyze Meal Photo");
+  setAiStatus("Analyzing your meal photo with LogMeal and nutrition fallbacks...");
+
+  const formData = new FormData();
+  formData.append("image", file);
+
+  try {
+    const response = await fetch(`${FOOD_AI_API_BASE}/api/food/analyze`, {
+      method: "POST",
+      body: formData,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload?.ok === false) {
+      throw new Error(payload?.error || "Meal analysis failed.");
+    }
+
+    aiMealScanState.imageId = payload?.image_id || null;
+    aiMealScanState.detections = Array.isArray(payload?.detections)
+      ? payload.detections.map(normalizeAiDetection)
+      : [];
+
+    renderAiDetectedFoods();
+
+    if (!aiMealScanState.detections.length) {
+      setAiStatus("The image uploaded successfully, but no foods were detected. Try a clearer top-down meal photo.", "error");
+      return;
+    }
+
+    const warningText = Array.isArray(payload?.warnings) && payload.warnings.length
+      ? ` ${payload.warnings[0]}`
+      : "";
+    setAiStatus(
+      `Detected ${aiMealScanState.detections.length} food item(s). Adjust the sliders, then apply the result to your logger.${warningText}`,
+      "success"
+    );
+    showToast("Meal analysis completed.", "success");
+  } catch (error) {
+    aiMealScanState.imageId = null;
+    aiMealScanState.detections = [];
+    renderAiDetectedFoods();
+    setAiStatus(error.message || "Meal analysis failed.", "error");
+    showToast(error.message || "Meal analysis failed.", "error");
+  } finally {
+    setButtonBusy("aiMealAnalyzeBtn", false, "Analyze Meal Photo");
+  }
+}
+
+function applyAiMealToLogger() {
+  const detections = getActiveAiDetections();
+  if (!detections.length) {
+    setAiStatus("Include at least one detected food before applying the scan.", "error");
+    showToast("No detected foods are selected.", "error");
+    return;
+  }
+
+  const mealType = document.getElementById("aiMealType")?.value || "lunch";
+  const mealSummary = detections
+    .map((item) => `${item.label} (${roundTo(item.grams, 0)}g)`)
+    .join(", ");
+  const totals = getAiTotals();
+  const totalGrams = roundTo(
+    detections.reduce((sum, item) => sum + (Number(item.grams) || 0), 0),
+    0
+  );
+  const nutritionSources = [...new Set(
+    detections
+      .map((item) => item.nutrition_source)
+      .filter(Boolean)
+      .map((source) => source.replaceAll("_", " "))
+  )];
+
+  const manualCard = document.getElementById("manualNutritionCard");
+  if (manualCard) manualCard.classList.remove("hidden");
+  const manualToggle = document.getElementById("nutritionManualToggle");
+  if (manualToggle) manualToggle.textContent = "Hide Manual Logger";
+
+  const manualField = document.getElementById(mealType);
+  if (manualField) manualField.value = mealSummary;
+
+  const notesEl = document.getElementById("notes");
+  const noteFragments = [
+    `AI meal scan: ${mealSummary}`,
+    `AI totals: ${roundTo(totals.calories, 0)} kcal, ${totals.protein_g}g protein, ${totals.carbs_g}g carbs, ${totals.fat_g}g fat`,
+    nutritionSources.length ? `Nutrition sources: ${nutritionSources.join(", ")}` : null,
+  ].filter(Boolean);
+  if (notesEl) {
+    const existing = notesEl.value.trim();
+    const nextNotes = noteFragments.join(" | ");
+    notesEl.value = existing ? `${existing} | ${nextNotes}` : nextNotes;
+  }
+
+  const wgerSearch = document.getElementById("wgerIngredientSearch");
+  if (wgerSearch) wgerSearch.value = detections[0].label;
+  const wgerMealType = document.getElementById("wgerMealType");
+  if (wgerMealType) wgerMealType.value = mealType;
+  const wgerGrams = document.getElementById("wgerGrams");
+  if (wgerGrams) wgerGrams.value = String(totalGrams);
+
+  setAiStatus("AI meal scan applied to the logger. Review the fields and save when ready.", "success");
+  showToast("AI meal scan applied to the logger.", "success");
+}
+
+function setupAiMealScan() {
+  const fileInput = document.getElementById("aiMealPhoto");
+  const previewWrap = document.getElementById("aiMealPhotoPreviewWrap");
+  const previewImg = document.getElementById("aiMealPhotoPreview");
+  const analyzeBtn = document.getElementById("aiMealAnalyzeBtn");
+  const applyBtn = document.getElementById("aiMealApplyBtn");
+
+  if (!fileInput || !previewWrap || !previewImg || !analyzeBtn || !applyBtn) return;
+
+  fileInput.addEventListener("change", () => {
+    if (aiMealScanState.photoObjectUrl) {
+      URL.revokeObjectURL(aiMealScanState.photoObjectUrl);
+      aiMealScanState.photoObjectUrl = null;
+    }
+
+    const file = fileInput.files?.[0];
+    aiMealScanState.imageId = null;
+    aiMealScanState.detections = [];
+    renderAiDetectedFoods();
+
+    if (!file) {
+      previewImg.removeAttribute("src");
+      previewWrap.classList.add("hidden");
+      setAiStatus("Upload a meal photo to start AI analysis.");
+      return;
+    }
+
+    aiMealScanState.photoObjectUrl = URL.createObjectURL(file);
+    previewImg.src = aiMealScanState.photoObjectUrl;
+    previewWrap.classList.remove("hidden");
+    setAiStatus("Photo ready. Run analysis to detect foods and estimate nutrition.");
+  });
+
+  analyzeBtn.addEventListener("click", analyzeAiMealPhoto);
+  applyBtn.addEventListener("click", applyAiMealToLogger);
+  renderAiDetectedFoods();
+}
+
 // Simple client-side level curve based on XP
 function getLevelFromXp(xp) {
   const thresholds = [
@@ -473,6 +837,13 @@ const wgerState = {
   muscleLookup: {},    // id â†’ name, loaded once on init
   workoutReady: false,
   nutritionReady: false,
+};
+
+const FOOD_AI_API_BASE = window.FOOD_AI_API_BASE_URL || "http://127.0.0.1:8000";
+const aiMealScanState = {
+  photoObjectUrl: null,
+  detections: [],
+  imageId: null,
 };
 
 // â”€â”€â”€ UI helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1968,6 +2339,7 @@ function initUI() {
   setupManualToggles();
   setupMealCapture("wger");
   setupMealCapture("manual");
+  setupAiMealScan();
   setupWgerFilters();
   setupWgerPrimaryLoggers();
   setupWgerFeeds();

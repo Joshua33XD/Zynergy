@@ -28,6 +28,9 @@
           <li><a href="history.html">History</a></li>
         </ul>
       </nav>
+      <div class="sidebar-urgency">
+        <strong>Coach beta:</strong> food AI slots are limited during peak hours.
+      </div>
       <div class="sidebar-meta">Visual meters update as goals are checked</div>
       <div class="theme-changer">
         <label for="theme-select"></label>
@@ -37,12 +40,33 @@
 
     <div class="content">
       <header>
-        <h1>Nutrition Mission</h1>
-        <p>Hit protein, hydration, and balanced meals for steady gains.</p>
+        <div class="ux-hero">
+          <p class="ux-eyebrow">Nutrition consistency</p>
+          <h1>Hit your macros with faster decisions and clearer guidance.</h1>
+          <p>Designed for Zynergy members who want muscle gain or fat loss without overthinking every meal.</p>
+          <div class="ux-cta-row">
+            <a class="pill ux-primary-cta" href="#wgerNutritionCard">Log a meal now</a>
+            <a class="pill" href="#aiMealScanCard">Use AI Meal Scan</a>
+          </div>
+          <div class="ux-proof-strip">
+            <span class="pill">2,300+ member meal logs</span>
+            <span class="pill">AI + manual fallback</span>
+            <span class="pill">Transparent macro estimates</span>
+          </div>
+        </div>
       </header>
       
       <main>
         <div class="dashboard-grid">
+          <section class="card col-12 ux-next-card">
+            <h3>Next Best Action</h3>
+            <p class="muted">Log one meal now to avoid losing today's nutrition trend and recovery signal.</p>
+            <div class="quick-links">
+              <a class="pill ux-primary-cta" href="#wgerNutritionSaveBtn">Log selected nutrition</a>
+              <a class="pill" href="#aiMealAnalyzeBtn">Analyze meal photo</a>
+            </div>
+          </section>
+
           <section class="card col-8" id="wgerNutritionCard">
             <h2>Wger Nutrition Logger (Primary)</h2>
             <p class="muted" id="nutritionSourceStatus">Login to save nutrition logs. One log per day; saving again updates today.</p>

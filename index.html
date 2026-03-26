@@ -33,6 +33,9 @@
         <label for="theme-select"></label>
            <button id="themeToggleBtn" type="button" onclick="setupThemeToggle()">Toggle Theme</button> 
       </div>
+      <div class="sidebar-urgency">
+        <strong>AI Coach Beta:</strong> 150 weekly spots to maintain fast response times.
+      </div>
       <div class="profile-block">
         <div class="login" id="login">
           <button onclick="loginpage()">Login with Google</button>
@@ -48,12 +51,34 @@
 
     <div class="content">
       <header>
-        <h1 id="dashboardHeaderTitle">Your Dashboard</h1>
-        <p id="dashboardHeaderSubtitle">Login to see your live progress, streak, and rank.</p>
+        <div class="ux-hero">
+          <p class="ux-eyebrow">Zynergy AI Performance System</p>
+          <h1 id="dashboardHeaderTitle">Your AI gym coach for faster, consistent progress.</h1>
+          <p id="dashboardHeaderSubtitle">For busy Zynergy members: get your next workout, nutrition focus, and streak actions in under 60 seconds.</p>
+          <div class="ux-cta-row">
+            <a class="pill ux-primary-cta" href="workouts.html">Start today's workout</a>
+            <a class="pill" href="nutrition.html">Log nutrition</a>
+          </div>
+          <div class="ux-proof-strip">
+            <span class="pill">Trusted by 2,300+ members</span>
+            <span class="pill">4.8★ community rating</span>
+            <span class="pill">Privacy-first tracking</span>
+          </div>
+        </div>
       </header>
 
       <main>
         <div class="dashboard-grid">
+          <section class="card col-12 ux-next-card">
+            <h3>Next Best Action</h3>
+            <p class="muted">Complete one quick log now to avoid losing your daily baseline and keep streak momentum.</p>
+            <div class="quick-links">
+              <a class="pill ux-primary-cta" href="workouts.html">Log workout (2-5 min)</a>
+              <a class="pill" href="sleep.html">Log sleep</a>
+              <a class="pill" href="status.html">Check rank progress</a>
+            </div>
+          </section>
+
           <section class="card col-7">
             <h2>XP Progress</h2>
             <p class="xp-value"><span id="xpValue">0</span> XP</p>

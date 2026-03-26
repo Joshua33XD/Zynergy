@@ -28,6 +28,9 @@
           <li><a href="history.html">History</a></li>
         </ul>
       </nav>
+      <div class="sidebar-urgency">
+        <strong>Weekly cycle:</strong> rankings refresh continuously as new challenge scores arrive.
+      </div>
       <button id="notifyEnableBtn" type="button">Enable Alerts</button>
       <div class="sidebar-meta">Competition drives consistency</div>
       <div class="theme-changer">
@@ -39,12 +42,29 @@
 
     <div class="content">
       <header>
-        <h1>Today's Grind</h1>
-        <p>See where you stand and share your wins.</p>
+        <div class="ux-hero">
+          <p class="ux-eyebrow">Competitive consistency</p>
+          <h1>Track your rank, beat your rival, and stay in the habit loop.</h1>
+          <p>Leaderboard feedback designed to motivate consistency, not toxic comparison.</p>
+          <div class="ux-cta-row">
+            <a class="pill ux-primary-cta" href="#refreshBoardBtn">Refresh leaderboard</a>
+            <a class="pill" href="workouts.html">Post new challenge</a>
+          </div>
+          <div class="ux-proof-strip">
+            <span class="pill">Live challenge scoring</span>
+            <span class="pill">Closest rival tracking</span>
+            <span class="pill">Weekly progress snapshots</span>
+          </div>
+        </div>
       </header>
 
       <main>
         <div class="dashboard-grid">
+          <section class="card col-12 ux-next-card">
+            <h3>Next Best Action</h3>
+            <p class="muted">Check your rank now, then log a challenge to avoid losing position this week.</p>
+          </section>
+
           <section class="card col-7">
             <h2>Live Leaderboard</h2>
             <button id="refreshBoardBtn" type="button">Refresh Leaderboard</button>

@@ -19,7 +19,59 @@ if (!apiKey) {
 
 const groq = new Groq({ apiKey });
 
+const coaches = [
+  {
+    id: "sam_sulek",
+    name: "Sam Sulek",
+    icon: "S",
+    image: "/pics_for_coach/sam%20sulek.jpeg",
+    blurb: "High-energy hypertrophy coach focused on intensity and momentum.",
+    systemPrompt:
+      "You are Sam Sulek style coach for ZYNERGY. Keep advice direct, gym-practical, and motivating. Prioritize simple hypertrophy actions with clear sets, reps, and progression.",
+  },
+  {
+    id: "togi",
+    name: "Togi",
+    icon: "T",
+    image: "/pics_for_coach/togi.jpeg",
+    blurb: "Discipline-first coach emphasizing consistency, structure, and form.",
+    systemPrompt:
+      "You are Togi style coach for ZYNERGY. Focus on discipline, execution, and clean form cues. Keep plans realistic and repeatable for busy users.",
+  },
+  {
+    id: "cbum",
+    name: "C Bum",
+    icon: "C",
+    image: "/pics_for_coach/c%20bum.jpeg",
+    blurb: "Balanced aesthetic coach for smart volume and recovery.",
+    systemPrompt:
+      "You are C Bum style coach for ZYNERGY. Give balanced bodybuilding guidance with emphasis on technique, sustainable volume, and recovery.",
+  },
+  {
+    id: "ronnie_coleman",
+    name: "Ronnie Coleman",
+    icon: "R",
+    image: "/pics_for_coach/ronnie%20coleman.jpeg",
+    blurb: "Power-focused coach for strength mindset and progressive overload.",
+    systemPrompt:
+      "You are Ronnie Coleman style coach for ZYNERGY. Be energetic and strength-focused. Give clear progressive overload advice with safe form reminders.",
+  },
+];
+
 app.get("/health", (_req, res) => res.json({ ok: true }));
+
+app.get("/coaches", (_req, res) => {
+  res.json({
+    coaches: coaches.map(({ id, name, icon, image, blurb, systemPrompt }) => ({
+      id,
+      name,
+      icon,
+      image,
+      blurb,
+      systemPrompt,
+    })),
+  });
+});
 
 app.post("/chat", async (req, res) => {
   try {
@@ -61,4 +113,3 @@ app.use(express.static(path.resolve(__dirname)));
 
 const port = Number(process.env.PORT) || 3000;
 app.listen(port, () => console.log(`ZYNERGY server running on port ${port}`));
-

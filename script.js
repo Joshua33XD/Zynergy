@@ -99,6 +99,27 @@ const gamificationState = {
   badges: [],
   leaderboardLastRank: null,
 };
+const workoutPlannerState = {
+  activeSplit: null,
+  splitHistory: [],
+  currentPlan: null,
+  manualTemplates: [],
+  workoutSets: [],
+  pendingSwap: null,
+  selectedTemplateId: null,
+};
+
+const SPLIT_DAY_ORDER = [
+  { dayOfWeek: 1, label: "Monday", shortLabel: "Mon" },
+  { dayOfWeek: 2, label: "Tuesday", shortLabel: "Tue" },
+  { dayOfWeek: 3, label: "Wednesday", shortLabel: "Wed" },
+  { dayOfWeek: 4, label: "Thursday", shortLabel: "Thu" },
+  { dayOfWeek: 5, label: "Friday", shortLabel: "Fri" },
+  { dayOfWeek: 6, label: "Saturday", shortLabel: "Sat" },
+  { dayOfWeek: 7, label: "Sunday", shortLabel: "Sun" },
+];
+
+const SPLIT_LABEL_OPTIONS = ["Rest", "Push", "Pull", "Legs", "Upper", "Lower", "Custom"];
 
 function formatElapsedMs(elapsedMs) {
   const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
@@ -601,6 +622,933 @@ function capitalizeFirst(text) {
   return text[0].toUpperCase() + text.slice(1).toLowerCase();
 }
 
+function getTodayDateString() {
+  return new Date().toISOString().split("T")[0];
+}
+
+async function apiRequest(url, options = {}) {
+  const {
+    method = "GET",
+    body,
+    requireAuth = true,
+  } = options;
+
+  const headers = {};
+  const userInfo = await getUserInfo();
+
+  if (requireAuth && !userInfo) {
+    throw new Error("AUTH_REQUIRED");
+  }
+
+  if (userInfo) {
+    headers["x-user-id"] = userInfo.user_id;
+    headers["x-username"] = userInfo.username;
+  }
+
+  const fetchOptions = {
+    method,
+    headers,
+  };
+
+  if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+    fetchOptions.body = JSON.stringify(body);
+  }
+
+  const response = await fetch(url, fetchOptions);
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const message = payload?.error || `Request failed with status ${response.status}.`;
+    throw new Error(message);
+  }
+
+  return { data: payload, userInfo };
+}
+
+function buildDefaultSplitDays() {
+  return SPLIT_DAY_ORDER.map((day, index) => ({
+    dayOfWeek: day.dayOfWeek,
+    weekdayName: day.label,
+    isRest: index === 6,
+    workoutLabel: index === 6 ? "Rest" : "",
+    notes: "",
+  }));
+}
+
+function getSplitPresetForDay(day) {
+  if (day.isRest) return "Rest";
+  if (!day.workoutLabel) return "";
+  return SPLIT_LABEL_OPTIONS.includes(day.workoutLabel) ? day.workoutLabel : "Custom";
+}
+
+function createSplitDayRow(day, rowIndex) {
+  const row = document.createElement("article");
+  row.className = "split-day-row";
+  row.dataset.dayOfWeek = String(day.dayOfWeek);
+
+  const title = document.createElement("div");
+  title.className = "split-day-label";
+  title.textContent = SPLIT_DAY_ORDER[rowIndex]?.shortLabel || day.weekdayName || `Day ${rowIndex + 1}`;
+
+  const selectWrap = document.createElement("div");
+  selectWrap.className = "split-day-field";
+
+  const select = document.createElement("select");
+  select.className = "split-day-select";
+  SPLIT_LABEL_OPTIONS.forEach((optionLabel) => {
+    const option = document.createElement("option");
+    option.value = optionLabel;
+    option.textContent = optionLabel;
+    if (getSplitPresetForDay(day) === optionLabel) option.selected = true;
+    select.appendChild(option);
+  });
+
+  const customInput = document.createElement("input");
+  customInput.type = "text";
+  customInput.className = "split-day-custom";
+  customInput.placeholder = "Custom workout label";
+  customInput.value =
+    getSplitPresetForDay(day) === "Custom" ? day.workoutLabel || "" : "";
+  customInput.hidden = getSplitPresetForDay(day) !== "Custom";
+
+  select.addEventListener("change", () => {
+    customInput.hidden = select.value !== "Custom";
+    if (select.value !== "Custom") {
+      customInput.value = "";
+    }
+  });
+
+  selectWrap.append(select, customInput);
+
+  const notesWrap = document.createElement("div");
+  notesWrap.className = "split-day-field";
+
+  const notesInput = document.createElement("input");
+  notesInput.type = "text";
+  notesInput.className = "split-day-notes";
+  notesInput.placeholder = "Optional notes";
+  notesInput.value = day.notes || "";
+  notesWrap.appendChild(notesInput);
+
+  row.append(title, selectWrap, notesWrap);
+  return row;
+}
+
+function renderSplitRows(containerId, days = buildDefaultSplitDays()) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.replaceChildren();
+
+  const normalizedDays = SPLIT_DAY_ORDER.map((meta) => {
+    const match = (days || []).find((day) => Number(day.dayOfWeek) === meta.dayOfWeek);
+    return match || {
+      dayOfWeek: meta.dayOfWeek,
+      weekdayName: meta.label,
+      isRest: false,
+      workoutLabel: "",
+      notes: "",
+    };
+  });
+
+  normalizedDays.forEach((day, index) => {
+    container.appendChild(createSplitDayRow(day, index));
+  });
+}
+
+function collectSplitDays(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) {
+    throw new Error("Split rows are unavailable.");
+  }
+
+  const rows = [...container.querySelectorAll(".split-day-row")];
+  return rows.map((row) => {
+    const dayOfWeek = Number(row.dataset.dayOfWeek);
+    const select = row.querySelector(".split-day-select");
+    const customInput = row.querySelector(".split-day-custom");
+    const notesInput = row.querySelector(".split-day-notes");
+    const preset = select?.value || "";
+    const customLabel = customInput?.value.trim() || "";
+
+    if (preset === "Custom" && !customLabel) {
+      throw new Error("Each Custom split day needs a workout label.");
+    }
+
+    const isRest = preset === "Rest";
+    return {
+      dayOfWeek,
+      isRest,
+      workoutLabel: isRest ? "Rest" : preset === "Custom" ? customLabel : preset,
+      notes: notesInput?.value.trim() || "",
+    };
+  });
+}
+
+function setPlanBadge(source, text) {
+  const badge = document.getElementById("todayPlanSourceBadge");
+  if (!badge) return;
+  badge.dataset.source = source || "none";
+  badge.textContent = text;
+}
+
+function renderActiveSplitSummary(split) {
+  const summary = document.getElementById("activeSplitSummary");
+  const builderForm = document.getElementById("splitBuilderForm");
+  const plannerStatus = document.getElementById("splitPlannerStatus");
+  const editBtn = document.getElementById("editSplitBtn");
+  const historyBtn = document.getElementById("viewSplitHistoryBtn");
+
+  if (!summary || !builderForm || !plannerStatus || !editBtn || !historyBtn) return;
+
+  if (!split) {
+    summary.classList.add("hidden");
+    builderForm.classList.remove("hidden");
+    plannerStatus.textContent = "No active split found yet. Build your first 7-day split below.";
+    editBtn.classList.add("hidden");
+    historyBtn.classList.add("hidden");
+    return;
+  }
+
+  builderForm.classList.add("hidden");
+  summary.classList.remove("hidden");
+  plannerStatus.textContent = `Active split: ${split.name} (v${split.versionNo})`;
+  editBtn.classList.remove("hidden");
+  historyBtn.classList.remove("hidden");
+
+  const list = document.createElement("div");
+  list.className = "split-summary-grid";
+
+  (split.days || []).forEach((day) => {
+    const item = document.createElement("article");
+    item.className = "split-summary-item";
+
+    const weekday = document.createElement("strong");
+    weekday.textContent = day.shortLabel || day.weekdayName || `Day ${day.dayOfWeek}`;
+
+    const label = document.createElement("span");
+    label.textContent = day.isRest ? "Rest" : day.workoutLabel || "Custom";
+
+    item.append(weekday, label);
+
+    if (day.notes) {
+      const notes = document.createElement("small");
+      notes.textContent = day.notes;
+      item.appendChild(notes);
+    }
+
+    list.appendChild(item);
+  });
+
+  summary.replaceChildren(list);
+}
+
+function renderSplitHistoryDrawer(versions) {
+  const list = document.getElementById("splitHistoryList");
+  const status = document.getElementById("splitHistoryStatus");
+  if (!list || !status) return;
+
+  list.replaceChildren();
+
+  if (!versions.length) {
+    status.textContent = "No split history yet.";
+    return;
+  }
+
+  status.textContent = `${versions.length} version${versions.length === 1 ? "" : "s"} saved.`;
+
+  versions.forEach((version) => {
+    const card = document.createElement("article");
+    card.className = "split-history-item";
+
+    const heading = document.createElement("div");
+    heading.className = "split-history-head";
+
+    const title = document.createElement("strong");
+    title.textContent = `${version.name} · v${version.versionNo}`;
+
+    const date = document.createElement("span");
+    date.textContent = version.activatedAt
+      ? new Date(version.activatedAt).toLocaleString()
+      : "Activation date unavailable";
+
+    heading.append(title, date);
+    card.appendChild(heading);
+
+    if (version.historyRecord?.changeSummary) {
+      const summary = document.createElement("p");
+      summary.className = "muted";
+      summary.textContent = version.historyRecord.changeSummary;
+      card.appendChild(summary);
+    }
+
+    const days = document.createElement("div");
+    days.className = "split-history-days";
+    (version.days || []).forEach((day) => {
+      const pill = document.createElement("span");
+      pill.className = "split-pill";
+      pill.textContent = `${day.shortLabel}: ${day.isRest ? "Rest" : day.workoutLabel}`;
+      days.appendChild(pill);
+    });
+
+    card.appendChild(days);
+    list.appendChild(card);
+  });
+}
+
+async function loadSplitPlanner() {
+  const plannerCard = document.getElementById("splitPlannerCard");
+  if (!plannerCard) return;
+  const splitNameInput = document.getElementById("splitNameInput");
+
+  try {
+    const [{ data: activeResponse }, { data: historyResponse }] = await Promise.all([
+      apiRequest("/api/splits/active"),
+      apiRequest("/api/splits/history"),
+    ]);
+
+    workoutPlannerState.activeSplit = activeResponse?.split || null;
+    workoutPlannerState.splitHistory = historyResponse?.versions || [];
+
+    if (splitNameInput && !workoutPlannerState.activeSplit) {
+      splitNameInput.value = "My Split";
+    }
+
+    renderSplitRows(
+      "splitBuilderRows",
+      workoutPlannerState.activeSplit?.days || buildDefaultSplitDays()
+    );
+    renderActiveSplitSummary(workoutPlannerState.activeSplit);
+    renderSplitHistoryDrawer(workoutPlannerState.splitHistory);
+    await loadWorkoutPlan();
+  } catch (error) {
+    const plannerStatus = document.getElementById("splitPlannerStatus");
+    if (plannerStatus) {
+      plannerStatus.textContent =
+        error.message === "AUTH_REQUIRED"
+          ? "Sign in to load and save your workout split."
+          : error.message;
+    }
+  }
+}
+
+async function createInitialSplit() {
+  setButtonBusy("saveSplitBtn", true, "Save Split");
+  try {
+    const name = document.getElementById("splitNameInput")?.value.trim() || "My Split";
+    const days = collectSplitDays("splitBuilderRows");
+    await apiRequest("/api/splits", {
+      method: "POST",
+      body: { name, days },
+    });
+    showToast("Split saved. Version 1 is now active.", "success");
+    await loadSplitPlanner();
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    setButtonBusy("saveSplitBtn", false, "Save Split");
+  }
+}
+
+function openSplitEditor() {
+  if (!workoutPlannerState.activeSplit) return;
+  const modal = document.getElementById("splitEditorModal");
+  const nameInput = document.getElementById("splitEditorName");
+  const summaryInput = document.getElementById("splitChangeSummary");
+  if (!modal || !nameInput || !summaryInput) return;
+
+  nameInput.value = workoutPlannerState.activeSplit.name || "";
+  summaryInput.value = "";
+  renderSplitRows("splitEditorRows", workoutPlannerState.activeSplit.days || buildDefaultSplitDays());
+  modal.classList.remove("hidden");
+}
+
+function closeSplitEditor() {
+  document.getElementById("splitEditorModal")?.classList.add("hidden");
+}
+
+function openSplitHistoryDrawer() {
+  document.getElementById("splitHistoryDrawer")?.classList.remove("hidden");
+}
+
+function closeSplitHistoryDrawer() {
+  document.getElementById("splitHistoryDrawer")?.classList.add("hidden");
+}
+
+async function saveSplitEdit() {
+  setButtonBusy("saveSplitEditBtn", true, "Save New Version");
+  try {
+    const name = document.getElementById("splitEditorName")?.value.trim() || workoutPlannerState.activeSplit?.name || "My Split";
+    const changeSummary =
+      document.getElementById("splitChangeSummary")?.value.trim() || "Split updated";
+    const days = collectSplitDays("splitEditorRows");
+
+    await apiRequest("/api/splits/active", {
+      method: "PUT",
+      body: { name, days, changeSummary },
+    });
+
+    closeSplitEditor();
+    showToast("Split updated. A new version is now active.", "success");
+    await loadSplitPlanner();
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    setButtonBusy("saveSplitEditBtn", false, "Save New Version");
+  }
+}
+
+function renderWorkoutPlan(plan) {
+  const label = document.getElementById("todayPlanLabel");
+  const meta = document.getElementById("todayPlanMeta");
+  if (!label || !meta) return;
+
+  workoutPlannerState.currentPlan = plan;
+
+  if (!plan || plan.source === "none") {
+    setPlanBadge("none", "No plan");
+    label.textContent = "No workout plan resolved yet.";
+    meta.textContent = "Create a split to automatically fill today's workout.";
+    return;
+  }
+
+  const badgeLabelMap = {
+    override: "Override",
+    swap: "Swap",
+    split: "Split",
+  };
+
+  setPlanBadge(plan.source, badgeLabelMap[plan.source] || "Plan");
+  label.textContent = plan.isRest ? "Rest day" : plan.workoutLabel || "Workout";
+
+  const detailParts = [];
+  if (plan.weekdayName) detailParts.push(plan.weekdayName);
+  if (plan.splitName) detailParts.push(`${plan.splitName} v${plan.versionNo}`);
+  if (plan.reason) detailParts.push(plan.reason);
+  if (plan.notes) detailParts.push(plan.notes);
+  meta.textContent = detailParts.join(" · ") || "Resolved for today.";
+  updateOverrideStatus(plan);
+  updateSwapStatus(plan);
+}
+
+async function loadWorkoutPlan(dateString = getTodayDateString()) {
+  const label = document.getElementById("todayPlanLabel");
+  if (!label) return;
+
+  try {
+    const { data } = await apiRequest(`/api/workouts/plan?date=${encodeURIComponent(dateString)}`);
+    renderWorkoutPlan(data);
+  } catch (error) {
+    renderWorkoutPlan(null);
+    const meta = document.getElementById("todayPlanMeta");
+    if (meta) meta.textContent = error.message === "AUTH_REQUIRED" ? "Sign in to resolve a daily plan." : error.message;
+  }
+}
+
+function getOverrideSelection() {
+  const select = document.getElementById("overrideLabelSelect");
+  const customInput = document.getElementById("overrideCustomLabel");
+  const selected = select?.value || "";
+  const customValue = customInput?.value.trim() || "";
+
+  if (selected === "Custom" && !customValue) {
+    throw new Error("Custom overrides need a workout label.");
+  }
+
+  const label = selected === "Custom" ? customValue : selected;
+  return {
+    isRest: label === "Rest",
+    workoutLabel: label,
+  };
+}
+
+async function applyOverride() {
+  setButtonBusy("applyOverrideBtn", true, "Apply Only For This Date");
+  const status = document.getElementById("overrideStatus");
+  try {
+    const dateInput = document.getElementById("overrideDateInput");
+    const reason = document.getElementById("overrideReason")?.value.trim() || "";
+    const overrideDate = dateInput?.value || getTodayDateString();
+    const selection = getOverrideSelection();
+
+    await apiRequest("/api/workouts/override", {
+      method: "PUT",
+      body: {
+        overrideDate,
+        isRest: selection.isRest,
+        workoutLabel: selection.workoutLabel,
+        reason,
+      },
+    });
+
+    if (status) status.textContent = `Override saved for ${overrideDate}.`;
+    showToast("Override applied for that date.", "success");
+    await loadWorkoutPlan(overrideDate);
+  } catch (error) {
+    if (status) status.textContent = error.message;
+    showToast(error.message, "error");
+  } finally {
+    setButtonBusy("applyOverrideBtn", false, "Apply Only For This Date");
+  }
+}
+
+async function clearOverride() {
+  setButtonBusy("clearOverrideBtn", true, "Remove Override");
+  const status = document.getElementById("overrideStatus");
+  try {
+    const dateInput = document.getElementById("overrideDateInput");
+    const overrideDate = dateInput?.value || getTodayDateString();
+    await apiRequest(`/api/workouts/override/${overrideDate}`, { method: "DELETE" });
+    if (status) status.textContent = `Override cleared for ${overrideDate}.`;
+    showToast("Override removed.", "success");
+    await loadWorkoutPlan(overrideDate);
+  } catch (error) {
+    if (status) status.textContent = error.message;
+    showToast(error.message, "error");
+  } finally {
+    setButtonBusy("clearOverrideBtn", false, "Remove Override");
+  }
+}
+
+function updateOverrideStatus(plan) {
+  const card = document.getElementById("dailyOverrideCard");
+  const status = document.getElementById("overrideStatus");
+  if (!card || !status) return;
+
+  if (plan?.source === "override") {
+    card.classList.add("override-active");
+    status.textContent = "Override active for this date.";
+  } else {
+    card.classList.remove("override-active");
+  }
+}
+
+function getSwapSelection() {
+  const select = document.getElementById("swapTargetLabel");
+  const customInput = document.getElementById("swapCustomLabel");
+  const selected = select?.value || "";
+  const customValue = customInput?.value.trim() || "";
+
+  if (selected === "Custom" && !customValue) {
+    throw new Error("Custom swaps need a workout label.");
+  }
+
+  const label = selected === "Custom" ? customValue : selected;
+  return {
+    isRest: label === "Rest",
+    toWorkout: label,
+  };
+}
+
+async function createSwap() {
+  setButtonBusy("swapCreateBtn", true, "Create Swap");
+  const status = document.getElementById("swapStatus");
+  try {
+    const plan = workoutPlannerState.currentPlan;
+    if (!plan || plan.source === "none") {
+      throw new Error("No plan found to swap yet.");
+    }
+    const selection = getSwapSelection();
+    const targetDate = getTodayDateString();
+    const fromWorkout = plan.workoutLabel || "Workout";
+
+    const { data } = await apiRequest("/api/workouts/swap", {
+      method: "POST",
+      body: {
+        targetDate,
+        fromWorkout,
+        toWorkout: selection.toWorkout,
+        isRest: selection.isRest,
+      },
+    });
+
+    workoutPlannerState.pendingSwap = data?.swap || null;
+    if (status) status.textContent = "Swap created. Confirm to apply.";
+    showToast("Swap created. Confirm when ready.", "success");
+    updateSwapActions();
+  } catch (error) {
+    if (status) status.textContent = error.message;
+    showToast(error.message, "error");
+  } finally {
+    setButtonBusy("swapCreateBtn", false, "Create Swap");
+  }
+}
+
+function openSwapConfirmModal() {
+  const modal = document.getElementById("swapConfirmModal");
+  const details = document.getElementById("swapConfirmDetails");
+  if (!modal || !details) return;
+  const pending = workoutPlannerState.pendingSwap;
+  if (!pending) return;
+
+  details.textContent = `Swap ${pending.fromWorkout} to ${pending.toWorkout} for ${pending.targetDate}.`;
+  modal.classList.remove("hidden");
+}
+
+function closeSwapConfirmModal() {
+  document.getElementById("swapConfirmModal")?.classList.add("hidden");
+}
+
+async function confirmSwap() {
+  const pending = workoutPlannerState.pendingSwap;
+  if (!pending) return;
+  setButtonBusy("confirmSwapActionBtn", true, "Confirm Swap");
+  try {
+    await apiRequest(`/api/workouts/swap/${pending.id}/confirm`, { method: "POST" });
+    closeSwapConfirmModal();
+    workoutPlannerState.pendingSwap = null;
+    showToast("Swap confirmed.", "success");
+    await loadWorkoutPlan(pending.targetDate);
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    setButtonBusy("confirmSwapActionBtn", false, "Confirm Swap");
+  }
+}
+
+async function createReverseSwap() {
+  const plan = workoutPlannerState.currentPlan;
+  if (!plan || plan.source !== "swap") {
+    showToast("No confirmed swap to reverse yet.", "error");
+    return;
+  }
+  setButtonBusy("swapReverseBtn", true, "Create Reverse Swap");
+  try {
+    const targetDate = getTodayDateString();
+    const { data } = await apiRequest("/api/workouts/swap", {
+      method: "POST",
+      body: {
+        targetDate,
+        fromWorkout: plan.workoutLabel || "Workout",
+        toWorkout: plan.fromWorkout || "Workout",
+        isRest: plan.fromWorkout === "Rest",
+      },
+    });
+    workoutPlannerState.pendingSwap = data?.swap || null;
+    showToast("Reverse swap created. Confirm to apply.", "success");
+    updateSwapActions();
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    setButtonBusy("swapReverseBtn", false, "Create Reverse Swap");
+  }
+}
+
+function updateSwapActions() {
+  const confirmBtn = document.getElementById("swapConfirmBtn");
+  const reverseBtn = document.getElementById("swapReverseBtn");
+  if (confirmBtn) {
+    confirmBtn.classList.toggle("hidden", !workoutPlannerState.pendingSwap);
+  }
+  if (reverseBtn) {
+    reverseBtn.classList.toggle("hidden", workoutPlannerState.currentPlan?.source !== "swap");
+  }
+}
+
+function updateSwapStatus(plan) {
+  const card = document.getElementById("swapCard");
+  const status = document.getElementById("swapStatus");
+  if (!card || !status) return;
+
+  card.classList.remove("swap-pending", "swap-confirmed");
+
+  if (workoutPlannerState.pendingSwap) {
+    card.classList.add("swap-pending");
+    status.textContent = "Swap pending confirmation.";
+    updateSwapActions();
+    return;
+  }
+
+  if (plan?.source === "swap") {
+    card.classList.add("swap-confirmed");
+    status.textContent = "Swap confirmed for today.";
+    updateSwapActions();
+    return;
+  }
+
+  status.textContent = "No swap created yet.";
+  updateSwapActions();
+}
+
+function renderManualTemplateOptions() {
+  const select = document.getElementById("manualTemplateSelect");
+  const chips = document.getElementById("manualTemplateChips");
+  if (!select || !chips) return;
+
+  select.replaceChildren();
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Choose a saved template";
+  select.appendChild(placeholder);
+
+  chips.replaceChildren();
+
+  workoutPlannerState.manualTemplates.forEach((template) => {
+    const option = document.createElement("option");
+    option.value = template.id;
+    option.textContent = template.name;
+    select.appendChild(option);
+
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "split-pill split-pill-button";
+    chip.textContent = template.name;
+    chip.addEventListener("click", () => applyManualTemplate(template.id));
+    chips.appendChild(chip);
+  });
+}
+
+function fillManualWorkoutForm(template) {
+  if (!template) return;
+  const fieldMap = {
+    manualTemplateName: template.name || "",
+    manualExercise: template.exercise || "",
+    manualSets: template.sets ?? "",
+    manualReps: template.reps ?? "",
+    manualWeight: template.weight ?? "",
+    manualNotes: template.notes || "",
+  };
+
+  Object.entries(fieldMap).forEach(([id, value]) => {
+    const element = document.getElementById(id);
+    if (element) element.value = value;
+  });
+}
+
+function applyManualTemplate(templateId) {
+  const template = workoutPlannerState.manualTemplates.find((entry) => entry.id === templateId);
+  if (!template) return;
+  workoutPlannerState.selectedTemplateId = template.id;
+  const select = document.getElementById("manualTemplateSelect");
+  if (select) select.value = template.id;
+  fillManualWorkoutForm(template);
+  showToast(`Loaded template: ${template.name}`, "success");
+}
+
+async function loadManualTemplates() {
+  const status = document.getElementById("manualWorkoutStatus");
+  try {
+    const { data } = await apiRequest("/api/workouts/manual/templates");
+    workoutPlannerState.manualTemplates = data?.templates || [];
+    renderManualTemplateOptions();
+    if (status && workoutPlannerState.manualTemplates.length) {
+      status.textContent = `${workoutPlannerState.manualTemplates.length} template${workoutPlannerState.manualTemplates.length === 1 ? "" : "s"} ready to reuse.`;
+    }
+  } catch (error) {
+    if (status) {
+      status.textContent =
+        error.message === "AUTH_REQUIRED"
+          ? "Sign in to load your saved manual templates."
+          : error.message;
+    }
+  }
+}
+
+function collectManualWorkoutForm() {
+  const payload = {
+    name: document.getElementById("manualTemplateName")?.value.trim() || "",
+    exercise: document.getElementById("manualExercise")?.value.trim() || "",
+    sets: Number(document.getElementById("manualSets")?.value || 0),
+    reps: Number(document.getElementById("manualReps")?.value || 0),
+    weight: Number(document.getElementById("manualWeight")?.value || 0),
+    notes: document.getElementById("manualNotes")?.value.trim() || "",
+    templateId: workoutPlannerState.selectedTemplateId || null,
+  };
+
+  if (!payload.exercise) {
+    throw new Error("Exercise name is required.");
+  }
+  if (payload.sets <= 0 || payload.reps <= 0) {
+    throw new Error("Sets and reps must be greater than zero.");
+  }
+  if (payload.weight < 0) {
+    throw new Error("Weight cannot be negative.");
+  }
+
+  return payload;
+}
+
+async function saveManualWorkoutTemplate() {
+  setButtonBusy("manualSaveTemplateBtn", true, "Save As Template");
+  try {
+    const payload = collectManualWorkoutForm();
+    const { data } = await apiRequest("/api/workouts/manual/template", {
+      method: "POST",
+      body: payload,
+    });
+    workoutPlannerState.selectedTemplateId = data?.template?.id || null;
+    showToast("Template saved for future workouts.", "success");
+    await loadManualTemplates();
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    setButtonBusy("manualSaveTemplateBtn", false, "Save As Template");
+  }
+}
+
+async function saveManualWorkoutLog() {
+  setButtonBusy("manualWorkoutLogBtn", true, "Log Workout");
+  const status = document.getElementById("manualWorkoutStatus");
+  try {
+    const payload = collectManualWorkoutForm();
+    const { userInfo } = await apiRequest("/api/workouts/manual/log", {
+      method: "POST",
+      body: payload,
+    });
+
+    const date = getTodayDateString();
+    const summary = `${payload.exercise} (${payload.sets}x${payload.reps}${payload.weight ? ` @ ${payload.weight}kg` : ""})`;
+
+    const { error } = await upsertWithFallback(
+      "workout_daily",
+      {
+        user_id: userInfo.user_id,
+        username: userInfo.username,
+        date,
+        workout_status: `Manual log: ${summary}`,
+        workout_intensity: "Moderate",
+        muscle_groups: [],
+        energy_level: 3,
+      },
+      "user_id,date"
+    );
+
+    if (error) {
+      throw new Error(handleError(error, "workout_daily", userInfo.user_id, date));
+    }
+
+    uiState.sessionXp += 30;
+    animateNumber("sessionXp", uiState.sessionXp);
+    animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
+    showXpPop("+30 XP");
+    addXp(30);
+    markMissionComplete("log_workout");
+    showToast("Manual workout logged successfully.", "success");
+
+    if (status) status.textContent = `Saved ${payload.exercise} for today.`;
+    const workoutSaveStatus = document.getElementById("workoutSaveStatus");
+    if (workoutSaveStatus) workoutSaveStatus.textContent = "Workout log saved/updated for today.";
+
+    const challengeInput = document.getElementById("challengeExercise");
+    if (challengeInput && !challengeInput.value) {
+      challengeInput.value = payload.exercise;
+    }
+  } catch (error) {
+    if (status) status.textContent = error.message;
+    showToast(error.message, "error");
+  } finally {
+    setButtonBusy("manualWorkoutLogBtn", false, "Log Workout");
+  }
+}
+
+function initializeWorkoutSets() {
+  if (!workoutPlannerState.workoutSets.length) {
+    workoutPlannerState.workoutSets = [
+      { id: `set_${Date.now()}`, reps: "8", weight: "40" },
+    ];
+  }
+  const setsInput = document.getElementById("wgerSets");
+  if (setsInput) setsInput.value = String(workoutPlannerState.workoutSets.length);
+  renderWorkoutSetRows();
+}
+
+function addWorkoutSetDraft() {
+  workoutPlannerState.workoutSets.push({
+    id: `set_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    reps: "8",
+    weight: "0",
+  });
+  renderWorkoutSetRows();
+}
+
+function removeWorkoutSetDraft(setId) {
+  workoutPlannerState.workoutSets = workoutPlannerState.workoutSets.filter((entry) => entry.id !== setId);
+  if (!workoutPlannerState.workoutSets.length) {
+    initializeWorkoutSets();
+    return;
+  }
+  renderWorkoutSetRows();
+}
+
+function renderWorkoutSetRows() {
+  const container = document.getElementById("workoutSetList");
+  if (!container) return;
+
+  container.replaceChildren();
+  workoutPlannerState.workoutSets.forEach((setEntry, index) => {
+    const row = document.createElement("div");
+    row.className = "workout-set-row";
+
+    const label = document.createElement("div");
+    label.className = "workout-set-label";
+    label.textContent = `Set ${index + 1}`;
+
+    const repsWrap = document.createElement("label");
+    repsWrap.className = "form-row";
+    repsWrap.textContent = "Reps";
+    const repsInput = document.createElement("input");
+    repsInput.type = "number";
+    repsInput.min = "1";
+    repsInput.value = setEntry.reps;
+    repsInput.addEventListener("input", () => {
+      setEntry.reps = repsInput.value;
+    });
+    repsWrap.appendChild(repsInput);
+
+    const weightWrap = document.createElement("label");
+    weightWrap.className = "form-row";
+    weightWrap.textContent = "Weight (kg)";
+    const weightInput = document.createElement("input");
+    weightInput.type = "number";
+    weightInput.min = "0";
+    weightInput.step = "0.5";
+    weightInput.value = setEntry.weight;
+    weightInput.addEventListener("input", () => {
+      setEntry.weight = weightInput.value;
+    });
+    weightWrap.appendChild(weightInput);
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "workout-set-remove";
+    removeButton.textContent = "Remove";
+    removeButton.disabled = workoutPlannerState.workoutSets.length === 1;
+    removeButton.addEventListener("click", () => removeWorkoutSetDraft(setEntry.id));
+
+    row.append(label, repsWrap, weightWrap, removeButton);
+    container.appendChild(row);
+  });
+}
+
+function getWorkoutSetSummary() {
+  const normalizedSets = workoutPlannerState.workoutSets
+    .map((entry) => ({
+      reps: Number(entry.reps || 0),
+      weight: Number(entry.weight || 0),
+    }))
+    .filter((entry) => entry.reps > 0);
+
+  if (!normalizedSets.length) {
+    return null;
+  }
+
+  const topSet = normalizedSets.reduce((currentTop, entry) => {
+    if (!currentTop || entry.weight > currentTop.weight) return entry;
+    return currentTop;
+  }, null);
+
+  return {
+    sets: normalizedSets.length,
+    reps: topSet?.reps || 0,
+    weightKg: topSet?.weight || 0,
+  };
+}
+
 // â”€â”€â”€ SELECT FILLERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function fillWgerExerciseSelect(exercises) {
   const select = document.getElementById("wgerExerciseSelect");
@@ -671,7 +1619,7 @@ function fillWgerMuscleSelect(muscleLookup) {
 }
 
 // â”€â”€â”€ EXERCISE SEARCH (local catalog) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Uses LOCAL_EXERCISES with keyword + muscle-group filters. No external API.
+// Uses cached API results for exercise search.
 async function runExerciseSearch() {
   const searchInput = document.getElementById("wgerExerciseSearch");
   const muscleSelect = document.getElementById("wgerMuscleFocus");
@@ -684,48 +1632,88 @@ async function runExerciseSearch() {
     return;
   }
 
-  if (statusEl) statusEl.textContent = "Searching local exercise library...";
+  if (statusEl) statusEl.textContent = "Searching exercise catalog...";
   fillWgerExerciseSelect([]);
+  if (listEl) renderExerciseSkeletons(listEl, 6);
 
-  // Filter local exercises by name + optional muscle group
-  const lower = query.toLowerCase();
-  let exercises = LOCAL_EXERCISES.filter((ex) =>
-    ex.name.toLowerCase().includes(lower)
-  );
+  const muscleId = muscleSelect?.value || "";
 
-  const muscleId = muscleSelect?.value;
-  if (muscleId) {
-    exercises = exercises.filter((ex) => ex.muscle === muscleId);
+  try {
+    const params = new URLSearchParams({ q: query });
+    if (muscleId) params.append("muscle", muscleId);
+    const response = await fetch(`/api/exercises/search?${params.toString()}`);
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload?.error || "Exercise search failed.");
+
+    const exercises = Array.isArray(payload?.results) ? payload.results : [];
+    const cached = Boolean(payload?.cached);
+
+    wgerState.exercises = exercises;
+    fillWgerExerciseSelect(exercises);
+
+    if (listEl) {
+      listEl.replaceChildren();
+      exercises.slice(0, 20).forEach((ex) => {
+        const card = document.createElement("article");
+        card.className = "api-item";
+
+        if (ex.image) {
+          const img = document.createElement("img");
+          img.className = "exercise-photo";
+          img.alt = ex.name || "Exercise photo";
+          img.loading = "lazy";
+          img.src = ex.image;
+          card.appendChild(img);
+        } else {
+          const thumb = document.createElement("div");
+          thumb.className = "exercise-thumb";
+          thumb.textContent = (ex.name || "?").charAt(0).toUpperCase();
+          card.appendChild(thumb);
+        }
+
+        const title = document.createElement("h3");
+        title.textContent = ex.name || "Exercise";
+        const detail = document.createElement("p");
+        detail.textContent = `${ex.muscle || "Unknown"} · ${ex.equipment || "Equipment"}`;
+
+        card.append(title, detail);
+
+        if (cached) {
+          const tag = document.createElement("span");
+          tag.className = "api-pill";
+          tag.textContent = "Cached";
+          card.appendChild(tag);
+        }
+
+        listEl.appendChild(card);
+      });
+    }
+
+    if (statusEl) {
+      statusEl.textContent = exercises.length
+        ? `Found ${exercises.length} exercise(s) for "${query}".`
+        : `No exercises found for "${query}". Try a different keyword.`;
+    }
+  } catch (error) {
+    if (statusEl) statusEl.textContent = error.message || "Exercise search failed.";
+    if (listEl) listEl.replaceChildren();
   }
+}
 
-  wgerState.exercises = exercises;
-  fillWgerExerciseSelect(exercises);
+function renderExerciseSkeletons(listEl, count) {
+  listEl.replaceChildren();
+  for (let i = 0; i < count; i += 1) {
+    const card = document.createElement("article");
+    card.className = "api-item exercise-skeleton";
 
-  // Render cards with a simple visual thumbnail
-  if (listEl) {
-    listEl.replaceChildren();
-    exercises.slice(0, 20).forEach((ex) => {
-      const card = document.createElement("article");
-      card.className = "api-item";
+    const shimmer = document.createElement("div");
+    shimmer.className = "skeleton-box";
 
-      const thumb = document.createElement("div");
-      thumb.className = "exercise-thumb";
-      thumb.textContent = (ex.name || "?").charAt(0).toUpperCase();
+    const line = document.createElement("div");
+    line.className = "skeleton-line";
 
-      const title = document.createElement("h3");
-      title.textContent = ex.name;
-      const desc = document.createElement("p");
-      desc.textContent = ex.description || "No description available.";
-
-      card.append(thumb, title, desc);
-      listEl.appendChild(card);
-    });
-  }
-
-  if (statusEl) {
-    statusEl.textContent = exercises.length
-      ? `Found ${exercises.length} exercise(s) for "${query}".`
-      : `No exercises found for "${query}". Try a different keyword.`;
+    card.append(shimmer, line);
+    listEl.appendChild(card);
   }
 }
 
@@ -964,10 +1952,11 @@ async function saveWorkoutViaWger() {
 
   const muscleFocus = document.getElementById("wgerMuscleFocus")?.value || "";
   const exerciseSelect = document.getElementById("wgerExerciseSelect");
-  const sets = Number(document.getElementById("wgerSets")?.value || 0);
-  const reps = Number(document.getElementById("wgerReps")?.value || 0);
   const intensityRaw = document.getElementById("wgerWorkoutIntensity")?.value || "moderate";
-  const weightKg = Number(document.getElementById("wgerWorkoutWeight")?.value || 0);
+  const setSummary = getWorkoutSetSummary();
+  const sets = setSummary?.sets || Number(document.getElementById("wgerSets")?.value || 0);
+  const reps = setSummary?.reps || 0;
+  const weightKg = setSummary?.weightKg || 0;
 
   if (!exerciseSelect?.value || exerciseSelect.value === "") {
     if (statusLabel) statusLabel.textContent = "Select an exercise result before saving.";
@@ -1540,38 +2529,41 @@ function setupWorkoutShortcuts() {
   if (!workoutPage) return;
   const setCounter = document.getElementById("setCounter");
   const addSetBtn = document.getElementById("addSetBtn");
-  const addWeightBtn = document.getElementById("addWeightBtn");
   const repeatWorkoutBtn = document.getElementById("repeatWorkoutBtn");
-  const weightInput = document.getElementById("workout-weight");
-  const intensity = document.getElementById("workout-intensity");
-  const muscle1 = document.getElementById("muscle-group");
-  const muscle2 = document.getElementById("muscle-group2");
+  const setsInput = document.getElementById("wgerSets");
+  const intensity = document.getElementById("wgerWorkoutIntensity");
+  const muscleFocus = document.getElementById("wgerMuscleFocus");
+  const exerciseSearch = document.getElementById("wgerExerciseSearch");
 
   const addSet = () => {
+    addWorkoutSetDraft();
     uiState.setCount += 1;
     uiState.sessionXp += 20;
     if (setCounter) setCounter.textContent = `Sets logged: ${uiState.setCount}`;
+    if (setsInput) setsInput.value = String(workoutPlannerState.workoutSets.length);
     animateNumber("sessionXp", uiState.sessionXp);
     animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
     showXpPop("+20 XP");
   };
 
   addSetBtn?.addEventListener("click", addSet);
-  addWeightBtn?.addEventListener("click", () => {
-    if (!weightInput) return;
-    const next = (parseFloat(weightInput.value || "0") || 0) + 5;
-    weightInput.value = String(next);
-    showXpPop("+5kg");
-  });
   repeatWorkoutBtn?.addEventListener("click", () => {
     const cached = localStorage.getItem("lastWorkoutPreset");
     if (!cached) return;
     try {
       const value = JSON.parse(cached);
       if (intensity && value.intensity) intensity.value = value.intensity;
-      if (muscle1 && value.muscle1) muscle1.value = value.muscle1;
-      if (muscle2 && value.muscle2) muscle2.value = value.muscle2;
-      if (weightInput && value.weight) weightInput.value = value.weight;
+      if (muscleFocus && value.muscleFocus) muscleFocus.value = value.muscleFocus;
+      if (exerciseSearch && value.exerciseSearch) exerciseSearch.value = value.exerciseSearch;
+      if (Array.isArray(value.workoutSets) && value.workoutSets.length) {
+        workoutPlannerState.workoutSets = value.workoutSets.map((entry) => ({
+          id: `set_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          reps: String(entry.reps || "8"),
+          weight: String(entry.weight || "0"),
+        }));
+        renderWorkoutSetRows();
+        if (setsInput) setsInput.value = String(workoutPlannerState.workoutSets.length);
+      }
       showXpPop("Preset loaded");
     } catch { /* ignore */ }
   });
@@ -1579,14 +2571,15 @@ function setupWorkoutShortcuts() {
     const activeTag = document.activeElement?.tagName;
     const typing = activeTag === "INPUT" || activeTag === "TEXTAREA";
     if (event.code === "Space" && !typing) { event.preventDefault(); addSet(); }
-    if (event.key === "ArrowRight" && !typing) { event.preventDefault(); addWeightBtn?.click(); }
     if (event.key === "Enter" && !typing) { event.preventDefault(); workoutPage.click(); }
     if ((event.key === "r" || event.key === "R") && !typing) { event.preventDefault(); repeatWorkoutBtn?.click(); }
   });
   workoutPage.addEventListener("click", () => {
     const payload = {
-      intensity: intensity?.value, muscle1: muscle1?.value,
-      muscle2: muscle2?.value, weight: weightInput?.value,
+      intensity: intensity?.value,
+      muscleFocus: muscleFocus?.value,
+      exerciseSearch: exerciseSearch?.value,
+      workoutSets: workoutPlannerState.workoutSets,
     };
     localStorage.setItem("lastWorkoutPreset", JSON.stringify(payload));
   });
@@ -2097,6 +3090,78 @@ function setupManualToggles() {
   });
 }
 
+function setupWorkoutPlanner() {
+  if (!document.getElementById("splitPlannerCard")) return;
+
+  renderSplitRows("splitBuilderRows", buildDefaultSplitDays());
+
+  document.getElementById("saveSplitBtn")?.addEventListener("click", createInitialSplit);
+  document.getElementById("editSplitBtn")?.addEventListener("click", openSplitEditor);
+  document.getElementById("closeSplitEditorBtn")?.addEventListener("click", closeSplitEditor);
+  document.getElementById("saveSplitEditBtn")?.addEventListener("click", saveSplitEdit);
+  document.getElementById("viewSplitHistoryBtn")?.addEventListener("click", openSplitHistoryDrawer);
+  document.getElementById("closeSplitHistoryBtn")?.addEventListener("click", closeSplitHistoryDrawer);
+  document.getElementById("refreshPlanBtn")?.addEventListener("click", () => loadWorkoutPlan());
+  document.getElementById("splitEditorModal")?.addEventListener("click", (event) => {
+    if (event.target?.id === "splitEditorModal") closeSplitEditor();
+  });
+
+  loadSplitPlanner();
+}
+
+function setupManualWorkoutSection() {
+  if (!document.getElementById("manualWorkoutCard")) return;
+
+  document.getElementById("manualTemplateSelect")?.addEventListener("change", (event) => {
+    const templateId = event.target?.value;
+    if (!templateId) return;
+    applyManualTemplate(templateId);
+  });
+
+  document.getElementById("manualWorkoutLogBtn")?.addEventListener("click", saveManualWorkoutLog);
+  document.getElementById("manualSaveTemplateBtn")?.addEventListener("click", saveManualWorkoutTemplate);
+
+  loadManualTemplates();
+}
+
+function setupDailyOverride() {
+  if (!document.getElementById("dailyOverrideCard")) return;
+  const dateInput = document.getElementById("overrideDateInput");
+  if (dateInput && !dateInput.value) {
+    dateInput.value = getTodayDateString();
+  }
+
+  const overrideCustom = document.getElementById("overrideCustomLabel");
+  if (overrideCustom) overrideCustom.hidden = true;
+
+  document.getElementById("overrideLabelSelect")?.addEventListener("change", (event) => {
+    const custom = document.getElementById("overrideCustomLabel");
+    if (custom) custom.hidden = event.target?.value !== "Custom";
+  });
+
+  document.getElementById("applyOverrideBtn")?.addEventListener("click", applyOverride);
+  document.getElementById("clearOverrideBtn")?.addEventListener("click", clearOverride);
+}
+
+function setupSwapFlow() {
+  if (!document.getElementById("swapCard")) return;
+  document.getElementById("swapTargetLabel")?.addEventListener("change", (event) => {
+    const custom = document.getElementById("swapCustomLabel");
+    if (custom) custom.hidden = event.target?.value !== "Custom";
+  });
+  const customInput = document.getElementById("swapCustomLabel");
+  if (customInput) customInput.hidden = true;
+
+  document.getElementById("swapCreateBtn")?.addEventListener("click", createSwap);
+  document.getElementById("swapConfirmBtn")?.addEventListener("click", openSwapConfirmModal);
+  document.getElementById("swapReverseBtn")?.addEventListener("click", createReverseSwap);
+  document.getElementById("closeSwapConfirmBtn")?.addEventListener("click", closeSwapConfirmModal);
+  document.getElementById("confirmSwapActionBtn")?.addEventListener("click", confirmSwap);
+  document.getElementById("swapConfirmModal")?.addEventListener("click", (event) => {
+    if (event.target?.id === "swapConfirmModal") closeSwapConfirmModal();
+  });
+}
+
 function setupScrollReveal() {
   const revealNodes = [...document.querySelectorAll("header"), ...document.querySelectorAll(".card")];
   if (!revealNodes.length) return;
@@ -2125,10 +3190,15 @@ function initUI() {
   setupThemeToggle();
   setupMissionBoard();
   setupLeaderboardRefresh();
+  initializeWorkoutSets();
   setupWorkoutShortcuts();
   setupShareActions();
   setupNotifications();
   setupManualToggles();
+  setupWorkoutPlanner();
+  setupManualWorkoutSection();
+  setupDailyOverride();
+  setupSwapFlow();
   setupMealCapture("wger");
   setupMealCapture("manual");
   setupWgerFilters();
@@ -2309,10 +3379,8 @@ Make the user feel unstoppable and excited to work out.
 Vibe:
 "LIGHT WEIGHT BABY! EVEN YOUR WATER BOTTLE GETTING STRONGER!"
 `
-  }
-];
-
-const allStarCoach = {
+  },
+  {
   id: "all_star",
   name: "All-Star",
   icon: "⭐",
@@ -2337,6 +3405,8 @@ Be funny, motivating, helpful, and feel like the user's best gym partner.
 Vibe:
 "We train smart, laugh hard, and get stronger every day."
 `
-};
+}
+];
+
 
 let selectedCoach = null;

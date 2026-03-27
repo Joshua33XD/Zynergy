@@ -1,0 +1,113 @@
+{
+  "splitVersions": [
+    {
+      "id": "splitver_591b8703-7541-45b1-8811-48d58cdb11e4",
+      "userId": "test-user",
+      "username": "Tester",
+      "name": "Test Split",
+      "versionNo": 1,
+      "isActive": true,
+      "createdAt": "2026-03-27T07:28:52.029Z",
+      "activatedAt": "2026-03-27T07:28:52.029Z",
+      "deactivatedAt": null
+    }
+  ],
+  "splitDays": [
+    {
+      "id": "splitday_0ef1bd82-df0b-4d97-b949-8ccfcb85122d",
+      "splitVersionId": "splitver_591b8703-7541-45b1-8811-48d58cdb11e4",
+      "dayOfWeek": 1,
+      "weekdayName": "Monday",
+      "shortLabel": "Mon",
+      "isRest": false,
+      "workoutLabel": "Push",
+      "notes": "Heavy bench",
+      "createdAt": "2026-03-27T07:28:52.029Z"
+    },
+    {
+      "id": "splitday_692e3d43-876c-4727-9cea-4a0c1a9add5a",
+      "splitVersionId": "splitver_591b8703-7541-45b1-8811-48d58cdb11e4",
+      "dayOfWeek": 2,
+      "weekdayName": "Tuesday",
+      "shortLabel": "Tue",
+      "isRest": false,
+      "workoutLabel": "Pull",
+      "notes": "",
+      "createdAt": "2026-03-27T07:28:52.029Z"
+    },
+    {
+      "id": "splitday_1bae2a2a-de17-439c-b914-508b17c92aee",
+      "splitVersionId": "splitver_591b8703-7541-45b1-8811-48d58cdb11e4",
+      "dayOfWeek": 3,
+      "weekdayName": "Wednesday",
+      "shortLabel": "Wed",
+      "isRest": false,
+      "workoutLabel": "Legs",
+      "notes": "",
+      "createdAt": "2026-03-27T07:28:52.029Z"
+    },
+    {
+      "id": "splitday_4e17fed4-6a14-4438-9c8d-59909592dd3a",
+      "splitVersionId": "splitver_591b8703-7541-45b1-8811-48d58cdb11e4",
+      "dayOfWeek": 4,
+      "weekdayName": "Thursday",
+      "shortLabel": "Thu",
+      "isRest": true,
+      "workoutLabel": "Rest",
+      "notes": "Recover",
+      "createdAt": "2026-03-27T07:28:52.029Z"
+    },
+    {
+      "id": "splitday_c61eb28c-9548-40bd-86e1-01470aca7280",
+      "splitVersionId": "splitver_591b8703-7541-45b1-8811-48d58cdb11e4",
+      "dayOfWeek": 5,
+      "weekdayName": "Friday",
+      "shortLabel": "Fri",
+      "isRest": false,
+      "workoutLabel": "Upper",
+      "notes": "",
+      "createdAt": "2026-03-27T07:28:52.029Z"
+    },
+    {
+      "id": "splitday_2bfbec02-a998-496e-8679-69fe97fe543c",
+      "splitVersionId": "splitver_591b8703-7541-45b1-8811-48d58cdb11e4",
+      "dayOfWeek": 6,
+      "weekdayName": "Saturday",
+      "shortLabel": "Sat",
+      "isRest": false,
+      "workoutLabel": "Lower",
+      "notes": "",
+      "createdAt": "2026-03-27T07:28:52.029Z"
+    },
+    {
+      "id": "splitday_270e6bfd-857f-476f-b118-af466235bd44",
+      "splitVersionId": "splitver_591b8703-7541-45b1-8811-48d58cdb11e4",
+      "dayOfWeek": 7,
+      "weekdayName": "Sunday",
+      "shortLabel": "Sun",
+      "isRest": true,
+      "workoutLabel": "Rest",
+      "notes": "",
+      "createdAt": "2026-03-27T07:28:52.029Z"
+    }
+  ],
+  "splitHistory": [],
+  "workoutDayOverrides": [],
+  "workoutSwaps": [],
+  "manualWorkoutLogs": [],
+  "manualWorkoutTemplates": [
+    {
+      "id": "manualtpl_97aae522-f5e4-41c8-b001-7dcf1965ebcd",
+      "userId": "test-user",
+      "username": "Tester",
+      "name": "Bench Template",
+      "exercise": "Bench Press",
+      "sets": 4,
+      "reps": 8,
+      "weight": 80,
+      "notes": "Pause first rep",
+      "createdAt": "2026-03-27T07:28:52.341Z",
+      "updatedAt": "2026-03-27T07:28:52.341Z"
+    }
+  ]
+}

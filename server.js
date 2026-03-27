@@ -3,6 +3,29 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const Groq = require("groq-sdk");
+const {
+  createHttpError,
+  createManualWorkoutTemplate,
+  createSplit,
+  createWorkoutSwap,
+  deleteManualWorkoutTemplate,
+  deleteWorkoutOverride,
+  getActiveSplit,
+  getCachedExerciseById,
+  getCachedExerciseSearch,
+  getSplitHistory,
+  listManualWorkoutTemplates,
+  resolveWorkoutPlan,
+  saveManualWorkoutLog,
+  setCachedExerciseById,
+  setCachedExerciseSearch,
+  updateActiveSplit,
+  updateManualWorkoutTemplate,
+  confirmWorkoutSwap,
+  cancelWorkoutSwap,
+  upsertWorkoutOverride,
+  validateDateString,
+} = require("./workout-store");
 
 dotenv.config();
 
@@ -56,7 +79,96 @@ const coaches = [
     systemPrompt:
       "You are Ronnie Coleman style coach for ZYNERGY. Be energetic and strength-focused. Give clear progressive overload advice with safe form reminders.",
   },
+  {
+    id: "all_star",
+    name: "All-Star Coach",
+    icon: "A",
+    image: null,
+    blurb: "Blended coach style combining hypertrophy, discipline, recovery, and strength.",
+    systemPrompt:
+      "You are ZYNERGY All-Star Coach. Blend Sam Sulek intensity, Togi discipline, C Bum balance, and Ronnie Coleman strength mindset. Keep replies concise, actionable, supportive, and safe.",
+  },
 ];
+
+const EXERCISE_PLACEHOLDER_IMAGE =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="220" viewBox="0 0 320 220">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#22d3ee"/>
+          <stop offset="100%" stop-color="#a855f7"/>
+        </linearGradient>
+      </defs>
+      <rect width="320" height="220" rx="24" fill="url(#g)"/>
+      <circle cx="82" cy="80" r="36" fill="rgba(255,255,255,0.35)"/>
+      <rect x="140" y="60" width="140" height="18" rx="9" fill="rgba(255,255,255,0.7)"/>
+      <rect x="140" y="92" width="110" height="14" rx="7" fill="rgba(255,255,255,0.6)"/>
+      <rect x="40" y="140" width="240" height="16" rx="8" fill="rgba(255,255,255,0.5)"/>
+    </svg>`
+  );
+
+const EXERCISE_CATALOG = [
+  { id: "bb_bench_press", name: "Barbell Bench Press", muscle: "Chest", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "db_bench_press", name: "Dumbbell Bench Press", muscle: "Chest", equipment: "Dumbbell", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "incline_db_press", name: "Incline Dumbbell Press", muscle: "Chest", equipment: "Dumbbell", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "push_up", name: "Push-up", muscle: "Chest", equipment: "Bodyweight", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "bb_squat", name: "Barbell Back Squat", muscle: "Legs", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "front_squat", name: "Front Squat", muscle: "Legs", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "romanian_deadlift", name: "Romanian Deadlift", muscle: "Legs", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "leg_press", name: "Leg Press", muscle: "Legs", equipment: "Machine", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "conventional_deadlift", name: "Conventional Deadlift", muscle: "Back", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "bb_row", name: "Barbell Row", muscle: "Back", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "seated_cable_row", name: "Seated Cable Row", muscle: "Back", equipment: "Cable", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "lat_pulldown", name: "Lat Pulldown", muscle: "Back", equipment: "Cable", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "ohp", name: "Overhead Press", muscle: "Shoulders", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "lateral_raise", name: "Dumbbell Lateral Raise", muscle: "Shoulders", equipment: "Dumbbell", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "rear_delt_fly", name: "Rear Delt Fly", muscle: "Shoulders", equipment: "Dumbbell", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "bb_curl", name: "Barbell Curl", muscle: "Biceps", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "db_curl", name: "Alternating Dumbbell Curl", muscle: "Biceps", equipment: "Dumbbell", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "hammer_curl", name: "Hammer Curl", muscle: "Biceps", equipment: "Dumbbell", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "skullcrusher", name: "Skullcrusher", muscle: "Triceps", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "rope_pushdown", name: "Cable Rope Pushdown", muscle: "Triceps", equipment: "Cable", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "dip", name: "Parallel Bar Dip", muscle: "Triceps", equipment: "Bodyweight", image: EXERCISE_PLACEHOLDER_IMAGE },
+];
+
+function getUserContext(req) {
+  const userId =
+    req.get("x-user-id") ||
+    req.body?.userId ||
+    req.query?.userId ||
+    req.params?.userId;
+  const username =
+    req.get("x-username") || req.body?.username || req.query?.username || "User";
+
+  if (!userId || typeof userId !== "string") {
+    throw createHttpError(
+      401,
+      "A signed-in user is required. Pass x-user-id from the authenticated client."
+    );
+  }
+
+  return {
+    userId: userId.trim(),
+    username: typeof username === "string" ? username.trim() || "User" : "User",
+  };
+}
+
+function asyncRoute(handler) {
+  return async (req, res) => {
+    try {
+      await handler(req, res);
+    } catch (error) {
+      const status = Number(error?.status) || 500;
+      if (status >= 500) {
+        console.error("API error:", error);
+      }
+      res.status(status).json({
+        error: error?.message || "Unexpected server error.",
+      });
+    }
+  };
+}
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
@@ -72,6 +184,243 @@ app.get("/coaches", (_req, res) => {
     })),
   });
 });
+
+app.post(
+  "/api/splits",
+  asyncRoute(async (req, res) => {
+    const { userId, username } = getUserContext(req);
+    const split = await createSplit({
+      userId,
+      username,
+      name: req.body?.name,
+      days: req.body?.days,
+    });
+    res.status(201).json({ split });
+  })
+);
+
+app.get(
+  "/api/splits/active",
+  asyncRoute(async (req, res) => {
+    const { userId } = getUserContext(req);
+    const split = await getActiveSplit(userId);
+    res.json({ split });
+  })
+);
+
+app.put(
+  "/api/splits/active",
+  asyncRoute(async (req, res) => {
+    const { userId, username } = getUserContext(req);
+    const result = await updateActiveSplit({
+      userId,
+      username,
+      name: req.body?.name,
+      days: req.body?.days,
+      changeSummary: req.body?.changeSummary,
+    });
+    res.json(result);
+  })
+);
+
+app.get(
+  "/api/splits/history",
+  asyncRoute(async (req, res) => {
+    const { userId } = getUserContext(req);
+    const versions = await getSplitHistory(userId);
+    res.json({ versions });
+  })
+);
+
+app.get(
+  "/api/workouts/plan",
+  asyncRoute(async (req, res) => {
+    const { userId } = getUserContext(req);
+    const requestedDate = req.query?.date
+      ? validateDateString(req.query.date, "date")
+      : new Date().toISOString().slice(0, 10);
+    const plan = await resolveWorkoutPlan(userId, requestedDate);
+    res.json(plan);
+  })
+);
+
+app.put(
+  "/api/workouts/override",
+  asyncRoute(async (req, res) => {
+    const { userId, username } = getUserContext(req);
+    const override = await upsertWorkoutOverride({
+      userId,
+      username,
+      overrideDate: req.body?.overrideDate,
+      isRest: req.body?.isRest,
+      workoutLabel: req.body?.workoutLabel,
+      reason: req.body?.reason,
+    });
+    res.json({ override });
+  })
+);
+
+app.delete(
+  "/api/workouts/override/:date",
+  asyncRoute(async (req, res) => {
+    const { userId } = getUserContext(req);
+    const result = await deleteWorkoutOverride(userId, req.params.date);
+    res.json(result);
+  })
+);
+
+app.post(
+  "/api/workouts/swap",
+  asyncRoute(async (req, res) => {
+    const { userId, username } = getUserContext(req);
+    const swap = await createWorkoutSwap({
+      userId,
+      username,
+      targetDate: req.body?.targetDate,
+      fromWorkout: req.body?.fromWorkout,
+      toWorkout: req.body?.toWorkout,
+      isRest: req.body?.isRest,
+    });
+    res.status(201).json({ swap });
+  })
+);
+
+app.post(
+  "/api/workouts/swap/:id/confirm",
+  asyncRoute(async (req, res) => {
+    const { userId } = getUserContext(req);
+    const swap = await confirmWorkoutSwap(userId, req.params.id);
+    res.json({ swap });
+  })
+);
+
+app.post(
+  "/api/workouts/swap/:id/cancel",
+  asyncRoute(async (req, res) => {
+    const { userId } = getUserContext(req);
+    const swap = await cancelWorkoutSwap(userId, req.params.id);
+    res.json({ swap });
+  })
+);
+
+app.post(
+  "/api/workouts/manual/log",
+  asyncRoute(async (req, res) => {
+    const { userId, username } = getUserContext(req);
+    const log = await saveManualWorkoutLog({
+      userId,
+      username,
+      exercise: req.body?.exercise,
+      sets: req.body?.sets,
+      reps: req.body?.reps,
+      weight: req.body?.weight,
+      notes: req.body?.notes,
+      entryDate: req.body?.entryDate,
+      templateId: req.body?.templateId,
+    });
+    res.status(201).json({ log });
+  })
+);
+
+app.post(
+  "/api/workouts/manual/template",
+  asyncRoute(async (req, res) => {
+    const { userId, username } = getUserContext(req);
+    const template = await createManualWorkoutTemplate({
+      userId,
+      username,
+      name: req.body?.name,
+      exercise: req.body?.exercise,
+      sets: req.body?.sets,
+      reps: req.body?.reps,
+      weight: req.body?.weight,
+      notes: req.body?.notes,
+    });
+    res.status(201).json({ template });
+  })
+);
+
+app.get(
+  "/api/workouts/manual/templates",
+  asyncRoute(async (req, res) => {
+    const { userId } = getUserContext(req);
+    const templates = await listManualWorkoutTemplates(userId);
+    res.json({ templates });
+  })
+);
+
+app.put(
+  "/api/workouts/manual/template/:id",
+  asyncRoute(async (req, res) => {
+    const { userId } = getUserContext(req);
+    const template = await updateManualWorkoutTemplate(
+      userId,
+      req.params.id,
+      req.body || {}
+    );
+    res.json({ template });
+  })
+);
+
+app.delete(
+  "/api/workouts/manual/template/:id",
+  asyncRoute(async (req, res) => {
+    const { userId } = getUserContext(req);
+    const result = await deleteManualWorkoutTemplate(userId, req.params.id);
+    res.json(result);
+  })
+);
+
+app.get(
+  "/api/exercises/search",
+  asyncRoute(async (req, res) => {
+    const query = typeof req.query?.q === "string" ? req.query.q.trim() : "";
+    if (!query) {
+      res.status(400).json({ error: "q is required." });
+      return;
+    }
+
+    const muscle = typeof req.query?.muscle === "string" ? req.query.muscle.trim() : "";
+    const { hit, data } = await getCachedExerciseSearch(query, { muscle });
+    if (hit) {
+      res.json({ cached: true, results: data });
+      return;
+    }
+
+    const lower = query.toLowerCase();
+    const results = EXERCISE_CATALOG.filter((exercise) => {
+      if (!exercise.name.toLowerCase().includes(lower)) return false;
+      if (muscle && exercise.muscle.toLowerCase() !== muscle.toLowerCase()) {
+        return false;
+      }
+      return true;
+    }).slice(0, 24);
+
+    await setCachedExerciseSearch(query, { muscle }, results);
+    res.json({ cached: false, results });
+  })
+);
+
+app.get(
+  "/api/exercises/:id",
+  asyncRoute(async (req, res) => {
+    const id = req.params.id;
+    const { hit, data } = await getCachedExerciseById(id);
+    if (hit) {
+      res.json({ cached: true, exercise: data });
+      return;
+    }
+
+    const exercise = EXERCISE_CATALOG.find((item) => item.id === id);
+    if (!exercise) {
+      res.status(404).json({ error: "Exercise not found." });
+      return;
+    }
+
+    await setCachedExerciseById(id, exercise);
+    res.json({ cached: false, exercise });
+  })
+);
 
 app.post("/chat", async (req, res) => {
   try {

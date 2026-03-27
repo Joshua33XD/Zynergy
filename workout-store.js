@@ -577,6 +577,47 @@ async function cancelWorkoutSwap(userId, swapId) {
   });
 }
 
+async function listRecentPlanActivity(userId, limit = 8, type = "all") {
+  const state = await readState();
+  const filterType = normalizeText(type).toLowerCase();
+  const overrides = state.workoutDayOverrides
+    .filter((entry) => entry.userId === userId)
+    .map((entry) => ({
+      id: entry.id,
+      type: "override",
+      date: entry.overrideDate,
+      label: entry.isRest ? "Rest" : entry.workoutLabel,
+      reason: entry.reason,
+      status: "active",
+      createdAt: entry.updatedAt || entry.createdAt,
+    }));
+
+  const swaps = state.workoutSwaps
+    .filter((entry) => entry.userId === userId && entry.status !== "cancelled")
+    .map((entry) => ({
+      id: entry.id,
+      type: "swap",
+      date: entry.targetDate,
+      label: entry.toWorkout,
+      fromWorkout: entry.fromWorkout,
+      status: entry.status,
+      createdAt: entry.confirmedAt || entry.requestedAt,
+    }));
+
+  const combined = [...overrides, ...swaps].sort((a, b) => {
+    const timeA = new Date(a.createdAt || 0).getTime();
+    const timeB = new Date(b.createdAt || 0).getTime();
+    return timeB - timeA;
+  });
+
+  const filtered =
+    filterType && filterType !== "all"
+      ? combined.filter((entry) => entry.type === filterType)
+      : combined;
+
+  return filtered.slice(0, Math.max(1, Number(limit) || 8));
+}
+
 async function getCachedExerciseResult(cacheKey, nowMs, ttlMs) {
   const memoryHit = exerciseCacheMemory.get(cacheKey);
   if (memoryHit && memoryHit.expiresAt > nowMs) {
@@ -810,6 +851,7 @@ module.exports = {
   getCachedExerciseById,
   getCachedExerciseSearch,
   getSplitHistory,
+  listRecentPlanActivity,
   listManualWorkoutTemplates,
   resolveWorkoutPlan,
   saveManualWorkoutLog,

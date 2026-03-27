@@ -1006,7 +1006,10 @@ async function saveSplitEdit() {
 function renderWorkoutPlan(plan) {
   const label = document.getElementById("todayPlanLabel");
   const meta = document.getElementById("todayPlanMeta");
-  if (!label || !meta) return;
+  if (!label || !meta) {
+    renderDashboardPlan(plan);
+    return;
+  }
 
   workoutPlannerState.currentPlan = plan;
 
@@ -1034,11 +1037,12 @@ function renderWorkoutPlan(plan) {
   meta.textContent = detailParts.join(" · ") || "Resolved for today.";
   updateOverrideStatus(plan);
   updateSwapStatus(plan);
+  renderDashboardPlan(plan);
 }
 
 async function loadWorkoutPlan(dateString = getTodayDateString()) {
   const label = document.getElementById("todayPlanLabel");
-  if (!label) return;
+  if (!label && !document.getElementById("dashboardPlanCard")) return;
 
   try {
     const { data } = await apiRequest(`/api/workouts/plan?date=${encodeURIComponent(dateString)}`);
@@ -1047,6 +1051,177 @@ async function loadWorkoutPlan(dateString = getTodayDateString()) {
     renderWorkoutPlan(null);
     const meta = document.getElementById("todayPlanMeta");
     if (meta) meta.textContent = error.message === "AUTH_REQUIRED" ? "Sign in to resolve a daily plan." : error.message;
+    const dashboardMeta = document.getElementById("dashboardPlanMeta");
+    if (dashboardMeta) dashboardMeta.textContent = error.message === "AUTH_REQUIRED" ? "Sign in to see today's plan." : error.message;
+  }
+}
+
+function renderDashboardPlan(plan) {
+  const badge = document.getElementById("dashboardPlanBadge");
+  const label = document.getElementById("dashboardPlanLabel");
+  const meta = document.getElementById("dashboardPlanMeta");
+  if (!badge || !label || !meta) return;
+
+  if (!plan || plan.source === "none") {
+    badge.dataset.source = "none";
+    badge.textContent = "No plan";
+    label.textContent = "No plan resolved yet.";
+    meta.textContent = "Create a split or apply an override.";
+    return;
+  }
+
+  const sourceLabel = {
+    override: "Override",
+    swap: "Swap",
+    split: "Split",
+  }[plan.source] || "Plan";
+
+  badge.dataset.source = plan.source;
+  badge.textContent = sourceLabel;
+  label.textContent = plan.isRest ? "Rest day" : plan.workoutLabel || "Workout";
+
+  const detailParts = [];
+  if (plan.weekdayName) detailParts.push(plan.weekdayName);
+  if (plan.splitName) detailParts.push(`${plan.splitName} v${plan.versionNo}`);
+  if (plan.reason) detailParts.push(plan.reason);
+  if (plan.notes) detailParts.push(plan.notes);
+  if (plan.fromWorkout && plan.source === "swap") detailParts.push(`From ${plan.fromWorkout}`);
+  meta.textContent = detailParts.join(" · ") || "Resolved for today.";
+}
+
+async function loadPlanActivityLegacy() {
+  if (!document.getElementById("dashboardActivityCard")) return;
+  const status = document.getElementById("dashboardActivityStatus");
+  const list = document.getElementById("dashboardActivityList");
+  if (!status || !list) return;
+
+  try {
+    const { data } = await apiRequest("/api/workouts/activity?limit=8");
+    const activity = Array.isArray(data?.activity) ? data.activity : [];
+
+    list.replaceChildren();
+    if (!activity.length) {
+      status.textContent = "No overrides or swaps yet.";
+      return;
+    }
+
+    status.textContent = "Latest overrides and swaps.";
+
+    activity.forEach((entry) => {
+      const item = document.createElement("article");
+      item.className = "activity-item";
+
+      const title = document.createElement("strong");
+      title.textContent = entry.type === "override" ? "Override" : "Swap";
+
+      const detail = document.createElement("span");
+      const label = entry.label || "Workout";
+      if (entry.type === "swap") {
+        detail.textContent = `${entry.date}: ${entry.fromWorkout || "Workout"} → ${label}`;
+      } else {
+        detail.textContent = `${entry.date}: ${label}`;
+      }
+
+      const meta = document.createElement("small");
+      meta.className = "muted";
+      const statusLabel = entry.status === "pending" ? "Pending" : entry.status === "confirmed" ? "Confirmed" : "Active";
+      meta.textContent = entry.reason ? `${statusLabel} · ${entry.reason}` : statusLabel;
+
+      item.append(title, detail, meta);
+      list.appendChild(item);
+    });
+  } catch (error) {
+    status.textContent = error.message === "AUTH_REQUIRED" ? "Sign in to view plan activity." : error.message;
+  }
+}
+
+async function loadPlanActivity(filter = "all") {
+  if (!document.getElementById("dashboardActivityCard")) return;
+  const status = document.getElementById("dashboardActivityStatus");
+  const list = document.getElementById("dashboardActivityList");
+  const undoWrap = document.getElementById("dashboardSwapUndo");
+  const undoLabel = document.getElementById("dashboardSwapUndoLabel");
+  const undoBtn = document.getElementById("dashboardSwapUndoBtn");
+  if (!status || !list) return;
+
+  try {
+    const params = new URLSearchParams({ limit: "8" });
+    if (filter && filter !== "all") params.append("type", filter);
+    const { data } = await apiRequest(`/api/workouts/activity?${params.toString()}`);
+    const activity = Array.isArray(data?.activity) ? data.activity : [];
+
+    list.replaceChildren();
+    if (undoWrap) undoWrap.classList.add("hidden");
+    if (!activity.length) {
+      status.textContent = "No overrides or swaps yet.";
+      return;
+    }
+
+    status.textContent = "Latest overrides and swaps.";
+
+    const latestSwap = activity.find((entry) => entry.type === "swap" && entry.status === "confirmed");
+    if (latestSwap && undoWrap && undoLabel && undoBtn) {
+      undoLabel.textContent = `Undo latest swap: ${latestSwap.fromWorkout || "Workout"} restored`;
+      undoBtn.onclick = () => undoLatestSwap(latestSwap);
+      undoWrap.classList.remove("hidden");
+    }
+
+    activity.forEach((entry) => {
+      const item = document.createElement("article");
+      item.className = "activity-item";
+
+      const title = document.createElement("strong");
+      title.textContent = entry.type === "override" ? "Override" : "Swap";
+
+      const detail = document.createElement("span");
+      const label = entry.label || "Workout";
+      if (entry.type === "swap") {
+        detail.textContent = `${entry.date}: ${entry.fromWorkout || "Workout"} â†’ ${label}`;
+      } else {
+        detail.textContent = `${entry.date}: ${label}`;
+      }
+
+      const meta = document.createElement("small");
+      meta.className = "muted";
+      const statusLabel = entry.status === "pending" ? "Pending" : entry.status === "confirmed" ? "Confirmed" : "Active";
+      meta.textContent = entry.reason ? `${statusLabel} Â· ${entry.reason}` : statusLabel;
+
+      item.append(title, detail, meta);
+      list.appendChild(item);
+    });
+  } catch (error) {
+    status.textContent = error.message === "AUTH_REQUIRED" ? "Sign in to view plan activity." : error.message;
+  }
+}
+
+async function undoLatestSwap(entry) {
+  if (!entry || entry.type !== "swap") return;
+  const confirmUndo = window.confirm("This will create a reverse swap for today. Continue?");
+  if (!confirmUndo) return;
+
+  const targetDate = entry.date || getTodayDateString();
+  try {
+    const { data } = await apiRequest("/api/workouts/swap", {
+      method: "POST",
+      body: {
+        targetDate,
+        fromWorkout: entry.label || "Workout",
+        toWorkout: entry.fromWorkout || "Workout",
+        isRest: entry.fromWorkout === "Rest",
+      },
+    });
+
+    const swap = data?.swap;
+    if (swap) {
+      await apiRequest(`/api/workouts/swap/${swap.id}/confirm`, { method: "POST" });
+    }
+
+    showToast("Reverse swap confirmed.", "success");
+    await loadWorkoutPlan(targetDate);
+    const filterSelect = document.getElementById("activityFilterSelect");
+    await loadPlanActivity(filterSelect?.value || "all");
+  } catch (error) {
+    showToast(error.message, "error");
   }
 }
 
@@ -3162,6 +3337,14 @@ function setupSwapFlow() {
   });
 }
 
+function setupActivityFilters() {
+  const filterSelect = document.getElementById("activityFilterSelect");
+  if (!filterSelect) return;
+  filterSelect.addEventListener("change", () => {
+    loadPlanActivity(filterSelect.value || "all");
+  });
+}
+
 function setupScrollReveal() {
   const revealNodes = [...document.querySelectorAll("header"), ...document.querySelectorAll(".card")];
   if (!revealNodes.length) return;
@@ -3209,6 +3392,9 @@ function initUI() {
   loadSidebarProfileStats();
   loadTodaySleepEntry();
   loadGamificationBadgesAndQuest();
+  loadWorkoutPlan();
+  setupActivityFilters();
+  loadPlanActivity();
   setupScrollReveal();
   registerServiceWorker();
 }

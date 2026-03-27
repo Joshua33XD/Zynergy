@@ -24,3 +24,38 @@
   border-radius: 50%;
   object-fit: cover;
 }
+
+.activity-list {
+  display: grid;
+  gap: 12px;
+}
+
+.activity-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.activity-undo {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px dashed var(--accent-soft-border);
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.activity-item {
+  border: 1px solid var(--line-color);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--surface-2);
+  display: grid;
+  gap: 6px;
+}
+
+.activity-item strong {
+  color: var(--accent-color);
+}

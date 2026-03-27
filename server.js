@@ -14,6 +14,7 @@ const {
   getCachedExerciseById,
   getCachedExerciseSearch,
   getSplitHistory,
+  listRecentPlanActivity,
   listManualWorkoutTemplates,
   resolveWorkoutPlan,
   saveManualWorkoutLog,
@@ -90,46 +91,37 @@ const coaches = [
   },
 ];
 
-const EXERCISE_PLACEHOLDER_IMAGE =
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="220" viewBox="0 0 320 220">
-      <defs>
-        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#22d3ee"/>
-          <stop offset="100%" stop-color="#a855f7"/>
-        </linearGradient>
-      </defs>
-      <rect width="320" height="220" rx="24" fill="url(#g)"/>
-      <circle cx="82" cy="80" r="36" fill="rgba(255,255,255,0.35)"/>
-      <rect x="140" y="60" width="140" height="18" rx="9" fill="rgba(255,255,255,0.7)"/>
-      <rect x="140" y="92" width="110" height="14" rx="7" fill="rgba(255,255,255,0.6)"/>
-      <rect x="40" y="140" width="240" height="16" rx="8" fill="rgba(255,255,255,0.5)"/>
-    </svg>`
-  );
+const EXERCISE_IMAGE_BASE =
+  "https://images.pexels.com/photos/416778/pexels-photo-416778.jpeg?auto=compress&cs=tinysrgb&w=800";
+const EXERCISE_IMAGE_STRENGTH =
+  "https://images.pexels.com/photos/949126/pexels-photo-949126.jpeg?auto=compress&cs=tinysrgb&w=800";
+const EXERCISE_IMAGE_CABLE =
+  "https://images.pexels.com/photos/1552106/pexels-photo-1552106.jpeg?auto=compress&cs=tinysrgb&w=800";
+const EXERCISE_IMAGE_BODYWEIGHT =
+  "https://images.pexels.com/photos/414029/pexels-photo-414029.jpeg?auto=compress&cs=tinysrgb&w=800";
 
 const EXERCISE_CATALOG = [
-  { id: "bb_bench_press", name: "Barbell Bench Press", muscle: "Chest", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "db_bench_press", name: "Dumbbell Bench Press", muscle: "Chest", equipment: "Dumbbell", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "incline_db_press", name: "Incline Dumbbell Press", muscle: "Chest", equipment: "Dumbbell", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "push_up", name: "Push-up", muscle: "Chest", equipment: "Bodyweight", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "bb_squat", name: "Barbell Back Squat", muscle: "Legs", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "front_squat", name: "Front Squat", muscle: "Legs", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "romanian_deadlift", name: "Romanian Deadlift", muscle: "Legs", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "leg_press", name: "Leg Press", muscle: "Legs", equipment: "Machine", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "conventional_deadlift", name: "Conventional Deadlift", muscle: "Back", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "bb_row", name: "Barbell Row", muscle: "Back", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "seated_cable_row", name: "Seated Cable Row", muscle: "Back", equipment: "Cable", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "lat_pulldown", name: "Lat Pulldown", muscle: "Back", equipment: "Cable", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "ohp", name: "Overhead Press", muscle: "Shoulders", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "lateral_raise", name: "Dumbbell Lateral Raise", muscle: "Shoulders", equipment: "Dumbbell", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "rear_delt_fly", name: "Rear Delt Fly", muscle: "Shoulders", equipment: "Dumbbell", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "bb_curl", name: "Barbell Curl", muscle: "Biceps", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "db_curl", name: "Alternating Dumbbell Curl", muscle: "Biceps", equipment: "Dumbbell", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "hammer_curl", name: "Hammer Curl", muscle: "Biceps", equipment: "Dumbbell", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "skullcrusher", name: "Skullcrusher", muscle: "Triceps", equipment: "Barbell", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "rope_pushdown", name: "Cable Rope Pushdown", muscle: "Triceps", equipment: "Cable", image: EXERCISE_PLACEHOLDER_IMAGE },
-  { id: "dip", name: "Parallel Bar Dip", muscle: "Triceps", equipment: "Bodyweight", image: EXERCISE_PLACEHOLDER_IMAGE },
+  { id: "bb_bench_press", name: "Barbell Bench Press", muscle: "Chest", equipment: "Barbell", image: EXERCISE_IMAGE_STRENGTH },
+  { id: "db_bench_press", name: "Dumbbell Bench Press", muscle: "Chest", equipment: "Dumbbell", image: EXERCISE_IMAGE_STRENGTH },
+  { id: "incline_db_press", name: "Incline Dumbbell Press", muscle: "Chest", equipment: "Dumbbell", image: EXERCISE_IMAGE_STRENGTH },
+  { id: "push_up", name: "Push-up", muscle: "Chest", equipment: "Bodyweight", image: EXERCISE_IMAGE_BODYWEIGHT },
+  { id: "bb_squat", name: "Barbell Back Squat", muscle: "Legs", equipment: "Barbell", image: EXERCISE_IMAGE_STRENGTH },
+  { id: "front_squat", name: "Front Squat", muscle: "Legs", equipment: "Barbell", image: EXERCISE_IMAGE_STRENGTH },
+  { id: "romanian_deadlift", name: "Romanian Deadlift", muscle: "Legs", equipment: "Barbell", image: EXERCISE_IMAGE_STRENGTH },
+  { id: "leg_press", name: "Leg Press", muscle: "Legs", equipment: "Machine", image: EXERCISE_IMAGE_BASE },
+  { id: "conventional_deadlift", name: "Conventional Deadlift", muscle: "Back", equipment: "Barbell", image: EXERCISE_IMAGE_STRENGTH },
+  { id: "bb_row", name: "Barbell Row", muscle: "Back", equipment: "Barbell", image: EXERCISE_IMAGE_STRENGTH },
+  { id: "seated_cable_row", name: "Seated Cable Row", muscle: "Back", equipment: "Cable", image: EXERCISE_IMAGE_CABLE },
+  { id: "lat_pulldown", name: "Lat Pulldown", muscle: "Back", equipment: "Cable", image: EXERCISE_IMAGE_CABLE },
+  { id: "ohp", name: "Overhead Press", muscle: "Shoulders", equipment: "Barbell", image: EXERCISE_IMAGE_STRENGTH },
+  { id: "lateral_raise", name: "Dumbbell Lateral Raise", muscle: "Shoulders", equipment: "Dumbbell", image: EXERCISE_IMAGE_STRENGTH },
+  { id: "rear_delt_fly", name: "Rear Delt Fly", muscle: "Shoulders", equipment: "Dumbbell", image: EXERCISE_IMAGE_STRENGTH },
+  { id: "bb_curl", name: "Barbell Curl", muscle: "Biceps", equipment: "Barbell", image: EXERCISE_IMAGE_STRENGTH },
+  { id: "db_curl", name: "Alternating Dumbbell Curl", muscle: "Biceps", equipment: "Dumbbell", image: EXERCISE_IMAGE_STRENGTH },
+  { id: "hammer_curl", name: "Hammer Curl", muscle: "Biceps", equipment: "Dumbbell", image: EXERCISE_IMAGE_STRENGTH },
+  { id: "skullcrusher", name: "Skullcrusher", muscle: "Triceps", equipment: "Barbell", image: EXERCISE_IMAGE_STRENGTH },
+  { id: "rope_pushdown", name: "Cable Rope Pushdown", muscle: "Triceps", equipment: "Cable", image: EXERCISE_IMAGE_CABLE },
+  { id: "dip", name: "Parallel Bar Dip", muscle: "Triceps", equipment: "Bodyweight", image: EXERCISE_IMAGE_BODYWEIGHT },
 ];
 
 function getUserContext(req) {
@@ -241,6 +233,17 @@ app.get(
       : new Date().toISOString().slice(0, 10);
     const plan = await resolveWorkoutPlan(userId, requestedDate);
     res.json(plan);
+  })
+);
+
+app.get(
+  "/api/workouts/activity",
+  asyncRoute(async (req, res) => {
+    const { userId } = getUserContext(req);
+    const limit = Number(req.query?.limit || 8);
+    const type = typeof req.query?.type === "string" ? req.query.type.trim() : "all";
+    const activity = await listRecentPlanActivity(userId, limit, type);
+    res.json({ activity });
   })
 );
 

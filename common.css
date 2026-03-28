@@ -137,26 +137,6 @@ body {
   color: var(--accent-color);
 }
 
-.sidebar-meta {
-  border-top: 1px solid var(--line-color);
-  padding-top: var(--spacing-sm);
-  font-size: 0.9rem;
-  color: var(--text-muted);
-}
-
-.sidebar-urgency {
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  background: rgba(245, 158, 11, 0.09);
-  border-radius: 10px;
-  padding: 10px;
-  font-size: 0.84rem;
-  color: var(--text-color);
-}
-
-.sidebar-urgency strong {
-  color: var(--amber-500);
-}
-
 .content {
   display: grid;
   grid-template-rows: auto 1fr auto;
@@ -187,15 +167,6 @@ header p {
   gap: 12px;
 }
 
-.ux-eyebrow {
-  margin: 0;
-  color: var(--accent-color);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 800;
-  font-size: 0.82rem;
-}
-
 .ux-cta-row {
   display: flex;
   flex-wrap: wrap;
@@ -210,16 +181,6 @@ header p {
     var(--surface-2);
   color: var(--text-color);
   font-weight: 800;
-}
-
-.ux-proof-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.ux-proof-strip .pill {
-  background: rgba(255, 255, 255, 0.03);
 }
 
 .ux-next-card {

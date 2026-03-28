@@ -2938,7 +2938,7 @@ async function loadSidebarProfileStats() {
     showLoginRequiredMessage("nutritionAvgLabel");
     showLoginRequiredMessage("nutritionXpLabel");
     showLoginRequiredMessage("statusXpLabel");
-    showLoginRequiredMessage("dashboardHeaderSubtitle", "Please login to view your live progress.");
+    showLoginRequiredMessage("dashboardHeaderSubtitle", "Please log in to view your dashboard.");
     return;
   }
 

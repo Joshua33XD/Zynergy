@@ -27,12 +27,7 @@
           <li><a href="history.html">History</a></li>
         </ul>
       </nav>
-      <div class="sidebar-urgency">
-        <strong>Limited beta:</strong> personalized plans are rate-limited to keep AI replies fast.
-      </div>
-      <div class="sidebar-meta">Target: log each set in under 5 seconds</div>
       <div class="theme-changer">
-        <label for="theme-select"></label>
         <button id="themeToggleBtn" type="button" onclick="setupThemeToggle()">Toggle Theme</button>
       </div>
     </aside>
@@ -40,32 +35,13 @@
     <div class="content">
       <header>
         <div class="ux-hero">
-          <p class="ux-eyebrow">Workout execution</p>
-          <h1>Finish today's workout with less thinking and more focus.</h1>
-          <p>Pick, log, and complete your next session quickly to avoid missing progressive overload momentum.</p>
-          <div class="ux-cta-row">
-            <a class="pill ux-primary-cta" href="#splitPlannerCard">Open split planner</a>
-            <a class="pill" href="#wgerWorkoutCard">Log next set</a>
-          </div>
-          <div class="ux-proof-strip">
-            <span class="pill">Top users log in under 60s</span>
-            <span class="pill">Live challenge leaderboard</span>
-            <span class="pill">Built for consistency streaks</span>
-          </div>
+          <h1>Workouts</h1>
+          <p class="muted">Plan your split, log sets, and track challenges.</p>
         </div>
       </header>
 
       <main>
         <div class="dashboard-grid">
-          <section class="card col-12 ux-next-card">
-            <h3>Instant Reward</h3>
-            <p class="muted">Start one set now: you'll immediately gain XP and lock in today's training baseline.</p>
-            <div class="quick-links">
-              <a class="pill ux-primary-cta" href="#wgerWorkoutSaveBtn">Log selected workout</a>
-              <a class="pill" href="#manualWorkoutCard">Open templates</a>
-            </div>
-          </section>
-
           <section class="card col-12 split-planner-card" id="splitPlannerCard">
             <div class="split-header">
               <div>
@@ -189,11 +165,7 @@
           <section class="card col-8 workout-form" id="wgerWorkoutCard">
             <h2>Workout Logger</h2>
             <p class="muted" id="workoutSourceStatus">Local exercise library ready. Saving again updates today's workout log.</p>
-            <div class="flow-steps">
-              <span class="flow-step active">1. Choose Muscle</span>
-              <span class="flow-step">2. Search Exercise</span>
-              <span class="flow-step">3. Enter Sets + Log</span>
-            </div>
+            <p class="muted" id="exerciseStatus">Type an exercise name and click Search.</p>
 
             <div class="form-row">
               <label for="wgerMuscleFocus">Muscle Group (Choose first)</label>
@@ -355,12 +327,6 @@
             </div>
           </section>
 
-          <section class="card col-12">
-            <h2>Exercise Library</h2>
-            <p class="muted">Common movements by muscle group to help you log faster.</p>
-            <p class="muted" id="exerciseStatus">Loading exercises...</p>
-            <div id="exercise-list" class="api-grid"></div>
-          </section>
         </div>
       </main>
 

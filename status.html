@@ -28,43 +28,21 @@
           <li><a href="history.html">History</a></li>
         </ul>
       </nav>
-      <div class="sidebar-urgency">
-        <strong>Weekly cycle:</strong> rankings refresh continuously as new challenge scores arrive.
-      </div>
-      <button id="notifyEnableBtn" type="button">Enable Alerts</button>
-      <div class="sidebar-meta">Competition drives consistency</div>
       <div class="theme-changer">
-        <label for="theme-select"></label>
-           <button id="themeToggleBtn" type="button" onclick="setupThemeToggle()">Toggle Theme</button> 
+        <button id="themeToggleBtn" type="button" onclick="setupThemeToggle()">Toggle Theme</button>
       </div>
     </aside>
-    
 
     <div class="content">
       <header>
         <div class="ux-hero">
-          <p class="ux-eyebrow">Competitive consistency</p>
-          <h1>Track your rank, beat your rival, and stay in the habit loop.</h1>
-          <p>Leaderboard feedback designed to motivate consistency, not toxic comparison.</p>
-          <div class="ux-cta-row">
-            <a class="pill ux-primary-cta" href="#refreshBoardBtn">Refresh leaderboard</a>
-            <a class="pill" href="workouts.html">Post new challenge</a>
-          </div>
-          <div class="ux-proof-strip">
-            <span class="pill">Live challenge scoring</span>
-            <span class="pill">Closest rival tracking</span>
-            <span class="pill">Weekly progress snapshots</span>
-          </div>
+          <h1>Leaderboard</h1>
+          <p class="muted">Track your rank and weekly consistency.</p>
         </div>
       </header>
 
       <main>
         <div class="dashboard-grid">
-          <section class="card col-12 ux-next-card">
-            <h3>Next Best Action</h3>
-            <p class="muted">Check your rank now, then log a challenge to avoid losing position this week.</p>
-          </section>
-
           <section class="card col-7">
             <h2>Live Leaderboard</h2>
             <button id="refreshBoardBtn" type="button">Refresh Leaderboard</button>
@@ -78,11 +56,11 @@
             <h2>Weekly Progress</h2>
             <div class="meter-row">
               <span>Workout Completion <span id="weeklyWorkoutLabel">0%</span></span>
-              <div class="meter"><span id="weeklyWorkoutMeter" style="width: 60%"></span></div>
+              <div class="meter"><span id="weeklyWorkoutMeter" style="width: 0%"></span></div>
             </div>
             <div class="meter-row">
               <span>Nutrition Consistency <span id="weeklyNutritionLabel">0%</span></span>
-              <div class="meter"><span id="weeklyNutritionMeter" style="width: 74%"></span></div>
+              <div class="meter"><span id="weeklyNutritionMeter" style="width: 0%"></span></div>
             </div>
             <div class="meter-row">
               <span>Sleep Consistency <span id="weeklySleepLabel">0%</span></span>
@@ -92,8 +70,6 @@
               <a class="pill" href="history.html">Open Full History</a>
             </div>
           </section>
-
-          <!-- Optional PR share card removed so only real data is shown -->
         </div>
       </main>
 

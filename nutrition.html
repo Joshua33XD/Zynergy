@@ -14,7 +14,6 @@
     <aside class="sidebar">
       <h2 class="brand">ZYNERGY</h2>
       <div class="profile-block">
-        <div class="profile-line"><strong>Protein Goal:</strong> 120g</div>
         <div class="profile-line"><strong>Current Avg:</strong> <span id="nutritionAvgLabel">-</span></div>
         <div class="profile-line"><strong>Nutrition XP:</strong> <span id="nutritionXpLabel">-</span></div>
       </div>
@@ -28,53 +27,25 @@
           <li><a href="history.html">History</a></li>
         </ul>
       </nav>
-      <div class="sidebar-urgency">
-        <strong>Coach beta:</strong> food AI slots are limited during peak hours.
-      </div>
-      <div class="sidebar-meta">Visual meters update as goals are checked</div>
       <div class="theme-changer">
-        <label for="theme-select"></label>
-           <button id="themeToggleBtn" type="button" onclick="setupThemeToggle()">Toggle Theme</button> 
+        <button id="themeToggleBtn" type="button" onclick="setupThemeToggle()">Toggle Theme</button>
       </div>
     </aside>
 
     <div class="content">
       <header>
         <div class="ux-hero">
-          <p class="ux-eyebrow">Nutrition consistency</p>
-          <h1>Hit your macros with faster decisions and clearer guidance.</h1>
-          <p>Designed for Zynergy members who want muscle gain or fat loss without overthinking every meal.</p>
-          <div class="ux-cta-row">
-            <a class="pill ux-primary-cta" href="#wgerNutritionCard">Log a meal now</a>
-            <a class="pill" href="#aiMealScanCard">Use AI Meal Scan</a>
-          </div>
-          <div class="ux-proof-strip">
-            <span class="pill">2,300+ member meal logs</span>
-            <span class="pill">AI + manual fallback</span>
-            <span class="pill">Transparent macro estimates</span>
-          </div>
+          <h1>Nutrition</h1>
+          <p class="muted">Search ingredients and log today's meals.</p>
         </div>
       </header>
-      
+
       <main>
         <div class="dashboard-grid">
-          <section class="card col-12 ux-next-card">
-            <h3>Next Best Action</h3>
-            <p class="muted">Log one meal now to avoid losing today's nutrition trend and recovery signal.</p>
-            <div class="quick-links">
-              <a class="pill ux-primary-cta" href="#wgerNutritionSaveBtn">Log selected nutrition</a>
-              <a class="pill" href="#aiMealAnalyzeBtn">Analyze meal photo</a>
-            </div>
-          </section>
-
           <section class="card col-8" id="wgerNutritionCard">
-            <h2>Wger Nutrition Logger (Primary)</h2>
+            <h2>Nutrition Logger</h2>
             <p class="muted" id="nutritionSourceStatus">Login to save nutrition logs. One log per day; saving again updates today.</p>
-            <div class="flow-steps">
-              <span class="flow-step active">1. Choose Focus</span>
-              <span class="flow-step">2. Search Food</span>
-              <span class="flow-step">3. Select + Log</span>
-            </div>
+            <p class="muted" id="nutritionStatus">Type an ingredient name and click Search.</p>
 
             <div class="nutrition-form">
               <div class="form-row">
@@ -179,7 +150,7 @@
 
           <section class="card col-8 hidden" id="manualNutritionCard">
             <h2>Meal Log</h2>
-            <p class="muted">Fallback logger when Wger is unavailable. Saving again updates today's nutrition log.</p>
+            <p class="muted">Fallback logger when ingredient search is unavailable. Saving again updates today's nutrition log.</p>
             <form class="nutrition-form" onsubmit="event.preventDefault(); saveNutritionData();">
               <div class="form-row">
                 <label for="breakfast">Breakfast</label>
@@ -202,44 +173,6 @@
                 <label><input type="checkbox" id="protein" name="protein">Protein</label>
                 <label><input type="checkbox" id="balanced_meal" name="balanced_meal">Balanced Meal</label>
               </div>
-              <section class="meal-capture" aria-label="Optional meal capture details">
-                <div class="meal-capture-head">
-                  <h3>Meal Capture</h3>
-                  <p class="muted">Optional photo, eating timer, meal time, and leftovers.</p>
-                </div>
-
-                <div class="form-row">
-                  <label for="manualMealPhoto">Upload Food Photo</label>
-                  <input type="file" id="manualMealPhoto" accept="image/*">
-                  <small class="field-hint">Preview only for now. The file name will be saved in your notes.</small>
-                  <div class="meal-photo-preview hidden" id="manualMealPhotoPreviewWrap">
-                    <img id="manualMealPhotoPreview" alt="Meal preview">
-                  </div>
-                </div>
-
-                <div class="meal-timer-card">
-                  <div>
-                    <strong id="manualMealTimerDisplay">00:00</strong>
-                    <p class="muted" id="manualMealTimerStatus">Timer idle.</p>
-                  </div>
-                  <div class="timer-actions">
-                    <button type="button" id="manualMealTimerStart">Start Timer</button>
-                    <button type="button" id="manualMealTimerStop">Stop Timer</button>
-                    <button type="button" id="manualMealTimerReset">Reset</button>
-                  </div>
-                </div>
-
-                <div class="dual-row">
-                  <div class="form-row">
-                    <label for="manualMealTime">Time Ate</label>
-                    <input type="time" id="manualMealTime">
-                  </div>
-                  <div class="form-row">
-                    <label for="manualRemainingFood">Remaining Food</label>
-                    <input type="text" id="manualRemainingFood" placeholder="Optional, e.g. finished all or 25% left">
-                  </div>
-                </div>
-              </section>
               <div class="form-row">
                 <label for="notes">Quick notes or regrets</label>
                 <textarea id="notes" name="notes" rows="3" placeholder="Write your notes here..."></textarea>
@@ -251,85 +184,17 @@
           <section class="card col-4">
             <h3>Today's Fuel Meters</h3>
             <div class="meter-row">
-              <span>Protein <strong id="proteinPct">40%</strong></span>
-              <div class="meter"><span id="proteinMeter" style="width: 40%"></span></div>
+              <span>Protein <strong id="proteinPct">0%</strong></span>
+              <div class="meter"><span id="proteinMeter" style="width: 0%"></span></div>
             </div>
             <div class="meter-row">
-              <span>Calories <strong id="caloriePct">35%</strong></span>
-              <div class="meter"><span id="calorieMeter" style="width: 35%"></span></div>
+              <span>Calories <strong id="caloriePct">0%</strong></span>
+              <div class="meter"><span id="calorieMeter" style="width: 0%"></span></div>
             </div>
             <div class="meter-row">
-              <span>Recovery Score <strong id="recoveryPct">78%</strong></span>
-              <div class="meter"><span id="recoveryMeter" style="width: 78%"></span></div>
+              <span>Recovery Score <strong id="recoveryPct">0%</strong></span>
+              <div class="meter"><span id="recoveryMeter" style="width: 0%"></span></div>
             </div>
-          </section>
-
-          <section class="card col-12 ai-scan-card" id="aiMealScanCard">
-            <div class="ai-scan-head">
-              <div>
-                <h2>AI Meal Scan</h2>
-                <p class="muted">Upload one meal photo, detect foods with LogMeal, then tune each portion with sliders before applying it to your logger.</p>
-              </div>
-              <div class="ai-badge">Image Upload -> Food AI -> Nutrition Fallback -> Editable Slider</div>
-            </div>
-
-            <div class="nutrition-form">
-              <div class="dual-row ai-upload-row">
-                <div class="form-row">
-                  <label for="aiMealPhoto">Meal Photo</label>
-                  <input type="file" id="aiMealPhoto" accept="image/*">
-                  <small class="field-hint">Best results come from one clear meal photo with visible plates or bowls.</small>
-                  <div class="meal-photo-preview hidden" id="aiMealPhotoPreviewWrap">
-                    <img id="aiMealPhotoPreview" alt="AI meal preview">
-                  </div>
-                </div>
-
-                <div class="ai-actions-panel">
-                  <div class="form-row">
-                    <label for="aiMealType">Apply As</label>
-                    <select id="aiMealType">
-                      <option value="breakfast">Breakfast</option>
-                      <option value="lunch" selected>Lunch</option>
-                      <option value="dinner">Dinner</option>
-                      <option value="snacks">Snack</option>
-                    </select>
-                  </div>
-                  <button id="aiMealAnalyzeBtn" type="button">Analyze Meal Photo</button>
-                  <button id="aiMealApplyBtn" type="button" disabled>Apply To Logger</button>
-                  <p class="muted" id="aiMealStatus">Upload a meal photo to start AI analysis.</p>
-                </div>
-              </div>
-
-              <div class="ai-summary-grid" id="aiSummaryGrid">
-                <div class="ai-summary-card">
-                  <span>Detected Foods</span>
-                  <strong id="aiFoodsCount">0</strong>
-                </div>
-                <div class="ai-summary-card">
-                  <span>Calories</span>
-                  <strong id="aiCaloriesTotal">0 kcal</strong>
-                </div>
-                <div class="ai-summary-card">
-                  <span>Protein</span>
-                  <strong id="aiProteinTotal">0 g</strong>
-                </div>
-                <div class="ai-summary-card">
-                  <span>Carbs / Fat</span>
-                  <strong id="aiCarbsFatTotal">0 g / 0 g</strong>
-                </div>
-              </div>
-
-              <div id="aiDetectedFoods" class="ai-detected-list">
-                <p class="muted">No AI detections yet. Once your image is analyzed, each food gets its own editable portion slider here.</p>
-              </div>
-            </div>
-          </section>
-
-          <section class="card col-12">
-            <h2>Wger Nutrition Picks</h2>
-            <p class="muted">Live ingredient data from Wger for meal ideas and macros.</p>
-            <p class="muted" id="nutritionStatus">Loading nutrition data...</p>
-            <div id="nutrition-list" class="api-grid"></div>
           </section>
         </div>
       </main>

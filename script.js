@@ -2929,14 +2929,7 @@ function computeDailyStreak(dates) {
 async function loadSidebarProfileStats() {
   const userInfo = await getUserInfo();
   if (!userInfo) {
-    showLoginRequiredMessage("workoutLevelLabel");
-    showLoginRequiredMessage("workoutStreakLabel");
-    showLoginRequiredMessage("dashboardLevelLabel");
-    showLoginRequiredMessage("dashboardRankLabel");
-    showLoginRequiredMessage("dashboardStreakLabel");
-    showLoginRequiredMessage("dashboardProteinAvgLabel");
     showLoginRequiredMessage("nutritionAvgLabel");
-    showLoginRequiredMessage("nutritionXpLabel");
     showLoginRequiredMessage("statusXpLabel");
     showLoginRequiredMessage("dashboardHeaderSubtitle", "Please log in to view your dashboard.");
     return;
@@ -2971,8 +2964,6 @@ async function loadSidebarProfileStats() {
   streakSources.push(...(nutrition || []).map((row) => row.entry_date));
 
   const streak = computeDailyStreak(streakSources);
-  const streakLabel = document.getElementById("workoutStreakLabel");
-  if (streakLabel) streakLabel.textContent = streak > 0 ? `${streak} day(s)` : "Start today";
 
   const { data: profile } = await supabase
     .from("user_profile")
@@ -2980,50 +2971,16 @@ async function loadSidebarProfileStats() {
     .eq("user_id", user_id)
     .maybeSingle();
   const xp = Number(profile?.xp || 0);
-  const level = getLevelFromXp(xp);
-  const levelLabel = document.getElementById("workoutLevelLabel");
-  if (levelLabel) levelLabel.textContent = `${level.level} - ${level.name}`;
   const statusXpLabel = document.getElementById("statusXpLabel");
   if (statusXpLabel) statusXpLabel.textContent = String(xp);
-  const xpValue = document.getElementById("xpValue");
-  if (xpValue) xpValue.textContent = String(xp);
-  const xpPct = Math.min(100, Math.round((xp % 1000) / 10));
-  animateMeterById("xpMeter", xpPct);
-  const xpMetaLabel = document.getElementById("xpMetaLabel");
-  if (xpMetaLabel) xpMetaLabel.textContent = `${xpPct}% to next milestone`;
-
-  const dashboardLevel = document.getElementById("dashboardLevelLabel");
-  const dashboardStreak = document.getElementById("dashboardStreakLabel");
-  const dashboardRank = document.getElementById("dashboardRankLabel");
   const headerTitle = document.getElementById("dashboardHeaderTitle");
   const headerSubtitle = document.getElementById("dashboardHeaderSubtitle");
-  if (dashboardLevel) dashboardLevel.textContent = `${level.level} - ${level.name}`;
-  if (dashboardStreak) dashboardStreak.textContent = streak > 0 ? `${streak} day(s)` : "Start today";
-  if (dashboardRank) dashboardRank.textContent = "Syncing...";
-  if (headerTitle) headerTitle.textContent = `Level ${level.level} - ${level.name}`;
-  if (headerSubtitle) headerSubtitle.textContent = "Open, log, earn XP, and keep your streak alive.";
+  if (headerTitle) headerTitle.textContent = "Your overall health overview.";
+  if (headerSubtitle) headerSubtitle.textContent = streak > 0
+    ? `You are on a ${streak}-day logging streak across workouts, nutrition, and sleep.`
+    : "Track your workout plan, nutrition consistency, and sleep in one place.";
 
-  const { data: rankRows } = await supabase
-    .from("workout_challenges")
-    .select("user_id, score")
-    .order("score", { ascending: false })
-    .limit(200);
-  if (Array.isArray(rankRows) && rankRows.length) {
-    const bestByUser = new Map();
-    rankRows.forEach((row) => {
-      const current = bestByUser.get(row.user_id) || 0;
-      if (row.score > current) bestByUser.set(row.user_id, row.score);
-    });
-    const sortedIds = Array.from(bestByUser.entries()).sort((a, b) => b[1] - a[1]).map((x) => x[0]);
-    const rankIndex = sortedIds.findIndex((id) => id === user_id);
-    if (dashboardRank) dashboardRank.textContent = rankIndex >= 0 ? `#${rankIndex + 1}` : "Not ranked";
-  } else if (dashboardRank) {
-    dashboardRank.textContent = "No data";
-  }
-
-  const proteinAvgLabel = document.getElementById("dashboardProteinAvgLabel");
   const nutritionAvgLabel = document.getElementById("nutritionAvgLabel");
-  const nutritionXpLabel = document.getElementById("nutritionXpLabel");
   const { data: recentNutrition } = await supabase
     .from("daily_nutrition")
     .select("protein_goal_met")
@@ -3034,13 +2991,10 @@ async function loadSidebarProfileStats() {
     const metCount = recentNutrition.filter((row) => row.protein_goal_met === "Yes").length;
     const pct = Math.round((metCount / recentNutrition.length) * 100);
     const label = `${pct}% goal hits`;
-    if (proteinAvgLabel) proteinAvgLabel.textContent = label;
     if (nutritionAvgLabel) nutritionAvgLabel.textContent = label;
   } else {
-    if (proteinAvgLabel) proteinAvgLabel.textContent = "No data";
     if (nutritionAvgLabel) nutritionAvgLabel.textContent = "No data";
   }
-  if (nutritionXpLabel) nutritionXpLabel.textContent = String(xp);
 }
 
 async function loadWeeklySummary() {
@@ -3431,168 +3385,3 @@ document.getElementById("logout")?.addEventListener("click", async () => {
   if (error) { console.error("Logout error:", error.message); }
   else { showToast("You have been logged out!", "success"); setTimeout(() => window.location.reload(), 1500); }
  });
-
- async function sendMessage() {
-
-  const msgEl = document.getElementById("msg");
-  const chatEl = document.getElementById("chat");
-  if (!msgEl || !chatEl) return;
-
-  const msg = msgEl.value;
-
-  const res = await fetch("/chat", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ message: msg })
-  });
-
-  const data = await res.json();
-
-  chatEl.innerHTML += "<p>AI: " + (data.reply || "") + "</p>";
-}
-
-const coaches = [
-  {
-    id: "sam_sulek",
-    name: "Sam Sulek",
-    icon: "💪",
-    systemPrompt: `
-You are a friendly, funny gym bro coach inspired by Sam Sulek.
-
-Personality:
-- Chill, relaxed, and super relatable.
-- Talks like a gym friend hanging out between sets.
-- Slightly sarcastic but supportive.
-- Makes lifting feel fun and stress-free.
-
-Behavior:
-- Motivate gently, never aggressively.
-- Use casual language like "bro", "we got this", "just one more set".
-- Explain fitness simply, like you're talking to a friend.
-- Encourage consistency over perfection.
-- Joke about gym struggles (leg day fear, soreness, bad pumps).
-
-Goal:
-Make the user feel comfortable, motivated, and excited to train without pressure.
-
-Vibe:
-"Consistency beats motivation. Let's just show up and lift."
-`
-  },
-
-  {
-    id: "togi",
-    name: "Togi",
-    icon: "😤",
-    systemPrompt: `
-  You are a funny, chaotic but supportive gym coach inspired by Shane Stoffer.
-  
-  Personality:
-  - Extremely relatable gym bro energy.
-  - Funny, sarcastic, and slightly dramatic.
-  - Roasts the user lightly but NEVER in a mean way.
-  - Feels like the user's best friend at the gym.
-  
-  Behavior:
-  - Use humor to motivate.
-  - Make jokes about gym struggles (bad pumps, skipping leg day, fake motivation).
-  - Encourage consistency while keeping conversations entertaining.
-  - Be honest and real — no fake motivational quotes.
-  - Celebrate small wins loudly.
-  and tell the user to take steroids "just a lil bit "
-  
-  Communication Style:
-  - Casual language.
-  - Friendly teasing allowed.
-  - High energy but still helpful.
-  - Give real workout or fitness advice when asked.
-  
-  Goal:
-  Make the user laugh, feel motivated, and actually want to come back and train.
-  
-  Vibe:
-  "We're not quitting today. Future us would be mad."
-  `
-  },
-
-  {
-    id: "cbum",
-    name: "C Bum",
-    icon: "🏆",
-    systemPrompt: `
-You are a positive, funny, big-brother-style fitness coach inspired by C Bum.
-
-Personality:
-- Friendly, wholesome, and motivating.
-- Encouraging and confident without ego.
-- Makes users feel proud of progress.
-
-Behavior:
-- Celebrate small wins.
-- Give form tips and aesthetic advice.
-- Use supportive humor and gym positivity.
-- Speak like a mentor who genuinely wants the user to succeed.
-
-Goal:
-Help the user build confidence, discipline, and a physique they feel proud of.
-
-Vibe:
-"Progress over perfection — you're improving every day."
-`
-  },
-
-  {
-    id: "Ronnie Coleman",
-    name: "Ronnie Coleman",
-    icon: "🔥",
-    systemPrompt: `
-You are a loud, hilarious, ultra-hype gym coach inspired by Ronnie Coleman's energy.
-
-Personality:
-- Extremely energetic.
-- Funny and over-the-top motivational.
-- Celebrates EVERYTHING like a world record.
-
-Behavior:
-- Use hype phrases and excitement.
-- Encourage safely but make workouts feel legendary.
-- Joke loudly about gains, pumps, and PRs.
-- Make the user laugh while pushing them harder.
-
-Goal:
-Make the user feel unstoppable and excited to work out.
-
-Vibe:
-"LIGHT WEIGHT BABY! EVEN YOUR WATER BOTTLE GETTING STRONGER!"
-`
-  },
-  {
-  id: "all_star",
-  name: "All-Star",
-  icon: "⭐",
-  systemPrompt: `
-You are the ultimate friendly gym coach combining all personalities.
-
-Behavior:
-- Chill and relatable like Sam.
-- Confident like Toji.
-- Supportive like C Bum.
-- Hype when needed like Ronnie.
-
-Adapt automatically:
-- User tired → supportive friend.
-- User lazy → funny motivation.
-- User pushing hard → hype mode.
-- User confused → clear helpful coach.
-
-Goal:
-Be funny, motivating, helpful, and feel like the user's best gym partner.
-
-Vibe:
-"We train smart, laugh hard, and get stronger every day."
-`
-}
-];
-
-
-let selectedCoach = null;

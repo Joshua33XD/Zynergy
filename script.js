@@ -497,13 +497,8 @@ const wgerState = {
 };
 
 // â”€â”€â”€ UI helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function showXpPop(text) {
-  const xpPop = document.getElementById("xpPop");
-  if (!xpPop) return;
-  xpPop.textContent = text;
-  xpPop.classList.remove("show");
-  void xpPop.offsetWidth;
-  xpPop.classList.add("show");
+function showXpPop(_text) {
+  // MVP: XP popups removed from UI
 }
 
 function showToast(message, type = "info") {
@@ -1015,8 +1010,8 @@ function renderWorkoutPlan(plan) {
 
   if (!plan || plan.source === "none") {
     setPlanBadge("none", "No plan");
-    label.textContent = "No workout plan resolved yet.";
-    meta.textContent = "Create a split to automatically fill today's workout.";
+    label.textContent = "Free session";
+    meta.textContent = "";
     return;
   }
 
@@ -1029,12 +1024,9 @@ function renderWorkoutPlan(plan) {
   setPlanBadge(plan.source, badgeLabelMap[plan.source] || "Plan");
   label.textContent = plan.isRest ? "Rest day" : plan.workoutLabel || "Workout";
 
-  const detailParts = [];
-  if (plan.weekdayName) detailParts.push(plan.weekdayName);
-  if (plan.splitName) detailParts.push(`${plan.splitName} v${plan.versionNo}`);
-  if (plan.reason) detailParts.push(plan.reason);
-  if (plan.notes) detailParts.push(plan.notes);
-  meta.textContent = detailParts.join(" · ") || "Resolved for today.";
+  if (meta) {
+    meta.textContent = plan.weekdayName || "";
+  }
   updateOverrideStatus(plan);
   updateSwapStatus(plan);
   renderDashboardPlan(plan);
@@ -1060,13 +1052,15 @@ function renderDashboardPlan(plan) {
   const badge = document.getElementById("dashboardPlanBadge");
   const label = document.getElementById("dashboardPlanLabel");
   const meta = document.getElementById("dashboardPlanMeta");
-  if (!badge || !label || !meta) return;
+  if (!label) return;
 
   if (!plan || plan.source === "none") {
-    badge.dataset.source = "none";
-    badge.textContent = "No plan";
-    label.textContent = "No plan resolved yet.";
-    meta.textContent = "Create a split or apply an override.";
+    if (badge) {
+      badge.dataset.source = "none";
+      badge.textContent = "No plan";
+    }
+    label.textContent = "No plan yet";
+    if (meta) meta.textContent = "";
     return;
   }
 
@@ -1076,17 +1070,17 @@ function renderDashboardPlan(plan) {
     split: "Split",
   }[plan.source] || "Plan";
 
-  badge.dataset.source = plan.source;
-  badge.textContent = sourceLabel;
+  if (badge) {
+    badge.dataset.source = plan.source;
+    badge.textContent = sourceLabel;
+  }
   label.textContent = plan.isRest ? "Rest day" : plan.workoutLabel || "Workout";
 
-  const detailParts = [];
-  if (plan.weekdayName) detailParts.push(plan.weekdayName);
-  if (plan.splitName) detailParts.push(`${plan.splitName} v${plan.versionNo}`);
-  if (plan.reason) detailParts.push(plan.reason);
-  if (plan.notes) detailParts.push(plan.notes);
-  if (plan.fromWorkout && plan.source === "swap") detailParts.push(`From ${plan.fromWorkout}`);
-  meta.textContent = detailParts.join(" · ") || "Resolved for today.";
+  if (meta) {
+    const detailParts = [];
+    if (plan.weekdayName) detailParts.push(plan.weekdayName);
+    meta.textContent = detailParts.join(" · ");
+  }
 }
 
 async function loadPlanActivityLegacy() {
@@ -2076,6 +2070,16 @@ function setSourceMode({ ready, wgerCardId, manualCardId, statusId, manualToggle
 // â”€â”€â”€ FEEDS INIT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // For workouts we now use local catalog; nutrition still calls Wger.
 async function setupWgerFeeds() {
+  if (document.getElementById("mvpFoodName")) return;
+
+  if (
+    document.getElementById("wgerExerciseSelect") &&
+    !document.getElementById("wgerExerciseSearchBtn")
+  ) {
+    setupMvpWorkoutExercises();
+    return;
+  }
+
   await loadMuscleLookup();
 
   const wgerReady = Object.keys(wgerState.muscleLookup).length > 0;
@@ -2114,14 +2118,22 @@ async function setupWgerFeeds() {
 }
 
 // â”€â”€â”€ SAVE VIA WGER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function setupMvpWorkoutExercises() {
+  const select = document.getElementById("wgerExerciseSelect");
+  if (!select || document.getElementById("wgerExerciseSearchBtn")) return;
+  wgerState.exercises = LOCAL_EXERCISES;
+  wgerState.workoutReady = true;
+  fillWgerExerciseSelect(LOCAL_EXERCISES);
+}
+
 async function saveWorkoutViaWger() {
-  setButtonBusy("wgerWorkoutSaveBtn", true, "Log Selected Workout");
+  setButtonBusy("wgerWorkoutSaveBtn", true, "Save workout");
   const statusLabel = document.getElementById("workoutSourceStatus");
   const userInfo = await getUserInfo();
   if (!userInfo) {
     if (statusLabel) statusLabel.textContent = "Login required before saving workout.";
-    setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
-    showToast("You must be logged in to save workouts.", "error");
+    setButtonBusy("wgerWorkoutSaveBtn", false, "Save workout");
+    showToast("Sign in on Profile to save workouts.", "error");
     return;
   }
 
@@ -2135,19 +2147,19 @@ async function saveWorkoutViaWger() {
 
   if (!exerciseSelect?.value || exerciseSelect.value === "") {
     if (statusLabel) statusLabel.textContent = "Select an exercise result before saving.";
-    setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
-    showToast("Please search for and select an exercise first.", "error");
+    setButtonBusy("wgerWorkoutSaveBtn", false, "Save workout");
+    showToast("Choose an exercise first.", "error");
     return;
   }
   if (weightKg <= 0) {
     if (statusLabel) statusLabel.textContent = "Top set weight must be greater than 0kg.";
-    setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
-    showToast("Please enter a top set weight greater than 0 kg.", "error");
+    setButtonBusy("wgerWorkoutSaveBtn", false, "Save workout");
+    showToast("Enter weight greater than 0 kg.", "error");
     return;
   }
   if (sets <= 0 || reps <= 0) {
     if (statusLabel) statusLabel.textContent = "Sets and reps must be greater than 0.";
-    setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
+    setButtonBusy("wgerWorkoutSaveBtn", false, "Save workout");
     showToast("Sets and reps must be greater than 0.", "error");
     return;
   }
@@ -2186,83 +2198,49 @@ async function saveWorkoutViaWger() {
 
   if (error) {
     if (statusLabel) statusLabel.textContent = "Workout save failed. Check form and try again.";
-    setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
+    setButtonBusy("wgerWorkoutSaveBtn", false, "Save workout");
     showToast(handleError(error, "workout_daily", user_id, date), "error");
     return;
   }
 
-  uiState.sessionXp += 30;
-  animateNumber("sessionXp", uiState.sessionXp);
-  animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
-  showXpPop("+30 XP");
-  maybeNotify("Workout saved", `${exerciseName} saved through Wger.`);
-  showToast("Workout saved successfully via Wger!", "success");
-
-  // Prefill challenge exercise name for quick posting
-  const challengeInput = document.getElementById("challengeExercise");
-  if (challengeInput && !challengeInput.value) {
-    challengeInput.value = exerciseName;
-  }
-
-  addXp(30);
-  markMissionComplete("log_workout");
-  if (statusLabel) statusLabel.textContent = "Workout saved to your daily log.";
+  showToast("Workout saved.", "success");
   const workoutSaveStatus = document.getElementById("workoutSaveStatus");
-  if (workoutSaveStatus) workoutSaveStatus.textContent = "Workout log saved/updated for today.";
-  setButtonBusy("wgerWorkoutSaveBtn", false, "Log Selected Workout");
+  if (workoutSaveStatus) workoutSaveStatus.textContent = "Saved for today.";
+  setButtonBusy("wgerWorkoutSaveBtn", false, "Save workout");
+  loadMvpDashboard();
 }
 
 async function saveNutritionViaWger() {
-  setButtonBusy("wgerNutritionSaveBtn", true, "Log Selected Nutrition");
-  const statusLabel = document.getElementById("nutritionSourceStatus");
+  setButtonBusy("wgerNutritionSaveBtn", true, "Save");
+  const nutritionSaveStatus = document.getElementById("nutritionSaveStatus");
   const userInfo = await getUserInfo();
   if (!userInfo) {
-    if (statusLabel) statusLabel.textContent = "Login required before saving nutrition.";
-    setButtonBusy("wgerNutritionSaveBtn", false, "Log Selected Nutrition");
-    showToast("You must be logged in to save nutrition data.", "error");
+    if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Sign in on Profile to save.";
+    setButtonBusy("wgerNutritionSaveBtn", false, "Save");
+    showToast("Sign in on Profile to save nutrition.", "error");
     return;
   }
 
-  const foodFocus = document.getElementById("wgerFoodFocus")?.value || "";
-  const ingredientSelect = document.getElementById("wgerIngredientSelect");
-  const grams = Number(document.getElementById("wgerGrams")?.value || 0);
-  const mealType = document.getElementById("wgerMealType")?.value || "snacks";
-  const hydration = document.getElementById("wgerHydration")?.checked || false;
-  const protein = document.getElementById("wgerProtein")?.checked || false;
-  const balancedMeal = document.getElementById("wgerBalancedMeal")?.checked || false;
+  const foodName = document.getElementById("mvpFoodName")?.value?.trim() || "";
+  const proteinG = Number(document.getElementById("mvpProteinG")?.value || 0);
+  const calories = Number(document.getElementById("mvpCalories")?.value || 0);
+  const mealType = document.getElementById("wgerMealType")?.value || "lunch";
+  const proteinGoal = document.getElementById("mvpProteinGoal")?.checked || false;
 
-  if (!ingredientSelect?.value || ingredientSelect.value === "") {
-    if (statusLabel) statusLabel.textContent = "Select an ingredient result before saving.";
-    setButtonBusy("wgerNutritionSaveBtn", false, "Log Selected Nutrition");
-    showToast("Please search for and select an ingredient first.", "error");
-    return;
-  }
-  if (grams <= 0) {
-    if (statusLabel) statusLabel.textContent = "Amount must be greater than 0 grams.";
-    setButtonBusy("wgerNutritionSaveBtn", false, "Log Selected Nutrition");
-    showToast("Amount must be greater than 0 grams.", "error");
+  if (!foodName) {
+    if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Enter a food name.";
+    setButtonBusy("wgerNutritionSaveBtn", false, "Save");
+    showToast("Enter what you ate.", "error");
     return;
   }
 
-  const ingredient = wgerState.ingredients.find(
-    (item) => String(item.id) === ingredientSelect.value
-  );
-  const ingredientName =
-    ingredient?.name ||
-    ingredientSelect.options[ingredientSelect.selectedIndex]?.text ||
-    "Ingredient";
-  const entryText = `${ingredientName} (${grams}g)`;
-
+  const entryText = foodName;
   const meals = { breakfast: "-", lunch: "-", dinner: "-", snacks: "-" };
   meals[mealType] = entryText;
-
   const notes = [
-    `Wger item: ${entryText}`,
-    ingredient?.energy != null ? `Energy: ${ingredient.energy} kcal/100g` : null,
-    ingredient?.protein != null ? `Protein: ${ingredient.protein}g/100g` : null,
-    ...getMealCaptureSummary("wger"),
-  ]
-    .filter(Boolean);
+    proteinG > 0 ? `Protein: ${proteinG}g` : null,
+    calories > 0 ? `Calories: ${calories}` : null,
+  ].filter(Boolean);
 
   const entry_date = new Date().toISOString().split("T")[0];
   const { user_id, username } = userInfo;
@@ -2277,42 +2255,31 @@ async function saveNutritionViaWger() {
       lunch: meals.lunch,
       dinner: meals.dinner,
       snacks: meals.snacks,
-      hydration_goal_met: hydration ? "Yes" : "No",
-      protein_goal_met: protein ? "Yes" : "No",
-      balanced_meal_goal_met: balancedMeal ? "Yes" : "No",
+      hydration_goal_met: "No",
+      protein_goal_met: proteinGoal ? "Yes" : "No",
+      balanced_meal_goal_met: "No",
       notes_or_regrets: combineNoteParts(notes),
     },
     "user_id,entry_date"
   );
 
   if (error) {
-    if (statusLabel) statusLabel.textContent = "Nutrition save failed. Check form and try again.";
-    setButtonBusy("wgerNutritionSaveBtn", false, "Log Selected Nutrition");
+    if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Save failed. Try again.";
+    setButtonBusy("wgerNutritionSaveBtn", false, "Save");
     showToast(handleError(error, "daily_nutrition", user_id, entry_date), "error");
     return;
   }
 
-  const proteinPct = protein ? 82 : 48;
-  const caloriePct = balancedMeal ? 65 : 40;
-  const recoveryPct = hydration ? 78 : 52;
+  const proteinPct = proteinGoal ? 100 : proteinG >= 30 ? 75 : 40;
+  const caloriePct = calories >= 400 ? 75 : calories > 0 ? 50 : 30;
   animateMeterById("proteinMeter", proteinPct);
   animateMeterById("calorieMeter", caloriePct);
-  animateMeterById("recoveryMeter", recoveryPct);
-  const proteinText = document.getElementById("proteinPct");
-  const calorieText = document.getElementById("caloriePct");
-  const recoveryText = document.getElementById("recoveryPct");
-  if (proteinText) proteinText.textContent = `${proteinPct}%`;
-  if (calorieText) calorieText.textContent = `${caloriePct}%`;
-  if (recoveryText) recoveryText.textContent = `${recoveryPct}%`;
-  showXpPop("+15 XP");
-  maybeNotify("Nutrition saved", `${ingredientName} logged through Wger.`);
-  showToast("Nutrition data saved successfully via Wger!", "success");
-  addXp(15);
-  markMissionComplete("log_nutrition");
-  if (statusLabel) statusLabel.textContent = "Nutrition saved to your daily log.";
-  const nutritionSaveStatus = document.getElementById("nutritionSaveStatus");
-  if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Nutrition log saved/updated for today.";
-  setButtonBusy("wgerNutritionSaveBtn", false, "Log Selected Nutrition");
+  document.getElementById("proteinPct")?.textContent && (document.getElementById("proteinPct").textContent = `${proteinPct}%`);
+  document.getElementById("caloriePct")?.textContent && (document.getElementById("caloriePct").textContent = `${caloriePct}%`);
+  showToast("Nutrition saved.", "success");
+  if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Saved for today.";
+  setButtonBusy("wgerNutritionSaveBtn", false, "Save");
+  loadMvpDashboard();
 }
 
 function setupWgerPrimaryLoggers() {
@@ -2457,24 +2424,9 @@ async function saveSleepData() {
     showToast(handleError(error, "daily_sleep", user_id, date), "error");
   }
   else {
-    showXpPop("+10 XP");
-    const sleepPct = Math.min(100, Math.round((hours_slept / 10) * 100));
-    const morningPct = Math.min(100, Math.round((hours_slept / 9) * 100));
-    const stressPct = Math.max(0, 100 - Math.round((hours_slept / 10) * 70));
-    animateMeterById("sleepMeter", sleepPct);
-    animateMeterById("morningMeter", morningPct);
-    animateMeterById("stressMeter", stressPct);
-    const sleepBankLabel = document.getElementById("sleepBankLabel");
-    const morningLabel = document.getElementById("morningLabel");
-    const stressLabel = document.getElementById("stressLabel");
-    if (sleepBankLabel) sleepBankLabel.textContent = `${sleepPct}%`;
-    if (morningLabel) morningLabel.textContent = `${morningPct}%`;
-    if (stressLabel) stressLabel.textContent = `${stressPct}%`;
-    maybeNotify("Sleep log saved", `Recovery updated: ${hours_slept}h`);
-    showToast("Sleep data saved successfully!", "success");
-    addXp(10, "sleep_log");
-    markMissionComplete("log_sleep");
-    if (statusEl) statusEl.textContent = "Sleep log saved/updated for today.";
+    showToast("Sleep saved.", "success");
+    if (statusEl) statusEl.textContent = "Saved for today.";
+    loadMvpDashboard();
   }
 }
 
@@ -2926,12 +2878,64 @@ function computeDailyStreak(dates) {
   return streak;
 }
 
+async function loadMvpDashboard() {
+  const scoreEl = document.getElementById("dashboardHealthScore");
+  if (!scoreEl) return;
+
+  const userInfo = await getUserInfo();
+  const today = toLocalDateString(new Date());
+  const meta = document.getElementById("dashboardHealthMeta");
+  const nutSummary = document.getElementById("dashboardNutritionSummary");
+  const sleepSummary = document.getElementById("dashboardSleepSummary");
+
+  if (!userInfo) {
+    scoreEl.textContent = "—";
+    if (meta) meta.textContent = "Sign in on Profile to sync your score.";
+    if (nutSummary) nutSummary.textContent = "Not logged today";
+    if (sleepSummary) sleepSummary.textContent = "Not logged today";
+    return;
+  }
+
+  const { user_id } = userInfo;
+  const [{ data: workout }, { data: nutrition }, { data: sleep }] = await Promise.all([
+    supabase.from("workout_daily").select("date").eq("user_id", user_id).eq("date", today).maybeSingle(),
+    supabase.from("daily_nutrition").select("entry_date, protein_goal_met").eq("user_id", user_id).eq("entry_date", today).maybeSingle(),
+    supabase.from("daily_sleep").select('"Date", hours_slept').eq("user_id", user_id).eq("Date", today).maybeSingle(),
+  ]);
+
+  let score = 0;
+  if (workout) score += 34;
+  if (nutrition) score += 33;
+  if (sleep) score += 33;
+  scoreEl.textContent = String(score);
+
+  const logged = [workout, nutrition, sleep].filter(Boolean).length;
+  if (meta) {
+    meta.textContent =
+      logged === 3
+        ? "All three habits logged today."
+        : `${logged}/3 habits logged today.`;
+  }
+  if (nutSummary) {
+    nutSummary.textContent = nutrition
+      ? nutrition.protein_goal_met === "Yes"
+        ? "Logged · protein goal met"
+        : "Logged today"
+      : "Not logged today";
+  }
+  if (sleepSummary) {
+    sleepSummary.textContent = sleep
+      ? `${sleep.hours_slept} hrs logged`
+      : "Not logged today";
+  }
+}
+
 async function loadSidebarProfileStats() {
   const userInfo = await getUserInfo();
   if (!userInfo) {
     showLoginRequiredMessage("nutritionAvgLabel");
     showLoginRequiredMessage("statusXpLabel");
-    showLoginRequiredMessage("dashboardHeaderSubtitle", "Please log in to view your dashboard.");
+    showLoginRequiredMessage("dashboardHeaderSubtitle", "Sign in on Profile to track habits.");
     return;
   }
 
@@ -2975,10 +2979,13 @@ async function loadSidebarProfileStats() {
   if (statusXpLabel) statusXpLabel.textContent = String(xp);
   const headerTitle = document.getElementById("dashboardHeaderTitle");
   const headerSubtitle = document.getElementById("dashboardHeaderSubtitle");
-  if (headerTitle) headerTitle.textContent = "Your overall health overview.";
-  if (headerSubtitle) headerSubtitle.textContent = streak > 0
-    ? `You are on a ${streak}-day logging streak across workouts, nutrition, and sleep.`
-    : "Track your workout plan, nutrition consistency, and sleep in one place.";
+  if (headerTitle) headerTitle.textContent = "Today";
+  if (headerSubtitle) {
+    headerSubtitle.textContent =
+      streak > 0
+        ? `${streak}-day logging streak.`
+        : "Your daily consistency at a glance.";
+  }
 
   const nutritionAvgLabel = document.getElementById("nutritionAvgLabel");
   const { data: recentNutrition } = await supabase
@@ -3159,7 +3166,7 @@ function setupHistoryPage() {
   const run = async () => {
     const userInfo = await getUserInfo();
     if (!userInfo) {
-      if (status) status.textContent = "Please login to view history and export data.";
+      if (status) status.textContent = "Sign in on Profile to view history.";
       if (list) list.replaceChildren();
       return;
     }
@@ -3171,11 +3178,11 @@ function setupHistoryPage() {
       return;
     }
     if (status) status.textContent = "Loading history...";
-    setButtonBusy("historyApplyBtn", true, "Apply Filters");
+    setButtonBusy("historyApplyBtn", true, "Apply filters");
     currentRows = await fetchHistoryRows(startDate, endDate, type);
     renderRows(currentRows);
     if (status) status.textContent = `Loaded ${currentRows.length} entries.`;
-    setButtonBusy("historyApplyBtn", false, "Apply Filters");
+    setButtonBusy("historyApplyBtn", false, "Apply filters");
   };
 
   applyBtn.addEventListener("click", run);
@@ -3325,31 +3332,15 @@ async function registerServiceWorker() {
 
 function initUI() {
   setupThemeToggle();
-  setupMissionBoard();
-  setupLeaderboardRefresh();
   initializeWorkoutSets();
-  setupWorkoutShortcuts();
-  setupShareActions();
-  setupNotifications();
-  setupManualToggles();
-  setupWorkoutPlanner();
-  setupManualWorkoutSection();
-  setupDailyOverride();
-  setupSwapFlow();
-  setupMealCapture("wger");
-  setupMealCapture("manual");
-  setupWgerFilters();
   setupWgerPrimaryLoggers();
+  setupWgerFilters();
   setupWgerFeeds();
-  setupChallengeSection();
   setupHistoryPage();
   loadSidebarProfileStats();
   loadTodaySleepEntry();
-  loadGamificationBadgesAndQuest();
   loadWorkoutPlan();
-  setupActivityFilters();
-  loadPlanActivity();
-  setupScrollReveal();
+  loadMvpDashboard();
   registerServiceWorker();
 }
 

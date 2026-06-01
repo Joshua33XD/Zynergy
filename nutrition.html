@@ -1,188 +1,84 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Nutrition</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" type="text/css" href="common.css">
-  <link rel="stylesheet" type="text/css" href="chatbot-widget.css">
-  <link rel="stylesheet" type="text/css" href="nutrition.css">
+  <link rel="stylesheet" href="common.css">
+  <link rel="stylesheet" href="chatbot-widget.css">
+  <link rel="stylesheet" href="nutrition.css">
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar">
       <h2 class="brand">ZYNERGY</h2>
-      <div class="profile-block">
-        <div class="profile-line"><strong>Current Avg:</strong> <span id="nutritionAvgLabel">-</span></div>
-        <div class="profile-line"><strong>Nutrition XP:</strong> <span id="nutritionXpLabel">-</span></div>
-      </div>
       <nav class="side-nav">
         <ul>
           <li><a href="index.html">Dashboard</a></li>
-          <li><a href="workouts.html">Workouts</a></li>
+          <li><a href="workouts.html">Workout</a></li>
           <li><a href="nutrition.html" aria-current="page">Nutrition</a></li>
           <li><a href="sleep.html">Sleep</a></li>
-          <li><a href="status.html">Leaderboard</a></li>
-          <li><a href="history.html">History</a></li>
+          <li><a href="profile.html">Profile</a></li>
         </ul>
       </nav>
-      <div class="theme-changer">
-        <button id="themeToggleBtn" type="button" onclick="setupThemeToggle()">Toggle Theme</button>
-      </div>
     </aside>
 
     <div class="content">
       <header>
         <div class="ux-hero">
           <h1>Nutrition</h1>
-          <p class="muted">Search ingredients and log today's meals.</p>
+          <p class="muted">Log food quickly.</p>
         </div>
       </header>
 
       <main>
         <div class="dashboard-grid">
           <section class="card col-8" id="wgerNutritionCard">
-            <h2>Nutrition Logger</h2>
-            <p class="muted" id="nutritionSourceStatus">Login to save nutrition logs. One log per day; saving again updates today.</p>
-            <p class="muted" id="nutritionStatus">Type an ingredient name and click Search.</p>
+            <h2>Log food</h2>
+            <p class="muted" id="nutritionSaveStatus"></p>
 
             <div class="nutrition-form">
               <div class="form-row">
-                <label for="wgerFoodFocus">Nutrition Focus (Choose first)</label>
-                <select id="wgerFoodFocus">
-                  <option value="" selected>Select nutrition focus</option>
-                  <option value="protein">High Protein</option>
-                  <option value="carbs">High Carbs</option>
-                  <option value="fat">High Fat</option>
-                  <option value="balanced">Balanced</option>
-                </select>
-                <small class="field-hint">Choose macro priority before searching ingredients.</small>
-              </div>
-
-              <div class="form-row">
-                <label for="wgerIngredientSelect">Ingredient Result</label>
-                <select id="wgerIngredientSelect">
-                  <option value="">Select nutrition focus first</option>
-                </select>
-                <small class="field-hint">Use search to load ingredient matches.</small>
-              </div>
-
-              <div class="dual-row compact-search-row">
-                <div class="form-row">
-                  <label for="wgerIngredientSearch">Search Ingredient</label>
-                  <input type="text" id="wgerIngredientSearch" placeholder="e.g. chicken, oats, rice">
-                </div>
-                <div class="form-row">
-                  <label>&nbsp;</label>
-                  <button id="wgerIngredientSearchBtn" type="button">Search Ingredients</button>
-                </div>
+                <label for="mvpFoodName">Food</label>
+                <input type="text" id="mvpFoodName" placeholder="e.g. Chicken rice bowl" autocomplete="off">
               </div>
 
               <div class="dual-row">
                 <div class="form-row">
-                  <label for="wgerGrams">Amount (g)</label>
-                  <input type="number" id="wgerGrams" min="1" value="150">
+                  <label for="mvpProteinG">Protein (g)</label>
+                  <input type="number" id="mvpProteinG" min="0" step="1" placeholder="40">
                 </div>
                 <div class="form-row">
-                  <label for="wgerMealType">Meal Type</label>
-                  <select id="wgerMealType">
-                    <option value="breakfast">Breakfast</option>
-                    <option value="lunch">Lunch</option>
-                    <option value="dinner">Dinner</option>
-                    <option value="snacks">Snack</option>
-                  </select>
+                  <label for="mvpCalories">Calories</label>
+                  <input type="number" id="mvpCalories" min="0" step="1" placeholder="500">
                 </div>
+              </div>
+
+              <div class="form-row">
+                <label for="wgerMealType">Meal type</label>
+                <select id="wgerMealType">
+                  <option value="breakfast">Breakfast</option>
+                  <option value="lunch">Lunch</option>
+                  <option value="dinner">Dinner</option>
+                  <option value="snacks">Snack</option>
+                </select>
               </div>
 
               <div class="goal-list">
-                <label><input type="checkbox" id="wgerHydration">Hydration</label>
-                <label><input type="checkbox" id="wgerProtein">Protein</label>
-                <label><input type="checkbox" id="wgerBalancedMeal">Balanced Meal</label>
+                <label><input type="checkbox" id="mvpProteinGoal">Protein goal met</label>
               </div>
-
-              <section class="meal-capture" aria-label="Optional meal capture details">
-                <div class="meal-capture-head">
-                  <h3>Meal Capture</h3>
-                  <p class="muted">Optional photo, eating timer, meal time, and leftovers.</p>
-                </div>
-
-                <div class="form-row">
-                  <label for="wgerMealPhoto">Upload Food Photo</label>
-                  <input type="file" id="wgerMealPhoto" accept="image/*">
-                  <small class="field-hint">Preview only for now. The file name will be saved in your notes.</small>
-                  <div class="meal-photo-preview hidden" id="wgerMealPhotoPreviewWrap">
-                    <img id="wgerMealPhotoPreview" alt="Meal preview">
-                  </div>
-                </div>
-
-                <div class="meal-timer-card">
-                  <div>
-                    <strong id="wgerMealTimerDisplay">00:00</strong>
-                    <p class="muted" id="wgerMealTimerStatus">Timer idle.</p>
-                  </div>
-                  <div class="timer-actions">
-                    <button type="button" id="wgerMealTimerStart">Start Timer</button>
-                    <button type="button" id="wgerMealTimerStop">Stop Timer</button>
-                    <button type="button" id="wgerMealTimerReset">Reset</button>
-                  </div>
-                </div>
-
-                <div class="dual-row">
-                  <div class="form-row">
-                    <label for="wgerMealTime">Time Ate</label>
-                    <input type="time" id="wgerMealTime">
-                  </div>
-                  <div class="form-row">
-                    <label for="wgerRemainingFood">Remaining Food</label>
-                    <input type="text" id="wgerRemainingFood" placeholder="Optional, e.g. finished all or 25% left">
-                  </div>
-                </div>
-              </section>
 
               <div class="action-row">
-                <button id="wgerNutritionSaveBtn" type="button">Log Selected Nutrition</button>
-                <button id="nutritionManualToggle" type="button">Use Manual Logger</button>
+                <button id="wgerNutritionSaveBtn" type="button" class="ux-primary-cta">Save</button>
               </div>
-              <p class="muted" id="nutritionSaveStatus">No nutrition log saved yet today.</p>
             </div>
-          </section>
 
-          <section class="card col-8 hidden" id="manualNutritionCard">
-            <h2>Meal Log</h2>
-            <p class="muted">Fallback logger when ingredient search is unavailable. Saving again updates today's nutrition log.</p>
-            <form class="nutrition-form" onsubmit="event.preventDefault(); saveNutritionData();">
-              <div class="form-row">
-                <label for="breakfast">Breakfast</label>
-                <input type="text" id="breakfast" name="breakfast" required>
-              </div>
-              <div class="form-row">
-                <label for="lunch">Lunch</label>
-                <input type="text" id="lunch" name="lunch" required>
-              </div>
-              <div class="form-row">
-                <label for="dinner">Dinner</label>
-                <input type="text" id="dinner" name="dinner" required>
-              </div>
-              <div class="form-row">
-                <label for="snacks">Snacks</label>
-                <input type="text" id="snacks" name="snacks" required>
-              </div>
-              <div class="goal-list">
-                <label><input type="checkbox" id="hydration" name="hydration">Hydration</label>
-                <label><input type="checkbox" id="protein" name="protein">Protein</label>
-                <label><input type="checkbox" id="balanced_meal" name="balanced_meal">Balanced Meal</label>
-              </div>
-              <div class="form-row">
-                <label for="notes">Quick notes or regrets</label>
-                <textarea id="notes" name="notes" rows="3" placeholder="Write your notes here..."></textarea>
-              </div>
-              <input type="submit" value="Save Nutrition">
-            </form>
+            <p class="hidden" id="nutritionSourceStatus"></p>
           </section>
 
           <section class="card col-4">
-            <h3>Today's Fuel Meters</h3>
+            <h3>Today</h3>
             <div class="meter-row">
               <span>Protein <strong id="proteinPct">0%</strong></span>
               <div class="meter"><span id="proteinMeter" style="width: 0%"></span></div>
@@ -191,22 +87,14 @@
               <span>Calories <strong id="caloriePct">0%</strong></span>
               <div class="meter"><span id="calorieMeter" style="width: 0%"></span></div>
             </div>
-            <div class="meter-row">
-              <span>Recovery Score <strong id="recoveryPct">0%</strong></span>
-              <div class="meter"><span id="recoveryMeter" style="width: 0%"></span></div>
-            </div>
+            <p class="muted" id="nutritionAvgLabel"></p>
           </section>
         </div>
       </main>
-
-      <footer>
-        <p>&copy; 2026 ZYNERGY. All rights reserved.</p>
-      </footer>
     </div>
   </div>
 
-  <div class="xp-pop" id="xpPop">+15 XP</div>
-  <script src="script.js" type="module"></script>
+  <script type="module" src="script.js"></script>
   <script type="module" src="chatbot-widget.js"></script>
 </body>
 </html>

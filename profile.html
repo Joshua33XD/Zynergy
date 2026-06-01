@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Profile</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="common.css">
+  <link rel="stylesheet" href="chatbot-widget.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <h2 class="brand">ZYNERGY</h2>
+      <nav class="side-nav">
+        <ul>
+          <li><a href="index.html">Dashboard</a></li>
+          <li><a href="workouts.html">Workout</a></li>
+          <li><a href="nutrition.html">Nutrition</a></li>
+          <li><a href="sleep.html">Sleep</a></li>
+          <li><a href="profile.html" aria-current="page">Profile</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <div class="content">
+      <header>
+        <div class="ux-hero">
+          <h1>Profile</h1>
+          <p class="muted">Account, preferences, and history.</p>
+        </div>
+      </header>
+
+      <main>
+        <div class="dashboard-grid">
+          <section class="card col-12">
+            <h2>Account</h2>
+            <div class="login" id="login">
+              <button type="button" onclick="loginpage()">Login with Google</button>
+            </div>
+            <div class="profile hidden" id="profile">
+              <img id="profile-pic" alt="" width="40" height="40">
+              <span id="username">User</span>
+              <button id="logout" type="button">Logout</button>
+            </div>
+            <p class="muted profile-stats">
+              Rank <strong id="statusRankLabel">—</strong> ·
+              XP <strong id="statusXpLabel">0</strong>
+            </p>
+            <span class="hidden" id="statusRankChangeLabel"></span>
+          </section>
+
+          <section class="card col-12">
+            <h2>Appearance</h2>
+            <button id="themeToggleBtn" type="button" onclick="setupThemeToggle()">Toggle theme</button>
+          </section>
+
+          <section class="card col-12" id="historySection">
+            <h2>History</h2>
+            <div class="dual-row">
+              <div class="form-row">
+                <label for="historyStartDate">Start</label>
+                <input type="date" id="historyStartDate">
+              </div>
+              <div class="form-row">
+                <label for="historyEndDate">End</label>
+                <input type="date" id="historyEndDate">
+              </div>
+            </div>
+            <div class="form-row">
+              <label for="historyType">Type</label>
+              <select id="historyType">
+                <option value="all">All</option>
+                <option value="workout">Workout</option>
+                <option value="nutrition">Nutrition</option>
+                <option value="sleep">Sleep</option>
+              </select>
+            </div>
+            <button type="button" id="historyApplyBtn">Apply filters</button>
+            <p class="muted" id="historyStatus"></p>
+            <div id="historyList" class="leaderboard" style="margin-top: 12px;"></div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="script.js"></script>
+  <script type="module" src="chatbot-widget.js"></script>
+</body>
+</html>

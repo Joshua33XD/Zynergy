@@ -1,402 +1,80 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Workouts</title>
+  <title>Workout</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" type="text/css" href="common.css">
-  <link rel="stylesheet" type="text/css" href="chatbot-widget.css">
-  <link rel="stylesheet" type="text/css" href="workouts.css">
+  <link rel="stylesheet" href="common.css">
+  <link rel="stylesheet" href="chatbot-widget.css">
+  <link rel="stylesheet" href="workouts.css">
 </head>
 <body id="workout">
   <div class="app-shell">
     <aside class="sidebar">
       <h2 class="brand">ZYNERGY</h2>
-      <div class="profile-block">
-        <div class="profile-line"><strong>Level:</strong> <span id="workoutLevelLabel">Loading...</span></div>
-        <div class="profile-line"><strong>Streak:</strong> <span id="workoutStreakLabel">-</span></div>
-      </div>
       <nav class="side-nav">
         <ul>
           <li><a href="index.html">Dashboard</a></li>
-          <li><a href="workouts.html" aria-current="page">Workouts</a></li>
+          <li><a href="workouts.html" aria-current="page">Workout</a></li>
           <li><a href="nutrition.html">Nutrition</a></li>
           <li><a href="sleep.html">Sleep</a></li>
-          <li><a href="status.html">Leaderboard</a></li>
-          <li><a href="history.html">History</a></li>
+          <li><a href="profile.html">Profile</a></li>
         </ul>
       </nav>
-      <div class="theme-changer">
-        <button id="themeToggleBtn" type="button" onclick="setupThemeToggle()">Toggle Theme</button>
-      </div>
     </aside>
 
     <div class="content">
       <header>
         <div class="ux-hero">
-          <h1>Workouts</h1>
-          <p class="muted">Plan your split, log sets, and track challenges.</p>
+          <h1>Workout</h1>
+          <p class="muted">Log today's session in under 30 seconds.</p>
         </div>
       </header>
 
       <main>
         <div class="dashboard-grid">
-          <section class="card col-12 split-planner-card" id="splitPlannerCard">
-            <div class="split-header">
-              <div>
-                <p class="ux-eyebrow">Training split</p>
-                <h2>Weekly Split Planner</h2>
-                <p class="muted" id="splitPlannerStatus">Loading your split...</p>
-              </div>
-              <div class="split-header-actions">
-                <button id="refreshPlanBtn" type="button">Refresh Plan</button>
-                <button id="editSplitBtn" type="button" class="hidden">Edit Split</button>
-                <button id="viewSplitHistoryBtn" type="button" class="hidden">View History</button>
-              </div>
-            </div>
-
-            <div class="today-plan-card">
-              <div>
-                <span class="split-badge" id="todayPlanSourceBadge" data-source="none">No plan</span>
-                <h3 id="todayPlanLabel">Today's plan will appear here.</h3>
-                <p class="muted" id="todayPlanMeta">Create your split to unlock automatic daily planning.</p>
-              </div>
-            </div>
-
-            <div id="activeSplitSummary" class="split-summary hidden"></div>
-
-            <section id="splitBuilderForm" class="workout-form hidden" aria-label="Split builder">
-              <div class="form-row">
-                <label for="splitNameInput">Split Name</label>
-                <input type="text" id="splitNameInput" placeholder="e.g. PPL + Upper Lower">
-                <small class="field-hint">Your first save creates version 1 and locks in a full 7-day plan.</small>
-              </div>
-
-              <div id="splitBuilderRows" class="split-day-list"></div>
-
-              <div class="split-sticky-bar">
-                <button id="saveSplitBtn" type="button">Save Split</button>
-              </div>
-            </section>
+          <section class="card col-12">
+            <h2>Today's workout</h2>
+            <p class="mvp-card-value" id="todayPlanLabel">Loading…</p>
+            <p class="muted" id="todayPlanMeta"></p>
+            <span class="hidden" id="todayPlanSourceBadge" data-source="none"></span>
           </section>
 
-          <section class="card col-12 workout-form" id="dailyOverrideCard">
-            <div class="split-header">
-              <div>
-                <h2>Daily Overrides</h2>
-                <p class="muted">Override a single date without changing your full split.</p>
-              </div>
-            </div>
-
-            <div class="dual-row">
-              <div class="form-row">
-                <label for="overrideDateInput">Override Date</label>
-                <input type="date" id="overrideDateInput">
-              </div>
-              <div class="form-row">
-                <label for="overrideLabelSelect">Workout Label</label>
-                <select id="overrideLabelSelect">
-                  <option value="Rest">Rest</option>
-                  <option value="Push">Push</option>
-                  <option value="Pull">Pull</option>
-                  <option value="Legs">Legs</option>
-                  <option value="Upper">Upper</option>
-                  <option value="Lower">Lower</option>
-                  <option value="Custom">Custom</option>
-                </select>
-              </div>
-            </div>
+          <section class="card col-12 workout-form" id="wgerWorkoutCard">
+            <h2>Log workout</h2>
+            <p class="muted" id="workoutSaveStatus"></p>
 
             <div class="form-row">
-              <label for="overrideCustomLabel">Custom Label (Optional)</label>
-              <input type="text" id="overrideCustomLabel" placeholder="Only needed when using Custom" hidden>
-            </div>
-
-            <div class="form-row">
-              <label for="overrideReason">Reason</label>
-              <input type="text" id="overrideReason" placeholder="e.g. travel day, deload, extra volume">
-            </div>
-
-            <div class="action-row">
-              <button id="applyOverrideBtn" type="button">Apply Only For This Date</button>
-              <button id="clearOverrideBtn" type="button">Remove Override</button>
-            </div>
-
-            <p class="muted" id="overrideStatus">No override applied yet.</p>
-          </section>
-
-          <section class="card col-12 workout-form" id="swapCard">
-            <div class="split-header">
-              <div>
-                <h2>Swap Today's Workout</h2>
-                <p class="muted">Create a pending swap, then confirm it if you're sure.</p>
-              </div>
-            </div>
-
-            <div class="dual-row">
-              <div class="form-row">
-                <label for="swapTargetLabel">Swap To</label>
-                <select id="swapTargetLabel">
-                  <option value="Push">Push</option>
-                  <option value="Pull">Pull</option>
-                  <option value="Legs">Legs</option>
-                  <option value="Upper">Upper</option>
-                  <option value="Lower">Lower</option>
-                  <option value="Rest">Rest</option>
-                  <option value="Custom">Custom</option>
-                </select>
-              </div>
-              <div class="form-row">
-                <label for="swapCustomLabel">Custom Label</label>
-                <input type="text" id="swapCustomLabel" placeholder="Only needed when using Custom" hidden>
-              </div>
-            </div>
-
-            <div class="action-row">
-              <button id="swapCreateBtn" type="button">Create Swap</button>
-              <button id="swapConfirmBtn" type="button" class="hidden">Confirm Swap</button>
-              <button id="swapReverseBtn" type="button" class="hidden">Create Reverse Swap</button>
-            </div>
-
-            <p class="muted" id="swapStatus">No swap created yet.</p>
-          </section>
-
-          <section class="card col-8 workout-form" id="wgerWorkoutCard">
-            <h2>Workout Logger</h2>
-            <p class="muted" id="workoutSourceStatus">Local exercise library ready. Saving again updates today's workout log.</p>
-            <p class="muted" id="exerciseStatus">Type an exercise name and click Search.</p>
-
-            <div class="form-row">
-              <label for="wgerMuscleFocus">Muscle Group (Choose first)</label>
-              <select id="wgerMuscleFocus">
-                <option value="" selected>Select muscle group</option>
-              </select>
-              <small class="field-hint">Pick target muscle to narrow search scope.</small>
-            </div>
-
-            <div class="form-row">
-              <label for="wgerExerciseSelect">Exercise Result</label>
+              <label for="wgerExerciseSelect">Exercise</label>
               <select id="wgerExerciseSelect">
-                <option value="">Select a muscle group first</option>
+                <option value="">Choose exercise</option>
               </select>
-              <small class="field-hint">Run search to load matching exercise options.</small>
             </div>
 
-            <div class="dual-row compact-search-row">
-              <div class="form-row">
-                <label for="wgerExerciseSearch">Search Exercise</label>
-                <input type="text" id="wgerExerciseSearch" placeholder="e.g. press, squat, row">
-              </div>
-              <div class="form-row">
-                <label>&nbsp;</label>
-                <button id="wgerExerciseSearchBtn" type="button">Search Exercises</button>
-              </div>
-            </div>
-
-            <div class="dual-row">
-              <div class="form-row">
-                <label for="wgerSets">Number Of Sets</label>
-                <input type="number" id="wgerSets" min="1" value="1" readonly>
-              </div>
-              <div class="form-row">
-                <label for="wgerWorkoutIntensity">Intensity</label>
-                <select name="workout-intensity" id="wgerWorkoutIntensity">
-                  <option value="light">Light</option>
-                  <option value="moderate" selected>Moderate</option>
-                  <option value="intense">Intense</option>
-                </select>
-              </div>
-            </div>
+            <input type="hidden" id="wgerSets" value="1">
+            <input type="hidden" id="wgerWorkoutIntensity" value="moderate">
+            <select id="wgerMuscleFocus" class="hidden" aria-hidden="true"><option value=""></option></select>
 
             <section class="workout-set-builder" aria-label="Workout sets">
               <div class="workout-set-head">
-                <div>
-                  <h3>Set Weights</h3>
-                  <p class="muted">Each set stores its own reps and weight. We log your heaviest set automatically.</p>
-                </div>
-                <button id="addSetBtn" type="button">+ Add Set</button>
+                <h3>Sets</h3>
+                <button id="addSetBtn" type="button">+ Add set</button>
               </div>
               <div id="workoutSetList" class="workout-set-list"></div>
             </section>
 
             <div class="action-row">
-              <button id="wgerWorkoutSaveBtn" type="button">Log Selected Workout</button>
-              <button id="repeatWorkoutBtn" type="button">Repeat Last</button>
-              <button id="workoutManualToggle" type="button">Use Manual Logger</button>
+              <button id="wgerWorkoutSaveBtn" type="button" class="ux-primary-cta">Save workout</button>
             </div>
-            <p class="muted" id="workoutSaveStatus">No workout log saved yet today.</p>
+            <p class="muted hidden" id="workoutSourceStatus"></p>
           </section>
-
-          <section class="card col-4">
-            <h3>Session XP</h3>
-            <p class="xp-value"><span id="sessionXp">0</span> XP</p>
-            <div class="meter">
-              <span id="sessionXpMeter" style="width: 0%"></span>
-            </div>
-            <p class="muted" id="setCounter">Sets logged: 0</p>
-          </section>
-
-          <section class="card col-12 workout-form hidden" id="manualWorkoutCard">
-            <div class="split-header">
-              <div>
-                <h2>Manual Workout Entry</h2>
-                <p class="muted">Log an ad-hoc session or save your best patterns as reusable templates.</p>
-              </div>
-            </div>
-
-            <div class="dual-row">
-              <div class="form-row">
-                <label for="manualTemplateSelect">Template Quick Picks</label>
-                <select id="manualTemplateSelect">
-                  <option value="">Choose a saved template</option>
-                </select>
-                <small class="field-hint">Pick a template to auto-fill the form instantly.</small>
-              </div>
-              <div class="form-row">
-                <label for="manualTemplateName">Template Name</label>
-                <input type="text" id="manualTemplateName" placeholder="e.g. Push Day Finisher">
-                <small class="field-hint">Optional when logging, useful when saving templates.</small>
-              </div>
-            </div>
-
-            <div id="manualTemplateChips" class="template-chip-row" aria-label="Saved templates"></div>
-
-            <div class="dual-row">
-              <div class="form-row">
-                <label for="manualExercise">Exercise</label>
-                <input type="text" id="manualExercise" placeholder="e.g. Incline Dumbbell Press">
-              </div>
-              <div class="form-row">
-                <label for="manualSets">Sets</label>
-                <input type="number" id="manualSets" min="1" value="3">
-              </div>
-            </div>
-
-            <div class="dual-row">
-              <div class="form-row">
-                <label for="manualReps">Reps</label>
-                <input type="number" id="manualReps" min="1" value="8">
-              </div>
-              <div class="form-row">
-                <label for="manualWeight">Weight (kg)</label>
-                <input type="number" id="manualWeight" min="0" step="0.5" value="0">
-              </div>
-            </div>
-
-            <div class="form-row">
-              <label for="manualNotes">Notes</label>
-              <textarea id="manualNotes" rows="3" placeholder="Technique cue, tempo, or anything worth remembering"></textarea>
-            </div>
-
-            <div class="action-row">
-              <button id="manualWorkoutLogBtn" type="button">Log Workout</button>
-              <button id="manualSaveTemplateBtn" type="button">Save As Template</button>
-            </div>
-
-            <p class="muted" id="manualWorkoutStatus">No manual template loaded yet.</p>
-          </section>
-
-          <section class="card col-12" id="challengeCard">
-            <h2>Workout Challenge Board</h2>
-            <p class="muted">Log a standout set (exercise, reps, and weight). The best scores across all users appear on the leaderboard.</p>
-
-            <div class="workout-form">
-              <div class="form-row">
-                <label for="challengeExercise">Exercise Name</label>
-                <input type="text" id="challengeExercise" placeholder="e.g. Bench Press" autocomplete="off">
-                <small class="field-hint">If you log a workout above, this will auto-fill when you save.</small>
-              </div>
-
-              <div class="dual-row">
-                <div class="form-row">
-                  <label for="challengeReps">Reps</label>
-                  <input type="number" id="challengeReps" min="1" value="5">
-                </div>
-                <div class="form-row">
-                  <label for="challengeWeight">Weight (kg)</label>
-                  <input type="number" id="challengeWeight" min="1" step="0.5" value="60">
-                </div>
-              </div>
-
-              <div class="action-row">
-                <button id="challengeSubmitBtn" type="button">Post Challenge</button>
-              </div>
-
-              <p class="muted" id="challengeStatus">No challenge posted yet today.</p>
-            </div>
-          </section>
-
         </div>
       </main>
-
-      <footer>
-        <p>&copy; 2026 ZYNERGY. All rights reserved.</p>
-      </footer>
     </div>
   </div>
 
-  <div class="workout-overlay hidden" id="splitEditorModal" aria-hidden="true">
-    <div class="workout-modal">
-      <div class="split-header">
-        <div>
-          <h2 id="splitEditorTitle">Edit Split</h2>
-          <p class="muted">Saving creates a new version and preserves history.</p>
-        </div>
-        <button id="closeSplitEditorBtn" type="button">Close</button>
-      </div>
-
-      <div class="workout-form">
-        <div class="form-row">
-          <label for="splitEditorName">Split Name</label>
-          <input type="text" id="splitEditorName" placeholder="e.g. Push Pull Legs">
-        </div>
-
-        <div id="splitEditorRows" class="split-day-list"></div>
-
-        <div class="form-row">
-          <label for="splitChangeSummary">What changed?</label>
-          <textarea id="splitChangeSummary" rows="3" placeholder="Optional note for the history drawer"></textarea>
-        </div>
-
-        <div class="split-sticky-bar split-modal-actions">
-          <button id="saveSplitEditBtn" type="button">Save New Version</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <aside class="workout-drawer hidden" id="splitHistoryDrawer" aria-label="Split history">
-    <div class="split-header">
-      <div>
-        <h2>Split History</h2>
-        <p class="muted" id="splitHistoryStatus">Loading...</p>
-      </div>
-      <button id="closeSplitHistoryBtn" type="button">Close</button>
-    </div>
-    <div id="splitHistoryList" class="split-history-list"></div>
-  </aside>
-
-  <div class="workout-overlay hidden" id="swapConfirmModal" aria-hidden="true">
-    <div class="workout-modal">
-      <div class="split-header">
-        <div>
-          <h2>Confirm Workout Swap</h2>
-          <p class="muted">This permanently changes today's plan. Continue?</p>
-        </div>
-        <button id="closeSwapConfirmBtn" type="button">Close</button>
-      </div>
-      <div class="workout-form">
-        <p class="muted" id="swapConfirmDetails">Review your swap details before confirming.</p>
-        <div class="split-sticky-bar split-modal-actions">
-          <button id="confirmSwapActionBtn" type="button">Confirm Swap</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="xp-pop" id="xpPop">+20 XP</div>
-  <script src="script.js" type="module"></script>
+  <script type="module" src="script.js"></script>
   <script type="module" src="chatbot-widget.js"></script>
 </body>
 </html>

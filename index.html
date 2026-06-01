@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>ZYNERGY Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" type="text/css" href="common.css">
-  <link rel="stylesheet" type="text/css" href="chatbot-widget.css">
-  <link rel="stylesheet" type="text/css" href="index.css">
+  <link rel="stylesheet" href="common.css">
+  <link rel="stylesheet" href="chatbot-widget.css">
+  <link rel="stylesheet" href="index.css">
 </head>
 <body>
   <div class="app-shell">
@@ -16,91 +16,54 @@
       <nav class="side-nav">
         <ul>
           <li><a href="index.html" aria-current="page">Dashboard</a></li>
-          <li><a href="workouts.html">Workouts</a></li>
+          <li><a href="workouts.html">Workout</a></li>
           <li><a href="nutrition.html">Nutrition</a></li>
           <li><a href="sleep.html">Sleep</a></li>
-          <li><a href="status.html">Leaderboard</a></li>
-          <li><a href="history.html">History</a></li>
+          <li><a href="profile.html">Profile</a></li>
         </ul>
       </nav>
-      <div class="theme-changer">
-        <button id="themeToggleBtn" type="button" onclick="setupThemeToggle()">Toggle Theme</button>
-      </div>
-      <div class="profile-block">
-        <div class="login" id="login">
-          <button onclick="loginpage()">Login with Google</button>
-        </div>
-        <div class="profile hidden" id="profile">
-          <img id="profile-pic" alt="Profile picture" width="34" height="34">
-          <span id="username">Welcome, User!</span>
-          <button id="logout" type="button">Logout</button>
-        </div>
-      </div>
     </aside>
 
     <div class="content">
       <header>
         <div class="ux-hero">
-          <h1 id="dashboardHeaderTitle">Your overall health overview.</h1>
-          <p id="dashboardHeaderSubtitle">Track your workout plan, nutrition consistency, and sleep in one place.</p>
-          <div class="ux-cta-row">
-            <a class="pill ux-primary-cta" href="workouts.html">Log workout</a>
-            <a class="pill" href="nutrition.html">Log nutrition</a>
-            <a class="pill" href="sleep.html">Log sleep</a>
-          </div>
+          <h1 id="dashboardHeaderTitle">Today</h1>
+          <p class="muted" id="dashboardHeaderSubtitle">Your daily consistency at a glance.</p>
         </div>
       </header>
 
       <main>
         <div class="dashboard-grid">
+          <section class="card col-12 mvp-score-card">
+            <h2>Health score</h2>
+            <p class="mvp-score-value"><strong id="dashboardHealthScore">—</strong></p>
+            <p class="muted" id="dashboardHealthMeta">Log workout, nutrition, and sleep to build your score.</p>
+          </section>
+
           <section class="card col-12" id="dashboardPlanCard">
-            <h2>Workout Plan</h2>
-            <span class="split-badge" id="dashboardPlanBadge" data-source="none">No plan</span>
-            <p class="muted" id="dashboardPlanLabel">Loading today's workout plan...</p>
-            <p class="muted" id="dashboardPlanMeta">Your latest plan, override, or swap details show up here.</p>
-            <div class="quick-links" style="margin-top: 12px;">
-              <a class="pill ux-primary-cta" href="workouts.html">Open workout plan</a>
-              <a class="pill" href="workouts.html#dailyOverrideCard">Set override</a>
-              <a class="pill" href="workouts.html#swapCard">Swap workout</a>
-            </div>
+            <h2>Today's workout</h2>
+            <p class="mvp-card-value" id="dashboardPlanLabel">Loading…</p>
+            <p class="muted" id="dashboardPlanMeta"></p>
+            <span class="hidden" id="dashboardPlanBadge" data-source="none"></span>
           </section>
 
           <section class="card col-6">
-            <h3>Nutrition Overview</h3>
-            <div class="meter-row">
-              <span>Weekly Logging <strong id="weeklyNutritionLabel">0%</strong></span>
-              <div class="meter"><span id="dashboardHydrationMeter" style="width: 0%"></span></div>
-            </div>
-            <p class="muted">Protein goal hit rate: <strong id="nutritionAvgLabel">No data</strong></p>
-            <div class="quick-links">
-              <a class="pill ux-primary-cta" href="nutrition.html">Open nutrition</a>
-            </div>
+            <h3>Nutrition</h3>
+            <p class="mvp-card-value" id="dashboardNutritionSummary">Not logged today</p>
+            <a class="pill ux-primary-cta" href="nutrition.html">Log food</a>
           </section>
 
           <section class="card col-6">
-            <h3>Sleep Overview</h3>
-            <div class="meter-row">
-              <span>Weekly Logging <strong id="weeklySleepLabel">0%</strong></span>
-              <div class="meter"><span id="dashboardSleepQualityMeter" style="width: 0%"></span></div>
-            </div>
-            <p class="muted">Average sleep: <strong id="sleepAvgLabel">No data</strong></p>
-            <p class="muted">Low-sleep nights: <strong id="sleepLateNightsLabel">0 this week</strong></p>
-            <div class="quick-links">
-              <a class="pill ux-primary-cta" href="sleep.html">Open sleep</a>
-            </div>
+            <h3>Sleep</h3>
+            <p class="mvp-card-value" id="dashboardSleepSummary">Not logged today</p>
+            <a class="pill ux-primary-cta" href="sleep.html">Log sleep</a>
           </section>
         </div>
       </main>
-
-      <footer>
-        <p>&copy; 2026 ZYNERGY. All rights reserved.</p>
-      </footer>
     </div>
   </div>
 
-  <div class="xp-pop" id="xpPop">+20 XP</div>
   <script type="module" src="script.js"></script>
   <script type="module" src="chatbot-widget.js"></script>
 </body>
 </html>
-

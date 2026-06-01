@@ -1,3 +1,18 @@
+.mvp-score-card .mvp-score-value {
+  font-size: 2.5rem;
+  margin: 0.25rem 0;
+}
+
+.mvp-card-value {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0.35rem 0 0.75rem;
+}
+
+.profile-stats {
+  margin-top: 0.75rem;
+}
+
 .quick-links {
   display: flex;
   gap: var(--spacing-sm);

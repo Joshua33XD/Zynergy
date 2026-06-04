@@ -45,6 +45,13 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function toLocalDateString(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function normalizeText(value) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -748,8 +755,7 @@ async function saveManualWorkoutLog({
       reps: normalized.reps,
       weight: normalized.weight,
       notes: normalized.notes,
-      entryDate:
-        normalized.entryDate || new Date().toISOString().slice(0, 10),
+      entryDate: normalized.entryDate || toLocalDateString(new Date()),
       templateId: normalized.templateId,
       source: normalized.templateId ? "template" : "manual",
       loggedAt,

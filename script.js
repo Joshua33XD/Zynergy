@@ -998,89 +998,121 @@ async function saveSplitEdit() {
   }
 }
 
-function renderWorkoutPlan(plan) {
-  const label = document.getElementById("todayPlanLabel");
-  const meta = document.getElementById("todayPlanMeta");
-  if (!label || !meta) {
-    renderDashboardPlan(plan);
-    return;
-  }
+const WEEKDAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
-  workoutPlannerState.currentPlan = plan;
+function getDefaultTodayWorkoutDisplay(dateString = getTodayDateString()) {
+  const date = new Date(`${dateString}T12:00:00`);
+  const weekdayName = WEEKDAY_NAMES[date.getDay()] || "Today";
+  return {
+    title: `${weekdayName} · Open workout`,
+    subtitle: "Pick an exercise and log your sets below.",
+  };
+}
+
+function planToTodayDisplay(plan, dateString = getTodayDateString()) {
+  const fallback = getDefaultTodayWorkoutDisplay(dateString);
 
   if (!plan || plan.source === "none") {
-    setPlanBadge("none", "No plan");
-    label.textContent = "Free session";
-    meta.textContent = "";
-    return;
+    return {
+      title: fallback.title,
+      subtitle: plan?.message || fallback.subtitle,
+      source: "none",
+    };
   }
 
-  const badgeLabelMap = {
-    override: "Override",
-    swap: "Swap",
-    split: "Split",
+  if (plan.isRest) {
+    return {
+      title: "Rest day",
+      subtitle: plan.weekdayName || fallback.title.split(" · ")[0],
+      source: plan.source,
+    };
+  }
+
+  const workoutName = plan.workoutLabel || "Workout";
+  return {
+    title: workoutName,
+    subtitle: plan.weekdayName ? `${plan.weekdayName}` : fallback.subtitle,
+    source: plan.source,
   };
+}
 
-  setPlanBadge(plan.source, badgeLabelMap[plan.source] || "Plan");
-  label.textContent = plan.isRest ? "Rest day" : plan.workoutLabel || "Workout";
+function applyTodayWorkoutDisplay(display) {
+  const workoutLabel = document.getElementById("todayPlanLabel");
+  const workoutMeta = document.getElementById("todayPlanMeta");
+  const dashboardLabel = document.getElementById("dashboardPlanLabel");
+  const dashboardMeta = document.getElementById("dashboardPlanMeta");
+  const badge = document.getElementById("todayPlanSourceBadge");
+  const dashboardBadge = document.getElementById("dashboardPlanBadge");
 
-  if (meta) {
-    meta.textContent = plan.weekdayName || "";
+  if (workoutLabel) workoutLabel.textContent = display.title;
+  if (workoutMeta) workoutMeta.textContent = display.subtitle;
+  if (dashboardLabel) dashboardLabel.textContent = display.title;
+  if (dashboardMeta) dashboardMeta.textContent = display.subtitle;
+
+  const source = display.source || "none";
+  if (badge) {
+    badge.dataset.source = source;
+    badge.textContent = source === "none" ? "" : source;
   }
+  if (dashboardBadge) {
+    dashboardBadge.dataset.source = source;
+    dashboardBadge.textContent = source === "none" ? "" : source;
+  }
+}
+
+function renderWorkoutPlan(plan) {
+  workoutPlannerState.currentPlan = plan;
+  applyTodayWorkoutDisplay(planToTodayDisplay(plan));
   updateOverrideStatus(plan);
   updateSwapStatus(plan);
-  renderDashboardPlan(plan);
 }
 
 async function loadWorkoutPlan(dateString = getTodayDateString()) {
-  const label = document.getElementById("todayPlanLabel");
-  if (!label && !document.getElementById("dashboardPlanCard")) return;
+  const hasWorkoutPage = document.getElementById("todayPlanLabel");
+  const hasDashboard = document.getElementById("dashboardPlanCard");
+  if (!hasWorkoutPage && !hasDashboard) return;
+
+  const defaultDisplay = getDefaultTodayWorkoutDisplay(dateString);
+  applyTodayWorkoutDisplay(defaultDisplay);
+
+  const userInfo = await getUserInfo();
+  if (!userInfo) {
+    applyTodayWorkoutDisplay({
+      ...defaultDisplay,
+      subtitle: "Sign in on Profile to sync a saved split (optional).",
+    });
+    return;
+  }
 
   try {
-    const { data } = await apiRequest(`/api/workouts/plan?date=${encodeURIComponent(dateString)}`);
-    renderWorkoutPlan(data);
+    const { data: plan } = await apiRequest(
+      `/api/workouts/plan?date=${encodeURIComponent(dateString)}`
+    );
+    renderWorkoutPlan(plan);
   } catch (error) {
-    renderWorkoutPlan(null);
-    const meta = document.getElementById("todayPlanMeta");
-    if (meta) meta.textContent = error.message === "AUTH_REQUIRED" ? "Sign in to resolve a daily plan." : error.message;
-    const dashboardMeta = document.getElementById("dashboardPlanMeta");
-    if (dashboardMeta) dashboardMeta.textContent = error.message === "AUTH_REQUIRED" ? "Sign in to see today's plan." : error.message;
+    const hint =
+      error.message === "AUTH_REQUIRED"
+        ? "Sign in on Profile to sync a saved split (optional)."
+        : error.message?.includes("fetch") || error.message?.includes("Failed")
+          ? "Server offline — run npm run dev. You can still log below."
+          : "Could not load split — you can still log below.";
+    applyTodayWorkoutDisplay({
+      ...defaultDisplay,
+      subtitle: hint,
+    });
   }
 }
 
 function renderDashboardPlan(plan) {
-  const badge = document.getElementById("dashboardPlanBadge");
-  const label = document.getElementById("dashboardPlanLabel");
-  const meta = document.getElementById("dashboardPlanMeta");
-  if (!label) return;
-
-  if (!plan || plan.source === "none") {
-    if (badge) {
-      badge.dataset.source = "none";
-      badge.textContent = "No plan";
-    }
-    label.textContent = "No plan yet";
-    if (meta) meta.textContent = "";
-    return;
-  }
-
-  const sourceLabel = {
-    override: "Override",
-    swap: "Swap",
-    split: "Split",
-  }[plan.source] || "Plan";
-
-  if (badge) {
-    badge.dataset.source = plan.source;
-    badge.textContent = sourceLabel;
-  }
-  label.textContent = plan.isRest ? "Rest day" : plan.workoutLabel || "Workout";
-
-  if (meta) {
-    const detailParts = [];
-    if (plan.weekdayName) detailParts.push(plan.weekdayName);
-    meta.textContent = detailParts.join(" · ");
-  }
+  applyTodayWorkoutDisplay(planToTodayDisplay(plan));
 }
 
 async function loadPlanActivityLegacy() {
@@ -2208,6 +2240,7 @@ async function saveWorkoutViaWger() {
   if (workoutSaveStatus) workoutSaveStatus.textContent = "Saved for today.";
   setButtonBusy("wgerWorkoutSaveBtn", false, "Save workout");
   loadMvpDashboard();
+  loadWorkoutPlan();
 }
 
 async function saveNutritionViaWger() {
@@ -3366,6 +3399,8 @@ if (session && profile && login) {
   login.classList.add("hidden");
   document.getElementById("profile-pic").src = session.user.user_metadata.avatar_url;
   document.getElementById("username").textContent = "Welcome, " + session.user.user_metadata.full_name + "!";
+  loadWorkoutPlan();
+  loadMvpDashboard();
 } else if (profile && login) {
   login.classList.remove("hidden");
   profile.classList.add("hidden");

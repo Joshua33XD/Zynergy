@@ -2273,6 +2273,7 @@ async function saveNutritionViaWger() {
   const notes = [
     proteinG > 0 ? `Protein: ${proteinG}g` : null,
     calories > 0 ? `Calories: ${calories}` : null,
+    ...getMealCaptureSummary("nutrition"),
   ].filter(Boolean);
 
   const entry_date = new Date().toISOString().split("T")[0];
@@ -2323,59 +2324,61 @@ function setupWgerPrimaryLoggers() {
     .getElementById("wgerNutritionSaveBtn")
     ?.addEventListener("click", saveNutritionViaWger);
 }
+function setupMealScan() {
+  const scanBtn = document.getElementById("nutritionMealScanBtn");
+  const photoInput = document.getElementById("nutritionMealPhoto");
+  const statusEl = document.getElementById("nutritionScanStatus");
+  if (!scanBtn || !photoInput || !statusEl) return;
 
-// â”€â”€â”€ ALL OTHER UNCHANGED LOGIC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-async function getValues() {
-  const userInfo = await getUserInfo();
-  if (!userInfo) {
-    const workoutSaveStatus = document.getElementById("workoutSaveStatus");
-    if (workoutSaveStatus) workoutSaveStatus.textContent = "Please login to save workout data.";
-    showToast("You must be logged in to save workouts. Please log in first.", "error");
-    return;
-  }
-  const { user_id, username } = userInfo;
-  const intensityRaw = document.getElementById("workout-intensity")?.value;
-  const mg1Raw = document.getElementById("muscle-group")?.value;
-  const mg2Raw = document.getElementById("muscle-group2")?.value;
-  const workout_intensity = intensityRaw
-    ? intensityRaw[0].toUpperCase() + intensityRaw.slice(1).toLowerCase()
-    : null;
-  const muscleMap = {
-    chest: "Chest", back: "Back", legs: "Leg", leg: "Leg",
-    bicep: "Bicep", tricep: "Tricep", shoulders: "Shoulder", shoulder: "Shoulder",
-  };
-  const mg1 = mg1Raw ? muscleMap[mg1Raw] ?? null : null;
-  const mg2 = mg2Raw ? muscleMap[mg2Raw] ?? null : null;
-  const muscle_groups = [mg1, mg2].filter(Boolean);
-  const date = new Date().toISOString().split("T")[0];
+  scanBtn.addEventListener("click", async () => {
+    const file = photoInput.files?.[0];
+    if (!file) {
+      showToast("Please upload a meal photo first.", "error");
+      statusEl.textContent = "Please upload a meal photo first.";
+      return;
+    }
 
-  // Auto-pick an energy_level based on intensity so the DB check constraint
-  // is satisfied without showing the field in the UI.
-  let energy_level = null;
-  if (intensityRaw === "light") energy_level = 4;
-  else if (intensityRaw === "intense") energy_level = 2;
-  else if (intensityRaw === "moderate") energy_level = 3;
+    statusEl.textContent = "Analyzing meal photo via AI backend...";
+    setButtonBusy("nutritionMealScanBtn", true, "Scanning...");
 
-  const { data, error } = await upsertWithFallback(
-    "workout_daily",
-    { user_id, username, date, workout_status: "Workout done", workout_intensity, muscle_groups, energy_level },
-    "user_id,date"
-  );
+    const formData = new FormData();
+    formData.append("image", file);
 
-  if (error) {
-    showToast(handleError(error, "workout_daily", user_id, date), "error");
-  } else {
-    uiState.sessionXp += 30;
-    animateNumber("sessionXp", uiState.sessionXp);
-    animateMeterById("sessionXpMeter", Math.min(100, uiState.sessionXp));
-    showXpPop("+30 XP");
-    maybeNotify("Workout saved", "Mission progress increased.");
-    showToast("Workout saved successfully!", "success");
-    addXp(30);
-    markMissionComplete("log_workout");
-    const workoutSaveStatus = document.getElementById("workoutSaveStatus");
-    if (workoutSaveStatus) workoutSaveStatus.textContent = "Workout log saved/updated for today.";
-  }
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/food/analyze", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server returned status ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (!result.ok) {
+        throw new Error(result.error || "Meal scan failed");
+      }
+
+      const foodNameInput = document.getElementById("mvpFoodName");
+      const proteinInput = document.getElementById("mvpProteinG");
+      const caloriesInput = document.getElementById("mvpCalories");
+
+      // Auto-fill values
+      const foodNames = result.detections.map(d => d.label).join(", ");
+      if (foodNameInput) foodNameInput.value = capitalizeFirst(foodNames);
+      if (proteinInput) proteinInput.value = Math.round(result.totals.protein_g);
+      if (caloriesInput) caloriesInput.value = Math.round(result.totals.calories);
+
+      statusEl.textContent = `Scanned successfully! Detected: ${foodNames}. Reviewed values are populated below.`;
+      showToast("Meal scan complete!", "success");
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = `Analysis failed: ${err.message}. Make sure Flask backend is running on port 8000.`;
+      showToast("Meal scan failed.", "error");
+    } finally {
+      setButtonBusy("nutritionMealScanBtn", false, "Scan & Analyze Photo");
+    }
+  });
 }
 
 async function loadTodaySleepEntry() {
@@ -2463,60 +2466,7 @@ async function saveSleepData() {
   }
 }
 
-async function saveNutritionData() {
-  const userInfo = await getUserInfo();
-  const nutritionSaveStatus = document.getElementById("nutritionSaveStatus");
-  if (!userInfo) {
-    if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Please login to save nutrition data.";
-    showToast("You must be logged in to save nutrition data.", "error");
-    return;
-  }
-  const { user_id, username } = userInfo;
-  const breakfast = document.getElementById("breakfast")?.value?.trim() || "";
-  const lunch = document.getElementById("lunch")?.value?.trim() || "";
-  const dinner = document.getElementById("dinner")?.value?.trim() || "";
-  const snacks = document.getElementById("snacks")?.value?.trim() || "";
-  const hydration = document.getElementById("hydration")?.checked || false;
-  const protein = document.getElementById("protein")?.checked || false;
-  const balancedMeal = document.getElementById("balanced_meal")?.checked || false;
-  const notes = document.getElementById("notes")?.value?.trim() || null;
-  if (!breakfast || !lunch || !dinner || !snacks) { showToast("Please fill in all meal fields.", "error"); return; }
-  const entry_date = new Date().toISOString().split("T")[0];
-  const noteParts = [notes, ...getMealCaptureSummary("manual")];
-  const { data, error } = await upsertWithFallback(
-    "daily_nutrition",
-    {
-      user_id, username, entry_date, breakfast, lunch, dinner, snacks,
-      hydration_goal_met: hydration ? "Yes" : "No",
-      protein_goal_met: protein ? "Yes" : "No",
-      balanced_meal_goal_met: balancedMeal ? "Yes" : "No",
-      notes_or_regrets: combineNoteParts(noteParts),
-    },
-    "user_id,entry_date"
-  );
-  if (error) { showToast(handleError(error, "daily_nutrition", user_id, entry_date), "error"); }
-  else {
-    const proteinPct = protein ? 82 : 48;
-    const caloriePct = balancedMeal ? 65 : 40;
-    const recoveryPct = hydration ? 78 : 52;
-    animateMeterById("proteinMeter", proteinPct);
-    animateMeterById("calorieMeter", caloriePct);
-    animateMeterById("recoveryMeter", recoveryPct);
-    document.getElementById("proteinPct")?.textContent && (document.getElementById("proteinPct").textContent = `${proteinPct}%`);
-    document.getElementById("caloriePct")?.textContent && (document.getElementById("caloriePct").textContent = `${caloriePct}%`);
-    document.getElementById("recoveryPct")?.textContent && (document.getElementById("recoveryPct").textContent = `${recoveryPct}%`);
-    showXpPop("+15 XP");
-    maybeNotify("Nutrition saved", "Fuel goals updated.");
-    showToast("Nutrition data saved successfully!", "success");
-    addXp(15, "nutrition_log");
-    markMissionComplete("log_nutrition");
-    if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Nutrition log saved/updated for today.";
-  }
-}
-
-window.getValues = getValues;
 window.saveSleepData = saveSleepData;
-window.saveNutritionData = saveNutritionData;
 
 // â”€â”€â”€ WORKOUT CHALLENGES & LEADERBOARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function submitChallenge() {
@@ -3363,8 +3313,15 @@ async function registerServiceWorker() {
   catch { /* ignore */ }
 }
 
+function setupSleepPage() {
+  document.getElementById("sleepSaveBtn")?.addEventListener("click", saveSleepData);
+}
+
 function initUI() {
   setupThemeToggle();
+  setupSleepPage();
+  setupMealCapture("nutrition");
+  setupMealScan();
   initializeWorkoutSets();
   setupWgerPrimaryLoggers();
   setupWgerFilters();

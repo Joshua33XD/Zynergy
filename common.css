@@ -52,7 +52,7 @@ body[data-theme="ion"] {
 }
 
 body {
-  font-family: "Segoe UI Variable", "Aptos", "Segoe UI", "Trebuchet MS", sans-serif;
+  font-family: "Outfit", "Segoe UI Variable", "Aptos", "Segoe UI", "Trebuchet MS", sans-serif;
   margin: 0;
   min-height: 100vh;
   color: var(--text-color);
@@ -176,8 +176,8 @@ header p {
 .ux-primary-cta {
   border-color: var(--accent-soft-border);
   background:
-    radial-gradient(circle at 20% 20%, rgba(255,255,255,0.12), transparent 35%),
-    linear-gradient(135deg, var(--accent-soft), rgba(255,255,255,0.02)),
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.12), transparent 35%),
+    linear-gradient(135deg, var(--accent-soft), rgba(255, 255, 255, 0.02)),
     var(--surface-2);
   color: var(--text-color);
   font-weight: 800;
@@ -186,7 +186,7 @@ header p {
 .ux-next-card {
   border: 1px solid var(--accent-soft-border);
   background:
-    linear-gradient(135deg, var(--accent-soft), rgba(255,255,255,0.02)),
+    linear-gradient(135deg, var(--accent-soft), rgba(255, 255, 255, 0.02)),
     var(--surface-2);
 }
 
@@ -207,27 +207,52 @@ main {
   gap: var(--spacing-md);
 }
 
-.col-4 { grid-column: span 4; }
-.col-5 { grid-column: span 5; }
-.col-6 { grid-column: span 6; }
-.col-7 { grid-column: span 7; }
-.col-8 { grid-column: span 8; }
-.col-12 { grid-column: span 12; }
+.col-4 {
+  grid-column: span 4;
+}
+
+.col-5 {
+  grid-column: span 5;
+}
+
+.col-6 {
+  grid-column: span 6;
+}
+
+.col-7 {
+  grid-column: span 7;
+}
+
+.col-8 {
+  grid-column: span 8;
+}
+
+.col-12 {
+  grid-column: span 12;
+}
 
 .card {
-  background: var(--surface-1);
-  border: 1px solid var(--line-color);
+  background: rgba(11, 11, 11, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--border-radius);
   padding: var(--spacing-md);
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.4),
+    inset 0 1px 1px rgba(255, 255, 255, 0.06);
   position: relative;
   overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-4px);
   border-color: var(--accent-soft-border);
-  box-shadow: 0 16px 26px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.5),
+    0 0 20px var(--accent-soft),
+    inset 0 1px 1px rgba(255, 255, 255, 0.1);
 }
 
 .card h2,
@@ -248,7 +273,7 @@ main {
   overflow: hidden;
 }
 
-.meter > span {
+.meter>span {
   display: block;
   height: 100%;
   background: linear-gradient(90deg, var(--accent-color), var(--secondary-accent));
@@ -352,7 +377,7 @@ main {
   width: 40px;
   height: 40px;
   border-radius: 999px;
-  background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.35), transparent),
+  background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.35), transparent),
     linear-gradient(135deg, var(--accent-color), var(--secondary-accent));
   display: inline-flex;
   align-items: center;
@@ -542,26 +567,63 @@ input[type="submit"]:hover {
 }
 
 @keyframes xpPop {
-  0% { opacity: 0; transform: translateY(8px); }
-  20% { opacity: 1; transform: translateY(0); }
-  80% { opacity: 1; transform: translateY(-2px); }
-  100% { opacity: 0; transform: translateY(-12px); }
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  20% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  80% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
 }
 
 @keyframes revealUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes shake {
-  25% { transform: translateX(3px); }
-  50% { transform: translateX(-3px); }
-  75% { transform: translateX(3px); }
+  25% {
+    transform: translateX(3px);
+  }
+
+  50% {
+    transform: translateX(-3px);
+  }
+
+  75% {
+    transform: translateX(3px);
+  }
 }
 
 @keyframes pageFade {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 footer {
@@ -597,7 +659,7 @@ footer {
     white-space: nowrap;
   }
 
-  .dashboard-grid > [class*="col-"] {
+  .dashboard-grid>[class*="col-"] {
     grid-column: span 12;
   }
 

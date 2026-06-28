@@ -1,14 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Nutrition</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="common.css">
   <link rel="stylesheet" href="chatbot-widget.css">
   <link rel="stylesheet" href="nutrition.css">
 </head>
+
 <body>
   <div class="app-shell">
     <aside class="sidebar">
@@ -77,6 +83,60 @@
             <p class="hidden" id="nutritionSourceStatus"></p>
           </section>
 
+          <section class="card col-8" id="nutritionScanCard">
+            <h2>AI Meal Scanner</h2>
+            <p class="muted">Upload a photo of your meal to estimate calories and protein instantly.</p>
+
+            <div class="meal-capture">
+              <div class="form-row">
+                <label for="nutritionMealPhoto">Upload Meal Photo</label>
+                <input type="file" id="nutritionMealPhoto" accept="image/*">
+              </div>
+
+              <div id="nutritionMealPhotoPreviewWrap" class="meal-photo-preview hidden">
+                <img id="nutritionMealPhotoPreview" alt="Meal preview">
+              </div>
+
+              <div class="form-row">
+                <button id="nutritionMealScanBtn" type="button" class="ux-primary-cta">Scan & Analyze Photo</button>
+                <p id="nutritionScanStatus" class="muted"></p>
+              </div>
+
+              <hr style="border: 0; border-top: 1px solid var(--line-color); margin: var(--spacing-sm) 0;">
+
+              <div class="meal-capture-head">
+                <h3>Mindful Eating Timer</h3>
+                <p class="muted">Track how long it takes you to eat. Slow, relaxed eating improves digestion and
+                  satiety.</p>
+              </div>
+
+              <div class="meal-timer-card">
+                <div>
+                  <span class="muted">Eating Duration</span>
+                  <strong id="nutritionMealTimerDisplay">00:00</strong>
+                </div>
+                <div class="timer-actions">
+                  <button id="nutritionMealTimerStart" type="button">Start</button>
+                  <button id="nutritionMealTimerStop" type="button">Stop</button>
+                  <button id="nutritionMealTimerReset" type="button">Reset</button>
+                </div>
+              </div>
+
+              <p id="nutritionMealTimerStatus" class="muted">Ready to track eating duration.</p>
+
+              <div class="dual-row">
+                <div class="form-row">
+                  <label for="nutritionMealTime">Time finished eating</label>
+                  <input type="time" id="nutritionMealTime">
+                </div>
+                <div class="form-row">
+                  <label for="nutritionRemainingFood">Leftovers / Notes</label>
+                  <input type="text" id="nutritionRemainingFood" placeholder="e.g. Left 20% of rice">
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section class="card col-4">
             <h3>Today</h3>
             <div class="meter-row">
@@ -97,4 +157,5 @@
   <script type="module" src="script.js"></script>
   <script type="module" src="chatbot-widget.js"></script>
 </body>
+
 </html>

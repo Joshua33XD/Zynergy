@@ -5,24 +5,21 @@
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
-  background: #030712;
-  /* Dark background default for the SaaS Landing page */
-  color: #F9FAFB;
+  background: var(--primary-bg);
+  color: var(--text-color);
   display: flex;
   flex-direction: column;
 }
 
-/* Glassmorphic Navbar */
+/* Brutalist Clean Navbar */
 .landing-nav {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   height: 72px;
-  background: rgba(3, 7, 18, 0.65);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--primary-bg);
+  border-bottom: 1px solid var(--line-color);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -41,64 +38,9 @@
   color: #FFFFFF;
 }
 
-/* Background mesh & animated blobs */
+/* Background mesh & animated blobs (Disabled for brutalist minimalist layout) */
 .landing-backdrop {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.grid-overlay {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-  mask-image: radial-gradient(circle at 50% 30%, black 60%, transparent 100%);
-  -webkit-mask-image: radial-gradient(circle at 50% 30%, black 60%, transparent 100%);
-}
-
-.blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.25;
-  mix-blend-mode: screen;
-  animation: floatBlobs 20s infinite alternate;
-}
-
-.blob-purple {
-  width: 500px;
-  height: 500px;
-  background: #7C3AED;
-  top: -100px;
-  left: 10%;
-}
-
-.blob-cyan {
-  width: 450px;
-  height: 450px;
-  background: #06B6D4;
-  top: 150px;
-  right: 10%;
-  animation-delay: -5s;
-}
-
-@keyframes floatBlobs {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-
-  50% {
-    transform: translate(50px, 40px) scale(1.1);
-  }
-
-  100% {
-    transform: translate(-30px, -20px) scale(0.95);
-  }
+  display: none;
 }
 
 /* Hero Section */
@@ -132,23 +74,21 @@
 }
 
 .hero-title {
-  font-size: var(--font-size-hero);
-  line-height: 1.15;
-  font-weight: 800;
-  letter-spacing: -0.04em;
+  font-size: clamp(3.5rem, 8vw, 6rem); /* Huge brutalist typography */
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  color: var(--text-color);
+  text-transform: uppercase;
   margin: 0 0 var(--spacing-sm);
 }
 
-.gradient-text {
-  background: linear-gradient(135deg, #A78BFA 0%, #22D3EE 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
 .hero-subtitle {
-  font-size: clamp(1.1rem, 2vw, 1.25rem);
-  color: rgba(255, 255, 255, 0.7);
-  line-height: 1.6;
+  font-size: clamp(1.5rem, 3.5vw, 2.2rem);
+  color: var(--text-color);
+  line-height: 1.4;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   margin: 0 0 var(--spacing-lg);
   max-width: 680px;
   margin-left: auto;
@@ -557,8 +497,8 @@
 /* Footer Section */
 .landing-footer {
   margin-top: auto;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.4);
+  border-top: 1px solid var(--line-color);
+  background: var(--surface-2);
   padding: var(--spacing-lg) 0;
   position: relative;
   z-index: 10;
@@ -572,6 +512,7 @@
   flex-direction: column;
   align-items: center;
   gap: 12px;
+  color: var(--text-muted);
 }
 
 .security-badges {

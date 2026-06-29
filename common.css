@@ -15,61 +15,61 @@
   --spacing-lg: 32px;
   --spacing-xl: 48px;
 
-  /* Border Radii */
-  --border-radius-card: 20px;
-  --border-radius-btn: 14px;
-  --border-radius-input: 12px;
+  /* Border Radii - Sharp Brutalist */
+  --border-radius-card: 8px;
+  --border-radius-btn: 6px;
+  --border-radius-input: 6px;
 
   /* Global Colors - Palette */
-  --primary-color: #7C3AED;      /* Purple */
-  --primary-hover: #6D28D9;
-  --accent-color: #06B6D4;       /* Cyan */
-  --accent-hover: #0891B2;
+  --primary-color: #000000;      /* Solid Black */
+  --primary-hover: #1C1C1E;
+  --accent-color: #C5A880;       /* Gold Accent */
+  --accent-hover: #B4966E;
   
-  --success-color: #10B981;      /* Green */
-  --success-hover: #059669;
-  --warning-color: #F59E0B;      /* Orange */
-  --danger-color: #EF4444;       /* Red */
+  --success-color: #16A34A;      /* Pure Green */
+  --success-hover: #15803D;
+  --warning-color: #D97706;      /* Bronze/Orange */
+  --danger-color: #DC2626;       /* Crimson Red */
   
-  /* Light Mode Colors (Default) */
-  --bg-start: #FAFAFA;
-  --bg-end: #F0F2F5;
-  --primary-bg: #FAFAFA;
-  --surface-1: rgba(255, 255, 255, 0.8);
-  --surface-2: #F3F4F6;
-  --line-color: rgba(0, 0, 0, 0.08);
-  --text-color: #111827;
-  --text-muted: #6B7280;
+  /* Light Mode Colors (Default - Cream & Black & Gold) */
+  --bg-start: #FAF6EE;
+  --bg-end: #FAF6EE;
+  --primary-bg: #FAF6EE;
+  --surface-1: #FAF6EE;
+  --surface-2: #F5EFE6;          /* Darker warm cream */
+  --line-color: #000000;         /* Solid black borders */
+  --text-color: #000000;
+  --text-muted: #555555;
 
-  --bg-radial: rgba(124, 58, 237, 0.04);
-  --accent-soft: rgba(124, 58, 237, 0.06);
-  --accent-soft-border: rgba(124, 58, 237, 0.15);
+  --bg-radial: transparent;
+  --accent-soft: rgba(197, 168, 128, 0.15);
+  --accent-soft-border: #C5A880;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
-  --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
-  --shadow-hover: 0 20px 35px -5px rgba(124, 58, 237, 0.12), 0 10px 10px -6px rgba(0, 0, 0, 0.04);
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-hover: none;
 }
 
 body[data-theme="ion"] {
-  /* Dark Mode Colors */
-  --bg-start: #030712;
-  --bg-end: #0B0F19;
-  --primary-bg: #030712;
-  --surface-1: rgba(17, 24, 39, 0.7);
-  --surface-2: #1F2937;
-  --line-color: rgba(255, 255, 255, 0.08);
-  --text-color: #F9FAFB;
-  --text-muted: #9CA3AF;
+  /* Dark Mode Colors (Black & Cream & Gold) */
+  --bg-start: #0A0A0A;
+  --bg-end: #0A0A0A;
+  --primary-bg: #0A0A0A;
+  --surface-1: #121212;
+  --surface-2: #1A1A1A;
+  --line-color: #262626;         /* Subtle dark borders */
+  --text-color: #FAF6EE;         /* Cream text */
+  --text-muted: #888888;
 
-  --bg-radial: rgba(124, 58, 237, 0.15);
-  --accent-soft: rgba(124, 58, 237, 0.12);
-  --accent-soft-border: rgba(124, 58, 237, 0.35);
+  --bg-radial: transparent;
+  --accent-soft: rgba(197, 168, 128, 0.15);
+  --accent-soft-border: #C5A880;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.05);
-  --shadow-hover: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(124, 58, 237, 0.18), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-hover: none;
 }
 
 /* Global Reset & Base styles */
@@ -83,11 +83,7 @@ body {
   min-height: 100vh;
   color: var(--text-color);
   line-height: 1.5;
-  background:
-    radial-gradient(circle at 100% 0%, var(--bg-radial) 0%, transparent 35%),
-    radial-gradient(circle at 0% 100%, rgba(6, 182, 212, 0.06) 0%, transparent 30%),
-    linear-gradient(180deg, var(--bg-start) 0%, var(--bg-end) 100%);
-  background-attachment: fixed;
+  background: var(--primary-bg);
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -95,7 +91,7 @@ body {
 
 /* Animations */
 .transition-all {
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.2s ease-in-out;
 }
 
 /* App Shell Layout */
@@ -115,8 +111,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   z-index: 100;
 }
 
@@ -125,7 +119,7 @@ body {
   font-size: 1.6rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: var(--primary-color);
+  color: var(--text-color);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -144,7 +138,6 @@ body {
   padding: var(--spacing-sm);
   display: grid;
   gap: 6px;
-  box-shadow: var(--shadow-sm);
 }
 
 .profile-line {
@@ -153,7 +146,7 @@ body {
 }
 
 .profile-line strong {
-  color: var(--primary-color);
+  color: var(--accent-color);
 }
 
 .hidden {
@@ -229,34 +222,37 @@ header p {
   gap: 8px;
 }
 
-/* Call to Actions & Primary styles */
+/* Call to Actions & Primary styles - Brutalist */
 .ux-primary-cta {
-  border: 1px solid var(--primary-color) !important;
-  background: var(--primary-color) !important;
-  color: #FFFFFF !important;
-  font-weight: 600;
-  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.25);
-  transition: all 0.2s ease;
+  border: 1px solid var(--text-color) !important;
+  background: var(--text-color) !important;
+  color: var(--primary-bg) !important;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: all 0.15s ease-in-out;
 }
 
 .ux-primary-cta:hover {
-  background: var(--primary-hover) !important;
-  border-color: var(--primary-hover) !important;
-  transform: translateY(-1px) scale(1.02);
-  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.35);
+  background: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: #000000 !important;
+  transform: translateY(-1px);
 }
 
 .ux-secondary-cta {
   border: 1px solid var(--line-color);
-  background: var(--surface-1);
+  background: transparent;
   color: var(--text-color);
-  transition: all 0.2s ease;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: all 0.15s ease-in-out;
 }
 
 .ux-secondary-cta:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-  background: var(--accent-soft);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
   transform: translateY(-1px);
 }
 

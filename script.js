@@ -87,7 +87,7 @@ function handleError(error, tableName, user_id, date) {
   } else if (isRLSError) {
     return `RLS Error: ${error.message}\n\nUser ID: ${user_id}\n\nCheck your Supabase RLS policies for '${tableName}'.`;
   } else {
-    return `Save failed: ${error.message}`;
+    return `Something dropped. Not the dumbbell. Details: ${error.message}`;
   }
 }
 
@@ -2279,8 +2279,8 @@ async function saveWorkoutViaWger() {
   // the workout_daily check constraint without asking the user.
   const energy_level =
     intensityRaw === "light" ? 4 :
-    intensityRaw === "intense" ? 2 :
-    3;
+      intensityRaw === "intense" ? 2 :
+        3;
 
   const { error } = await upsertWithFallback(
     "workout_daily",
@@ -2303,7 +2303,7 @@ async function saveWorkoutViaWger() {
     return;
   }
 
-  showToast("Workout saved.", "success");
+  showToast("Gravity lost today.", "success");
   if (typeof confetti === "function") {
     confetti({
       particleCount: 140,
@@ -2312,7 +2312,7 @@ async function saveWorkoutViaWger() {
     });
   }
   const workoutSaveStatus = document.getElementById("workoutSaveStatus");
-  if (workoutSaveStatus) workoutSaveStatus.textContent = "Saved for today.";
+  if (workoutSaveStatus) workoutSaveStatus.textContent = "Muscles updated successfully.";
   setButtonBusy("wgerWorkoutSaveBtn", false, "Save workout");
 
   // Reset dropdown and details preview
@@ -2321,7 +2321,7 @@ async function saveWorkoutViaWger() {
     select.value = "";
     renderSelectedExercisePreview();
   }
-  
+
   loadMvpDashboard();
   loadWorkoutPlan();
 }
@@ -2414,10 +2414,10 @@ async function saveNutritionViaWger() {
     return;
   }
 
-  showToast("Meal saved.", "success");
-  if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Saved for today.";
+  showToast("Securing gains...", "success");
+  if (nutritionSaveStatus) nutritionSaveStatus.textContent = "Gains secured.";
   setButtonBusy("wgerNutritionSaveBtn", false, "Save");
-  
+
   // Clear inputs
   const foodNameInput = document.getElementById("mvpFoodName");
   const proteinInput = document.getElementById("mvpProteinG");
@@ -2540,7 +2540,7 @@ async function loadTodayNutritionEntry() {
 
   animateMeterById("proteinMeter", proteinPct);
   animateMeterById("calorieMeter", caloriePct);
-  
+
   const pPct = document.getElementById("proteinPct");
   const cPct = document.getElementById("caloriePct");
   if (pPct) pPct.textContent = `${proteinPct}%`;
@@ -2552,13 +2552,13 @@ function setupAiCoachSuggestions() {
     showXpPop("+15 XP: Coach Tip Applied");
     showToast("AI suggestion added to your daily program!", "success");
   });
-  
+
   document.getElementById("aiActionGenerateBtn")?.addEventListener("click", async () => {
     const tipContainer = document.querySelector(".ai-reasoning");
     if (!tipContainer) return;
     tipContainer.textContent = "AI Coach is calculating optimal intake adjustments...";
     setButtonBusy("aiActionGenerateBtn", true, "Generating...");
-    
+
     try {
       const response = await fetch("http://127.0.0.1:3000/chat", {
         method: "POST",
@@ -2659,15 +2659,15 @@ function renderSleepScoreChart(hoursSlept) {
 
   const descEl = document.getElementById("sleepQualityDesc");
   if (descEl) {
-    descEl.textContent = 
+    descEl.textContent =
       score >= 85 ? "Excellent" :
-      score >= 70 ? "Good" :
-      score >= 50 ? "Fair" : "Poor";
-    
-    descEl.className = 
+        score >= 70 ? "Good" :
+          score >= 50 ? "Fair" : "Poor";
+
+    descEl.className =
       score >= 85 ? "status-success" :
-      score >= 70 ? "status-info" :
-      score >= 50 ? "status-warning" : "status-danger";
+        score >= 70 ? "status-info" :
+          score >= 50 ? "status-warning" : "status-danger";
   }
 
   const ctx = canvas.getContext("2d");
@@ -2713,7 +2713,7 @@ async function loadTodaySleepEntry() {
     .eq("user_id", userInfo.user_id)
     .eq("Date", today)
     .maybeSingle();
-  
+
   if (error || !data) {
     if (statusEl) statusEl.textContent = "No sleep log yet today. Save to create one.";
     renderSleepScoreChart(0);
@@ -2781,9 +2781,9 @@ async function saveSleepData() {
     showToast(handleError(error, "daily_sleep", user_id, date), "error");
   }
   else {
-    showToast("Sleep saved.", "success");
-    if (statusEl) statusEl.textContent = "Saved for today.";
-    
+    showToast("Powering down complete.", "success");
+    if (statusEl) statusEl.textContent = "Circadian rhythm updated.";
+
     // Confetti effect
     if (typeof confetti === "function") {
       confetti({
@@ -3149,9 +3149,9 @@ async function loadGamificationBadgesAndQuest() {
     (workouts || []).length + (nutrition || []).length + (sleep || []).length;
   const challengeCount = (challenges || []).length;
 
-  const context = { 
-    streak, 
-    weeklyLogs, 
+  const context = {
+    streak,
+    weeklyLogs,
     challengeCount,
     workoutLogs: (workouts || []).length,
     nutritionLogs: (nutrition || []).length,
@@ -3215,17 +3215,16 @@ function computeDailyStreak(dates) {
 }
 
 async function loadMvpDashboard() {
-  const scoreEl = document.getElementById("dashboardHealthScore");
-  if (!scoreEl) return;
-
   const userInfo = await getUserInfo();
   const today = toLocalDateString(new Date());
+  const scoreEl = document.getElementById("dashboardHealthScore");
   const meta = document.getElementById("dashboardHealthMeta");
   const nutSummary = document.getElementById("dashboardNutritionSummary");
   const sleepSummary = document.getElementById("dashboardSleepSummary");
+  const calorieHint = document.getElementById("calorieHint");
 
   if (!userInfo) {
-    scoreEl.textContent = "—";
+    if (scoreEl) scoreEl.textContent = "—";
     if (meta) meta.textContent = "Sign in on Profile to sync your score.";
     if (nutSummary) nutSummary.textContent = "Not logged today";
     if (sleepSummary) sleepSummary.textContent = "Not logged today";
@@ -3239,11 +3238,13 @@ async function loadMvpDashboard() {
     supabase.from("daily_sleep").select('"Date", hours_slept').eq("user_id", user_id).eq("Date", today).maybeSingle(),
   ]);
 
-  let score = 0;
-  if (workout) score += 34;
-  if (nutrition) score += 33;
-  if (sleep) score += 33;
-  scoreEl.textContent = String(score);
+  if (scoreEl) {
+    let score = 0;
+    if (workout) score += 34;
+    if (nutrition) score += 33;
+    if (sleep) score += 33;
+    scoreEl.textContent = String(score);
+  }
 
   const logged = [workout, nutrition, sleep].filter(Boolean).length;
   if (meta) {
@@ -3260,9 +3261,15 @@ async function loadMvpDashboard() {
       : "Not logged today";
   }
   if (sleepSummary) {
-    sleepSummary.textContent = sleep
-      ? `${sleep.hours_slept} hrs logged`
-      : "Not logged today";
+    if (sleep) {
+      if (sleep.hours_slept < 5) {
+        sleepSummary.innerHTML = `${sleep.hours_slept} hrs <span style="font-size:0.75rem; color:var(--danger-color); display:block; margin-top:4px;">Your muscles filed a complaint.</span>`;
+      } else {
+        sleepSummary.textContent = `${sleep.hours_slept} hrs logged`;
+      }
+    } else {
+      sleepSummary.textContent = "Not logged today";
+    }
   }
 
   // Parse Calories for Today
@@ -3281,6 +3288,16 @@ async function loadMvpDashboard() {
   if (dashboardCalorieMeter) {
     const pct = Math.min(100, Math.round((loggedCalories / 2200) * 100));
     dashboardCalorieMeter.style.width = `${pct}%`;
+  }
+
+  if (calorieHint) {
+    if (loggedCalories >= 3000) {
+      calorieHint.innerHTML = `<span style="color:var(--warning-color); font-weight:700;">Bulking? Or just found biryani?</span>`;
+    } else if (loggedCalories > 0) {
+      calorieHint.textContent = "Fueled up.";
+    } else {
+      calorieHint.textContent = "Ready to fuel.";
+    }
   }
 
   // Render compliance graphs
@@ -3325,6 +3342,8 @@ async function loadSidebarProfileStats() {
   streakSources.push(...(nutrition || []).map((row) => row.entry_date));
 
   const streak = computeDailyStreak(streakSources);
+  const dashboardStreakVal = document.getElementById("dashboardStreakVal");
+  if (dashboardStreakVal) dashboardStreakVal.textContent = String(streak);
 
   const { data: profile } = await supabase
     .from("user_profile")
@@ -3367,10 +3386,10 @@ async function loadSidebarProfileStats() {
     profileStreakDisplay.textContent = `${streak} Days`;
   }
   const xpStatusValLabel = document.getElementById("xpStatusValLabel");
-  const nextMin = levelInfo.level === 20 ? 5000 : 
-                  levelInfo.level === 15 ? 2500 :
-                  levelInfo.level === 10 ? 1500 :
-                  levelInfo.level === 5 ? 750 : 250;
+  const nextMin = levelInfo.level === 20 ? 5000 :
+    levelInfo.level === 15 ? 2500 :
+      levelInfo.level === 10 ? 1500 :
+        levelInfo.level === 5 ? 750 : 250;
   if (xpStatusValLabel) {
     xpStatusValLabel.textContent = `${xp} / ${nextMin} XP`;
   }
@@ -3528,7 +3547,7 @@ function setupHistoryPage() {
   const list = document.getElementById("historyList");
   const exportJsonBtn = document.getElementById("historyExportJsonBtn");
   const exportCsvBtn = document.getElementById("historyExportCsvBtn");
-  
+
   const filterToday = document.getElementById("filterTodayBtn");
   const filterWeek = document.getElementById("filterWeekBtn");
   const filterMonth = document.getElementById("filterMonthBtn");
@@ -3590,16 +3609,16 @@ function setupHistoryPage() {
       if (status) status.textContent = "Start date must be before end date.";
       return;
     }
-    if (status) status.textContent = "Loading history...";
+    if (status) status.textContent = "Counting reps...";
     setButtonBusy("historyApplyBtn", true, "Apply filters");
-    
+
     currentRows = await fetchHistoryRows(startDate, endDate, type);
-    
+
     // Apply search filter if keyword exists
     const keyword = searchInput?.value?.toLowerCase() || "";
-    const filtered = keyword ? currentRows.filter(row => 
-      row.date.includes(keyword) || 
-      row.type.toLowerCase().includes(keyword) || 
+    const filtered = keyword ? currentRows.filter(row =>
+      row.date.includes(keyword) ||
+      row.type.toLowerCase().includes(keyword) ||
       (row.detail || "").toLowerCase().includes(keyword)
     ) : currentRows;
 
@@ -3611,9 +3630,9 @@ function setupHistoryPage() {
   // Keyword search input triggers instant rendering filter
   searchInput?.addEventListener("input", () => {
     const keyword = searchInput.value.toLowerCase();
-    const filtered = currentRows.filter(row => 
-      row.date.includes(keyword) || 
-      row.type.toLowerCase().includes(keyword) || 
+    const filtered = currentRows.filter(row =>
+      row.date.includes(keyword) ||
+      row.type.toLowerCase().includes(keyword) ||
       (row.detail || "").toLowerCase().includes(keyword)
     );
     renderRows(filtered);
@@ -3835,7 +3854,7 @@ async function renderWeeklyComplianceChart() {
         y: {
           min: 0,
           max: 100,
-          ticks: { 
+          ticks: {
             color: tickColor,
             callback: value => value + "%"
           },
@@ -3853,7 +3872,7 @@ function animateCounters() {
     const duration = 1500;
     const step = (target / duration) * 15;
     let current = 0;
-    
+
     const timer = setInterval(() => {
       current += step;
       if (current >= target) {
@@ -3870,7 +3889,7 @@ function setupDashboardInteractions() {
   document.getElementById("quickLogWaterBtn")?.addEventListener("click", async () => {
     await addXp(10, "water");
     showXpPop("+10 XP: Hydration Goal");
-    
+
     const label = document.getElementById("dashboardHydrationLabel");
     const meter = document.getElementById("dashboardHydrationMeter");
     if (label && meter) {
@@ -3879,13 +3898,68 @@ function setupDashboardInteractions() {
       label.textContent = `${val}%`;
       meter.style.width = `${val}%`;
     }
-    showToast("250ml water logged!", "success");
+    showToast("Hydration updated. Keep sipping.", "success");
     loadMvpDashboard();
   });
 
   document.getElementById("refreshComplianceChartBtn")?.addEventListener("click", () => {
     renderWeeklyComplianceChart();
     showXpPop("Chart Refreshed");
+  });
+
+  setupRestTimer();
+}
+
+function setupRestTimer() {
+  const btn = document.getElementById("startRestTimerBtn");
+  const display = document.getElementById("restTimerDisplay");
+  if (!btn || !display) return;
+
+  let timerInterval = null;
+  btn.addEventListener("click", () => {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+    }
+    display.style.display = "inline";
+    let timeLeft = 60;
+
+    const playBeep = () => {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        osc.connect(ctx.destination);
+        osc.frequency.value = 880;
+        osc.start();
+        setTimeout(() => osc.stop(), 150);
+      } catch (e) {
+        console.error("Audio beep fail:", e);
+      }
+    };
+
+    const updateDisplay = () => {
+      const min = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+      const sec = String(timeLeft % 60).padStart(2, '0');
+      display.textContent = `${min}:${sec}`;
+    };
+
+    updateDisplay();
+    btn.textContent = "Restart Rest";
+
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        display.textContent = "LIFT!";
+        btn.textContent = "Start Rest (60s)";
+        playBeep();
+        setTimeout(() => {
+          display.style.display = "none";
+        }, 3000);
+      } else {
+        updateDisplay();
+      }
+    }, 1000);
   });
 }
 
@@ -4002,11 +4076,11 @@ const { data: { session } } = await supabase.auth.getSession();
 
 const isLandingPage = document.getElementById("landing-container");
 const isDashboardPage = document.getElementById("app-shell");
-const isProtectedPage = isDashboardPage || 
-                        document.getElementById("wgerWorkoutCard") || 
-                        document.getElementById("wgerNutritionCard") || 
-                        document.getElementById("sleepSaveBtn") || 
-                        document.getElementById("avatarDisplay");
+const isProtectedPage = isDashboardPage ||
+  document.getElementById("wgerWorkoutCard") ||
+  document.getElementById("wgerNutritionCard") ||
+  document.getElementById("sleepSaveBtn") ||
+  document.getElementById("avatarDisplay");
 
 if (session) {
   if (isLandingPage) {
@@ -4040,4 +4114,4 @@ document.getElementById("logout")?.addEventListener("click", async () => {
   const { error } = await supabase.auth.signOut();
   if (error) { console.error("Logout error:", error.message); }
   else { showToast("You have been logged out!", "success"); setTimeout(() => window.location.reload(), 1500); }
- });
+});

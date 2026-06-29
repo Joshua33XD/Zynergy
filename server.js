@@ -442,13 +442,13 @@ app.post("/chat", async (req, res) => {
       messages && messages.length
         ? messages
         : [
-            {
-              role: "system",
-              content:
-                "You are ZYNERGY's witty, motivating gym coach. Keep replies concise, actionable, and supportive.",
-            },
-            { role: "user", content: message || "Say hi." },
-          ];
+          {
+            role: "system",
+            content:
+              "You are ZYNERGY's witty, motivating gym coach. Keep replies concise, actionable, and supportive.",
+          },
+          { role: "user", content: message || "Say hi." },
+        ];
 
     const completion = await groq.chat.completions.create({
       model: body.model || "llama-3.3-70b-versatile",

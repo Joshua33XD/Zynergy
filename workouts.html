@@ -3,22 +3,39 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Workout</title>
+  <title>Workout - ZYNERGY</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
-    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="common.css">
-  <link rel="stylesheet" href="chatbot-widget.css">
   <link rel="stylesheet" href="workouts.css">
+  <link rel="stylesheet" href="chatbot-widget.css">
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 
 <body id="workout">
   <div class="app-shell">
+    <!-- Sidebar Navigation -->
     <aside class="sidebar">
       <h2 class="brand">ZYNERGY</h2>
+      
+      <!-- Profile mini panel -->
+      <div class="profile-block">
+        <div class="login" id="login">
+          <button type="button" onclick="loginpage()" class="ux-primary-cta" style="width:100%;">Sign In</button>
+        </div>
+        <div class="profile hidden" id="profile" style="display:flex; align-items:center; gap: 10px;">
+          <img id="profile-pic" alt="Avatar" width="36" height="36" style="border-radius: 50%; border: 2px solid var(--primary-color);">
+          <span id="username" style="font-weight: 600; font-size: 0.9rem;">User</span>
+        </div>
+        <p class="profile-line" style="margin: 8px 0 0; font-size: 0.8rem;">
+          Rank: <strong id="statusRankLabel">—</strong> · XP: <strong id="statusXpLabel">0</strong>
+        </p>
+        <span class="hidden" id="statusRankChangeLabel"></span>
+      </div>
+
       <nav class="side-nav">
         <ul>
           <li><a href="index.html">Dashboard</a></li>
@@ -28,55 +45,115 @@
           <li><a href="profile.html">Profile</a></li>
         </ul>
       </nav>
+
+      <button id="logout" type="button" class="ux-secondary-cta" style="margin-top:auto; width: 100%; min-height: 40px; padding: 8px;">Logout</button>
     </aside>
 
+    <!-- Content Area -->
     <div class="content">
       <header>
         <div class="ux-hero">
           <h1>Workout</h1>
-          <p class="muted">Log today's session in under 30 seconds.</p>
+          <p class="muted">Design training splits and log lifting sessions with gamified rewards.</p>
         </div>
       </header>
 
       <main>
         <div class="dashboard-grid">
-          <section class="card col-12">
-            <h2>Today's workout</h2>
-            <p class="mvp-card-value" id="todayPlanLabel">Loading…</p>
-            <p class="muted" id="todayPlanMeta"></p>
-            <span class="hidden" id="todayPlanSourceBadge" data-source="none"></span>
-          </section>
-
-          <section class="card col-12 workout-form" id="wgerWorkoutCard">
-            <h2>Log workout</h2>
-            <p class="muted" id="workoutSaveStatus"></p>
-
-            <div class="form-row">
-              <label for="wgerExerciseSelect">Exercise</label>
-              <select id="wgerExerciseSelect">
-                <option value="">Choose exercise</option>
-              </select>
-            </div>
-
-            <input type="hidden" id="wgerSets" value="1">
-            <input type="hidden" id="wgerWorkoutIntensity" value="moderate">
-            <select id="wgerMuscleFocus" class="hidden" aria-hidden="true">
-              <option value=""></option>
-            </select>
-
-            <section class="workout-set-builder" aria-label="Workout sets">
-              <div class="workout-set-head">
-                <h3>Sets</h3>
-                <button id="addSetBtn" type="button">+ Add set</button>
+          
+          <!-- Left Column: Split plans and goal indicators -->
+          <div class="col-6" style="display:flex; flex-direction:column; gap: var(--spacing-md);">
+            
+            <!-- Card 1: Today's Workout Split Plan -->
+            <section class="card col-12">
+              <h2>Today's Split</h2>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin: 8px 0 12px;">
+                <p class="mvp-card-value" id="todayPlanLabel" style="font-size: 1.4rem; font-weight:800; margin:0;">Loading…</p>
+                <span class="pill pill-primary" id="todayPlanSourceBadge" data-source="none">Split</span>
               </div>
-              <div id="workoutSetList" class="workout-set-list"></div>
+              <p class="muted" id="todayPlanMeta"></p>
             </section>
 
-            <div class="action-row">
-              <button id="wgerWorkoutSaveBtn" type="button" class="ux-primary-cta">Save workout</button>
-            </div>
-            <p class="muted hidden" id="workoutSourceStatus"></p>
-          </section>
+            <!-- Card 2: Streak & Goals compliance -->
+            <section class="card col-12">
+              <h2>Goals & Streaks</h2>
+              
+              <div class="streak-wrapper" style="display:flex; align-items:center; gap: 14px; padding: 14px; background: var(--surface-2); border-radius:12px; border:1px solid var(--line-color); margin-bottom: 16px;">
+                <span style="font-size: 2.2rem;">🔥</span>
+                <div>
+                  <h4 style="margin:0; font-size: 1.05rem; font-weight:700;">Weekly Workout Streak</h4>
+                  <p class="muted" style="margin: 2px 0 0; font-size: 0.85rem;">You logged 4 training sessions this week!</p>
+                </div>
+                <div style="margin-left:auto; text-align:right;">
+                  <strong style="font-size: 1.4rem; color: var(--primary-color);">4 Days</strong>
+                </div>
+              </div>
+
+              <div class="goal-progress-wrap">
+                <div style="display:flex; justify-content:space-between; font-size:0.85rem; font-weight:600; margin-bottom: 6px;">
+                  <span>Monthly Goal Progress</span>
+                  <strong>12 / 16 Workouts</strong>
+                </div>
+                <div class="meter"><span style="width: 75%; background: var(--primary-color);"></span></div>
+              </div>
+
+              <div style="margin-top: 14px; font-size:0.8rem; color: var(--text-muted); text-align:center;">
+                Reach 16 workouts to unlock the <strong style="color:var(--primary-color)">💪 Fitness Master</strong> badge!
+              </div>
+            </section>
+
+            <!-- Card 3: Dynamic Exercise Details & Image -->
+            <section class="card col-12" id="exerciseDetailsCard">
+              <h2>Exercise Preview</h2>
+              <div id="exerciseDetailsView">
+                <div class="exercise-preview-empty" style="text-align:center; padding: 30px; color: var(--text-muted);">
+                  <span style="font-size: 2.5rem; display:block; margin-bottom:12px;">🏋️</span>
+                  Select an exercise in the log form on the right to preview muscle groups, instructions, and target intensities.
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+          <!-- Right Column: Log Form set builder -->
+          <div class="col-6">
+            
+            <section class="card col-12 workout-form" id="wgerWorkoutCard" style="height: 100%;">
+              <h2>Log Workout</h2>
+              <p class="muted" id="workoutSaveStatus"></p>
+
+              <div class="form-row">
+                <label for="wgerExerciseSelect">Choose Exercise</label>
+                <select id="wgerExerciseSelect">
+                  <option value="">Select an exercise...</option>
+                </select>
+              </div>
+
+              <!-- Hidden defaults for constraints compatibility -->
+              <input type="hidden" id="wgerSets" value="1">
+              <input type="hidden" id="wgerWorkoutIntensity" value="moderate">
+              <select id="wgerMuscleFocus" class="hidden" aria-hidden="true">
+                <option value=""></option>
+              </select>
+
+              <!-- Interactive Set Builder -->
+              <section class="workout-set-builder" aria-label="Workout sets" style="margin-top: 12px;">
+                <div class="workout-set-head">
+                  <h3 style="margin:0;">Rounds / Sets</h3>
+                  <button id="addSetBtn" type="button" class="pill pill-primary" style="border:none; cursor:pointer; min-height: 28px; padding: 4px 12px; font-size:0.8rem;">+ Add Set</button>
+                </div>
+                <div id="workoutSetList" class="workout-set-list" style="margin-top: 10px;"></div>
+              </section>
+
+              <div class="action-row" style="margin-top: var(--spacing-sm);">
+                <button id="wgerWorkoutSaveBtn" type="button" class="ux-primary-cta" style="width:100%;">Save Lifting Session</button>
+              </div>
+              
+              <p class="muted hidden" id="workoutSourceStatus" style="margin-top: 8px; font-size: 0.85rem; text-align:center;"></p>
+            </section>
+
+          </div>
+
         </div>
       </main>
     </div>

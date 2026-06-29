@@ -3,22 +3,39 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Sleep</title>
+  <title>Sleep - ZYNERGY</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
-    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="common.css">
-  <link rel="stylesheet" href="chatbot-widget.css">
   <link rel="stylesheet" href="sleep.css">
+  <link rel="stylesheet" href="chatbot-widget.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
   <div class="app-shell">
+    <!-- Sidebar Navigation -->
     <aside class="sidebar">
       <h2 class="brand">ZYNERGY</h2>
+      
+      <!-- Profile mini panel -->
+      <div class="profile-block">
+        <div class="login" id="login">
+          <button type="button" onclick="loginpage()" class="ux-primary-cta" style="width:100%;">Sign In</button>
+        </div>
+        <div class="profile hidden" id="profile" style="display:flex; align-items:center; gap: 10px;">
+          <img id="profile-pic" alt="Avatar" width="36" height="36" style="border-radius: 50%; border: 2px solid var(--primary-color);">
+          <span id="username" style="font-weight: 600; font-size: 0.9rem;">User</span>
+        </div>
+        <p class="profile-line" style="margin: 8px 0 0; font-size: 0.8rem;">
+          Rank: <strong id="statusRankLabel">—</strong> · XP: <strong id="statusXpLabel">0</strong>
+        </p>
+        <span class="hidden" id="statusRankChangeLabel"></span>
+      </div>
+
       <nav class="side-nav">
         <ul>
           <li><a href="index.html">Dashboard</a></li>
@@ -28,39 +45,141 @@
           <li><a href="profile.html">Profile</a></li>
         </ul>
       </nav>
+
+      <button id="logout" type="button" class="ux-secondary-cta" style="margin-top:auto; width: 100%; min-height: 40px; padding: 8px;">Logout</button>
     </aside>
 
+    <!-- Content Area -->
     <div class="content">
       <header>
         <div class="ux-hero">
           <h1>Sleep</h1>
-          <p class="muted">Log last night in a few taps.</p>
+          <p class="muted">Monitor sleep duration, evaluate recovery, and track sleep architecture details.</p>
         </div>
       </header>
 
       <main>
         <div class="dashboard-grid">
-          <section class="card col-12 sleep-form">
-            <div class="form-row">
-              <label for="sleepInput">Hours slept (0–10)</label>
-              <input type="number" id="sleepInput" min="0" max="10" step="0.5" placeholder="7.5">
-            </div>
-            <div class="form-row">
-              <label for="emojiSelect">Wake-up feeling</label>
-              <select id="emojiSelect">
-                <option value="emoji1">Sleepy</option>
-                <option value="emoji2">Fresh</option>
-                <option value="emoji3">Groggy</option>
-                <option value="emoji4">Tired</option>
-                <option value="emoji5">Energized</option>
-              </select>
-            </div>
-            <button id="sleepSaveBtn" type="button" class="ux-primary-cta">Save</button>
-            <p class="muted hidden" id="sleepStatus"></p>
-            <span class="hidden" id="sleepAvgLabel"></span>
-            <span class="hidden" id="sleepLateNightsLabel"></span>
-            <span class="hidden" id="sleepRecoveryTierLabel"></span>
-          </section>
+          
+          <!-- Left Column: Sleep Log Form & Insights -->
+          <div class="col-6" style="display:flex; flex-direction:column; gap: var(--spacing-md);">
+            
+            <!-- Card 1: Log Sleep Form -->
+            <section class="card sleep-form">
+              <h2>Log Sleep</h2>
+              <p class="muted" id="sleepStatus"></p>
+
+              <div class="form-row">
+                <label for="sleepInput">Hours Slept (0–12)</label>
+                <input type="number" id="sleepInput" min="0" max="12" step="0.5" placeholder="7.5">
+              </div>
+
+              <div class="form-row" style="margin-top: 8px;">
+                <label for="emojiSelect">Wake-up Feeling</label>
+                <select id="emojiSelect">
+                  <option value="emoji2">Fresh & Rested ☀️</option>
+                  <option value="emoji5" selected>Energized & Ready ⚡</option>
+                  <option value="emoji3">Groggy & Tired ☕</option>
+                  <option value="emoji1">Sleepy & Exhausted 💤</option>
+                  <option value="emoji4">Restless & Irritable ⏰</option>
+                </select>
+              </div>
+
+              <div class="action-row" style="margin-top: var(--spacing-sm);">
+                <button id="sleepSaveBtn" type="button" class="ux-primary-cta">Save Sleep Log</button>
+              </div>
+
+              <!-- Hidden statistics labels requested by script.js -->
+              <span class="hidden" id="sleepAvgLabel"></span>
+              <span class="hidden" id="sleepLateNightsLabel"></span>
+              <span class="hidden" id="sleepRecoveryTierLabel"></span>
+            </section>
+
+            <!-- Card 2: Sleep Insights -->
+            <section class="card" style="display:flex; flex-direction:column; gap:12px;">
+              <h2>Sleep Insights</h2>
+              
+              <div class="insight-item-card">
+                <span class="icon">💡</span>
+                <div>
+                  <h4>Optimizing Deep Sleep</h4>
+                  <p class="muted" style="margin:2px 0 0; font-size:0.82rem;">Your deep sleep percentage was highest when logging hours slept before 11 PM. Try setting a reminder to wind down by 10:30 PM.</p>
+                </div>
+              </div>
+
+              <div class="insight-item-card">
+                <span class="icon">🧬</span>
+                <div>
+                  <h4>Circadian Alignment</h4>
+                  <p class="muted" style="margin:2px 0 0; font-size:0.82rem;">Consistency tier is <strong>High</strong>. Going to sleep at the same time daily strengthens your sleep quality metrics by up to 25%.</p>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+          <!-- Right Column: Gauge Ring & Sleep Timeline -->
+          <div class="col-6" style="display:flex; flex-direction:column; gap: var(--spacing-md);">
+            
+            <!-- Card 3: Large Sleep Score circular gauge -->
+            <section class="card">
+              <h2>Recovery Score</h2>
+              
+              <div class="sleep-gauge-wrap" style="position:relative; height: 180px; margin: 10px 0; display:flex; justify-content:center;">
+                <canvas id="sleepDoughnutChart"></canvas>
+                <div class="gauge-center-text" style="position:absolute; top:52%; left:50%; transform:translate(-50%, -50%); text-align:center;">
+                  <span class="muted" style="font-size:0.75rem; text-transform:uppercase;">Sleep Score</span><br>
+                  <strong id="sleepScoreValue" style="font-size:2rem; font-weight:800; color:var(--primary-color);">—</strong><br>
+                  <span id="sleepQualityDesc" class="muted" style="font-size:0.8rem; font-weight:600; color:var(--success-color);">Excellent</span>
+                </div>
+              </div>
+
+              <div class="sleep-cycle-metrics" style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align:center; margin-top: 14px;">
+                <div class="metric-block" style="background:var(--surface-2); padding: 8px; border-radius:8px; border:1px solid var(--line-color);">
+                  <span class="label" style="font-size:0.7rem; color:var(--text-muted); display:block;">Deep Sleep</span>
+                  <strong style="font-size:1.1rem; color:var(--primary-color);">1.8h</strong>
+                </div>
+                <div class="metric-block" style="background:var(--surface-2); padding: 8px; border-radius:8px; border:1px solid var(--line-color);">
+                  <span class="label" style="font-size:0.7rem; color:var(--text-muted); display:block;">REM Sleep</span>
+                  <strong style="font-size:1.1rem; color:var(--accent-color);">1.5h</strong>
+                </div>
+                <div class="metric-block" style="background:var(--surface-2); padding: 8px; border-radius:8px; border:1px solid var(--line-color);">
+                  <span class="label" style="font-size:0.7rem; color:var(--text-muted); display:block;">Light Sleep</span>
+                  <strong style="font-size:1.1rem; color:var(--text-color);">4.2h</strong>
+                </div>
+              </div>
+            </section>
+
+            <!-- Card 4: Timeline visualization of sleep stages -->
+            <section class="card">
+              <h2>Sleep Timeline</h2>
+              <p class="muted" style="font-size: 0.85rem; margin-bottom: 12px;">Visual sleep cycle representation (Hypnogram timeline stages):</p>
+              
+              <div class="hypnogram-container" style="display:flex; flex-direction:column; gap: 8px;">
+                <!-- Stacked segmented bar -->
+                <div class="hypno-bar" style="display:flex; height: 24px; border-radius:99px; overflow:hidden; border:1px solid var(--line-color);">
+                  <span style="width: 10%; background: #EF4444;" title="Awake (10%)"></span>
+                  <span style="width: 25%; background: var(--accent-color);" title="REM (25%)"></span>
+                  <span style="width: 45%; background: #9CA3AF;" title="Light (45%)"></span>
+                  <span style="width: 20%; background: var(--primary-color);" title="Deep (20%)"></span>
+                </div>
+                <!-- Labels -->
+                <div class="hypno-labels" style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); font-weight:600; padding: 0 4px;">
+                  <span>11:30 PM (Sleep)</span>
+                  <span>07:00 AM (Wake)</span>
+                </div>
+                
+                <div class="hypno-legend" style="display:flex; flex-wrap:wrap; gap:12px; margin-top: 8px; font-size: 0.75rem; justify-content:center;">
+                  <span style="display:inline-flex; align-items:center; gap:4px;"><span style="width:10px; height:10px; border-radius:50%; background:#EF4444; display:inline-block;"></span> Awake</span>
+                  <span style="display:inline-flex; align-items:center; gap:4px;"><span style="width:10px; height:10px; border-radius:50%; background:var(--accent-color); display:inline-block;"></span> REM</span>
+                  <span style="display:inline-flex; align-items:center; gap:4px;"><span style="width:10px; height:10px; border-radius:50%; background:#9CA3AF; display:inline-block;"></span> Light</span>
+                  <span style="display:inline-flex; align-items:center; gap:4px;"><span style="width:10px; height:10px; border-radius:50%; background:var(--primary-color); display:inline-block;"></span> Deep</span>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
         </div>
       </main>
     </div>

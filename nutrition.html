@@ -3,22 +3,39 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Nutrition</title>
+  <title>Nutrition - ZYNERGY</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
-    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="common.css">
-  <link rel="stylesheet" href="chatbot-widget.css">
   <link rel="stylesheet" href="nutrition.css">
+  <link rel="stylesheet" href="chatbot-widget.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
   <div class="app-shell">
+    <!-- Sidebar Navigation -->
     <aside class="sidebar">
       <h2 class="brand">ZYNERGY</h2>
+      
+      <!-- Profile mini panel -->
+      <div class="profile-block">
+        <div class="login" id="login">
+          <button type="button" onclick="loginpage()" class="ux-primary-cta" style="width:100%;">Sign In</button>
+        </div>
+        <div class="profile hidden" id="profile" style="display:flex; align-items:center; gap: 10px;">
+          <img id="profile-pic" alt="Avatar" width="36" height="36" style="border-radius: 50%; border: 2px solid var(--primary-color);">
+          <span id="username" style="font-weight: 600; font-size: 0.9rem;">User</span>
+        </div>
+        <p class="profile-line" style="margin: 8px 0 0; font-size: 0.8rem;">
+          Rank: <strong id="statusRankLabel">—</strong> · XP: <strong id="statusXpLabel">0</strong>
+        </p>
+        <span class="hidden" id="statusRankChangeLabel"></span>
+      </div>
+
       <nav class="side-nav">
         <ul>
           <li><a href="index.html">Dashboard</a></li>
@@ -28,127 +45,238 @@
           <li><a href="profile.html">Profile</a></li>
         </ul>
       </nav>
+
+      <button id="logout" type="button" class="ux-secondary-cta" style="margin-top:auto; width: 100%; min-height: 40px; padding: 8px;">Logout</button>
     </aside>
 
+    <!-- Content Area -->
     <div class="content">
       <header>
         <div class="ux-hero">
           <h1>Nutrition</h1>
-          <p class="muted">Log food quickly.</p>
+          <p class="muted">Log your food and analyze macronutrients with AI.</p>
         </div>
       </header>
 
       <main>
         <div class="dashboard-grid">
-          <section class="card col-8" id="wgerNutritionCard">
-            <h2>Log food</h2>
-            <p class="muted" id="nutritionSaveStatus"></p>
+          
+          <!-- Left Column: Log Form & Scanner -->
+          <div class="col-8" style="display:flex; flex-direction:column; gap: var(--spacing-md);">
+            
+            <!-- Card 1: Log Food Form -->
+            <section class="card" id="wgerNutritionCard">
+              <h2>Log Meal</h2>
+              <p class="muted" id="nutritionSaveStatus"></p>
 
-            <div class="nutrition-form">
-              <div class="form-row">
-                <label for="mvpFoodName">Food</label>
-                <input type="text" id="mvpFoodName" placeholder="e.g. Chicken rice bowl" autocomplete="off">
-              </div>
-
-              <div class="dual-row">
+              <div class="nutrition-form">
                 <div class="form-row">
-                  <label for="mvpProteinG">Protein (g)</label>
-                  <input type="number" id="mvpProteinG" min="0" step="1" placeholder="40">
+                  <label for="mvpFoodName">What did you eat?</label>
+                  <input type="text" id="mvpFoodName" placeholder="e.g. Grilled salmon salad bowl" autocomplete="off">
                 </div>
+
+                <div class="dual-row">
+                  <div class="form-row">
+                    <label for="mvpProteinG">Protein (g)</label>
+                    <input type="number" id="mvpProteinG" min="0" step="1" placeholder="35">
+                  </div>
+                  <div class="form-row">
+                    <label for="mvpCalories">Calories (kcal)</label>
+                    <input type="number" id="mvpCalories" min="0" step="1" placeholder="480">
+                  </div>
+                </div>
+
                 <div class="form-row">
-                  <label for="mvpCalories">Calories</label>
-                  <input type="number" id="mvpCalories" min="0" step="1" placeholder="500">
+                  <label for="wgerMealType">Meal Type</label>
+                  <select id="wgerMealType">
+                    <option value="breakfast">Breakfast</option>
+                    <option value="lunch" selected>Lunch</option>
+                    <option value="dinner">Dinner</option>
+                    <option value="snacks">Snack</option>
+                  </select>
+                </div>
+
+                <div class="goal-list" style="margin-top: 8px;">
+                  <label style="display:flex; align-items:center; gap: 8px; font-weight:600; cursor:pointer;">
+                    <input type="checkbox" id="mvpProteinGoal"> Protein goal met (+15 XP)
+                  </label>
+                </div>
+
+                <div class="action-row" style="margin-top: var(--spacing-sm);">
+                  <button id="wgerNutritionSaveBtn" type="button" class="ux-primary-cta">Save Meal</button>
                 </div>
               </div>
 
-              <div class="form-row">
-                <label for="wgerMealType">Meal type</label>
-                <select id="wgerMealType">
-                  <option value="breakfast">Breakfast</option>
-                  <option value="lunch">Lunch</option>
-                  <option value="dinner">Dinner</option>
-                  <option value="snacks">Snack</option>
-                </select>
-              </div>
+              <p class="hidden" id="nutritionSourceStatus"></p>
+            </section>
 
-              <div class="goal-list">
-                <label><input type="checkbox" id="mvpProteinGoal">Protein goal met</label>
-              </div>
+            <!-- Card 2: AI Meal Scanner & Timers -->
+            <section class="card" id="nutritionScanCard">
+              <h2>AI Meal Scanner</h2>
+              <p class="muted">Upload a photo of your plate to estimate calories and protein instantly.</p>
 
-              <div class="action-row">
-                <button id="wgerNutritionSaveBtn" type="button" class="ux-primary-cta">Save</button>
-              </div>
-            </div>
-
-            <p class="hidden" id="nutritionSourceStatus"></p>
-          </section>
-
-          <section class="card col-8" id="nutritionScanCard">
-            <h2>AI Meal Scanner</h2>
-            <p class="muted">Upload a photo of your meal to estimate calories and protein instantly.</p>
-
-            <div class="meal-capture">
-              <div class="form-row">
-                <label for="nutritionMealPhoto">Upload Meal Photo</label>
-                <input type="file" id="nutritionMealPhoto" accept="image/*">
-              </div>
-
-              <div id="nutritionMealPhotoPreviewWrap" class="meal-photo-preview hidden">
-                <img id="nutritionMealPhotoPreview" alt="Meal preview">
-              </div>
-
-              <div class="form-row">
-                <button id="nutritionMealScanBtn" type="button" class="ux-primary-cta">Scan & Analyze Photo</button>
-                <p id="nutritionScanStatus" class="muted"></p>
-              </div>
-
-              <hr style="border: 0; border-top: 1px solid var(--line-color); margin: var(--spacing-sm) 0;">
-
-              <div class="meal-capture-head">
-                <h3>Mindful Eating Timer</h3>
-                <p class="muted">Track how long it takes you to eat. Slow, relaxed eating improves digestion and
-                  satiety.</p>
-              </div>
-
-              <div class="meal-timer-card">
-                <div>
-                  <span class="muted">Eating Duration</span>
-                  <strong id="nutritionMealTimerDisplay">00:00</strong>
-                </div>
-                <div class="timer-actions">
-                  <button id="nutritionMealTimerStart" type="button">Start</button>
-                  <button id="nutritionMealTimerStop" type="button">Stop</button>
-                  <button id="nutritionMealTimerReset" type="button">Reset</button>
-                </div>
-              </div>
-
-              <p id="nutritionMealTimerStatus" class="muted">Ready to track eating duration.</p>
-
-              <div class="dual-row">
+              <div class="meal-capture">
                 <div class="form-row">
-                  <label for="nutritionMealTime">Time finished eating</label>
-                  <input type="time" id="nutritionMealTime">
+                  <label for="nutritionMealPhoto" class="custom-file-upload">
+                    <span>📷 Upload Meal Image</span>
+                  </label>
+                  <input type="file" id="nutritionMealPhoto" accept="image/*" style="padding: 8px 0;">
                 </div>
-                <div class="form-row">
-                  <label for="nutritionRemainingFood">Leftovers / Notes</label>
-                  <input type="text" id="nutritionRemainingFood" placeholder="e.g. Left 20% of rice">
+
+                <div id="nutritionMealPhotoPreviewWrap" class="meal-photo-preview hidden">
+                  <img id="nutritionMealPhotoPreview" alt="Meal preview">
+                </div>
+
+                <div class="form-row" style="margin-top: 8px;">
+                  <button id="nutritionMealScanBtn" type="button" class="ux-primary-cta" style="width:100%;">Scan & Analyze Photo</button>
+                  <p id="nutritionScanStatus" class="muted" style="margin-top: 8px; font-size:0.85rem;"></p>
+                </div>
+
+                <hr style="border: 0; border-top: 1px solid var(--line-color); margin: var(--spacing-sm) 0;">
+
+                <div class="meal-capture-head">
+                  <h3>Mindful Eating Timer</h3>
+                  <p class="muted" style="font-size: 0.85rem;">Track how long you take to finish meals. Slow eating improves satiety and digestion.</p>
+                </div>
+
+                <div class="meal-timer-card">
+                  <div class="timer-digits">
+                    <span class="label">Duration</span>
+                    <strong id="nutritionMealTimerDisplay">00:00</strong>
+                  </div>
+                  <div class="timer-actions">
+                    <button id="nutritionMealTimerStart" type="button" class="ux-secondary-cta">Start</button>
+                    <button id="nutritionMealTimerStop" type="button" class="ux-secondary-cta">Stop</button>
+                    <button id="nutritionMealTimerReset" type="button" class="ux-secondary-cta">Reset</button>
+                  </div>
+                </div>
+
+                <p id="nutritionMealTimerStatus" class="muted" style="margin-top: 8px; font-size: 0.8rem;"></p>
+
+                <div class="dual-row" style="margin-top: 12px;">
+                  <div class="form-row">
+                    <label for="nutritionMealTime">Finished eating at</label>
+                    <input type="time" id="nutritionMealTime">
+                  </div>
+                  <div class="form-row">
+                    <label for="nutritionRemainingFood">Leftovers / Notes</label>
+                    <input type="text" id="nutritionRemainingFood" placeholder="e.g. Left 15% of salad dressing">
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
 
-          <section class="card col-4">
-            <h3>Today</h3>
-            <div class="meter-row">
-              <span>Protein <strong id="proteinPct">0%</strong></span>
-              <div class="meter"><span id="proteinMeter" style="width: 0%"></span></div>
-            </div>
-            <div class="meter-row">
-              <span>Calories <strong id="caloriePct">0%</strong></span>
-              <div class="meter"><span id="calorieMeter" style="width: 0%"></span></div>
-            </div>
-            <p class="muted" id="nutritionAvgLabel"></p>
-          </section>
+          </div>
+
+          <!-- Right Column: Graphs, Logged categories, & AI suggestions -->
+          <div class="col-4" style="display:flex; flex-direction:column; gap: var(--spacing-md);">
+            
+            <!-- Card 3: Today's Summary & Progress Rings -->
+            <section class="card">
+              <h2>Today's Progress</h2>
+              
+              <!-- Daily Calorie Gauge Ring -->
+              <div class="gauge-ring-container" style="position:relative; height: 180px; margin: 10px 0; display:flex; justify-content:center;">
+                <canvas id="calorieGaugeChart"></canvas>
+                <div class="gauge-center-text" style="position:absolute; top:52%; left:50%; transform:translate(-50%, -50%); text-align:center;">
+                  <span class="muted" style="font-size:0.75rem; text-transform:uppercase;">Logged</span><br>
+                  <strong id="gaugeCalVal" style="font-size:1.6rem; font-weight:800;">0</strong><br>
+                  <span class="muted" style="font-size:0.75rem;">/ 2200 kcal</span>
+                </div>
+              </div>
+
+              <!-- Macronutrient Bar Meters -->
+              <div class="macro-bars-wrapper" style="margin-top: 16px;">
+                <div class="meter-row">
+                  <div style="display:flex; justify-content:space-between; font-size:0.85rem; font-weight:600;">
+                    <span>Protein Intake</span>
+                    <strong id="proteinPct">0%</strong>
+                  </div>
+                  <div class="meter"><span id="proteinMeter" style="width: 0%"></span></div>
+                </div>
+                <div class="meter-row">
+                  <div style="display:flex; justify-content:space-between; font-size:0.85rem; font-weight:600;">
+                    <span>Calorie Target</span>
+                    <strong id="caloriePct">0%</strong>
+                  </div>
+                  <div class="meter"><span id="calorieMeter" style="width: 0%"></span></div>
+                </div>
+              </div>
+
+              <p class="muted" id="nutritionAvgLabel" style="margin-top: 12px; font-size:0.85rem; font-weight:600; text-align:center;"></p>
+            </section>
+
+            <!-- Card 4: Collapsible Sorted Meal Records -->
+            <section class="card">
+              <h2>Today's Menu</h2>
+              
+              <div class="meals-accordion-list">
+                <details class="meal-group-accordion" id="accordion-breakfast">
+                  <summary>
+                    <span class="meal-head-text">🍳 Breakfast</span>
+                    <span class="pill pill-primary" id="breakfastStatusBadge">Empty</span>
+                  </summary>
+                  <div class="meal-body-content" id="breakfastText">🍎 Start tracking today's meals.</div>
+                </details>
+
+                <details class="meal-group-accordion" id="accordion-lunch">
+                  <summary>
+                    <span class="meal-head-text">🥪 Lunch</span>
+                    <span class="pill pill-primary" id="lunchStatusBadge">Empty</span>
+                  </summary>
+                  <div class="meal-body-content" id="lunchText">🍎 Start tracking today's meals.</div>
+                </details>
+
+                <details class="meal-group-accordion" id="accordion-dinner">
+                  <summary>
+                    <span class="meal-head-text">🥩 Dinner</span>
+                    <span class="pill pill-primary" id="dinnerStatusBadge">Empty</span>
+                  </summary>
+                  <div class="meal-body-content" id="dinnerText">🍎 Start tracking today's meals.</div>
+                </details>
+
+                <details class="meal-group-accordion" id="accordion-snacks">
+                  <summary>
+                    <span class="meal-head-text">🍎 Snacks</span>
+                    <span class="pill pill-primary" id="snacksStatusBadge">Empty</span>
+                  </summary>
+                  <div class="meal-body-content" id="snacksText">🍎 Start tracking today's meals.</div>
+                </details>
+              </div>
+            </section>
+
+            <!-- Card 5: AI Recommendations Suggestions -->
+            <section class="card ai-recommend-card">
+              <div style="display:flex; align-items:center; gap: 8px; margin-bottom: 12px;">
+                <span class="ai-sparkles-icon">✨</span>
+                <h2 style="margin:0;">AI Insights</h2>
+              </div>
+              
+              <div id="aiNutritionRecommendationContent">
+                <!-- Premium recommendation card -->
+                <div class="ai-suggestion-inner-card">
+                  <div class="ai-header-row" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span class="ai-badge">🤖 Nutrition Advisor</span>
+                    <span class="confidence-val">Confidence: 96%</span>
+                  </div>
+                  <p class="ai-reasoning" style="margin-top: 10px; font-size:0.85rem; line-height:1.5;">Based on your current activity goals and logged protein intake, we recommend prioritizing low-glycemic carbs for dinner to maintain overnight glucose stability.</p>
+                  <div class="ai-actions" style="margin-top: 12px;">
+                    <h4 style="margin:0; font-size:0.8rem; font-weight:700;">Suggested Action:</h4>
+                    <ul style="margin: 6px 0 0; padding-left: 16px; font-size: 0.8rem; color:var(--text-muted);">
+                      <li>Add 30g almonds for snack logic</li>
+                      <li>Limit sodium after 8 PM</li>
+                    </ul>
+                  </div>
+                  <div class="ai-buttons" style="margin-top:14px; display:flex; gap:8px;">
+                    <button type="button" class="pill pill-primary" id="aiActionAcceptBtn" style="border:none; cursor:pointer; font-size:0.75rem; min-height:28px;">Accept Tip</button>
+                    <button type="button" class="pill" id="aiActionGenerateBtn" style="cursor:pointer; font-size:0.75rem; min-height:28px;">Ask AI Coach</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
         </div>
       </main>
     </div>

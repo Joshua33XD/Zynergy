@@ -1,5 +1,8 @@
+/* Premium Sleep Styles */
+
 .sleep-form {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--spacing-sm);
 }
 
@@ -9,5 +12,86 @@
 }
 
 .form-row label {
-  font-weight: bold;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Sleep Insights Cards */
+.insight-item-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: var(--surface-2);
+  border: 1px solid var(--line-color);
+  padding: 14px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.insight-item-card .icon {
+  font-size: 1.4rem;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-soft-border);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.insight-item-card h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+/* Sleep Gauge Ring Wrapper */
+.sleep-gauge-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gauge-center-text {
+  text-align: center;
+}
+
+.metric-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Hypnogram stacked segments bar */
+.hypnogram-container {
+  margin-top: 8px;
+}
+
+.hypno-bar {
+  display: flex;
+  height: 20px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.hypno-bar span {
+  display: block;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.hypno-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  margin-top: 4px;
+}
+
+@media (max-width: 600px) {
+  .sleep-cycle-metrics {
+    grid-template-columns: 1fr !important;
+  }
 }

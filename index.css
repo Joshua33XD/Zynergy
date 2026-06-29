@@ -5,7 +5,8 @@
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
-  background: #030712; /* Dark background default for the SaaS Landing page */
+  background: #030712;
+  /* Dark background default for the SaaS Landing page */
   color: #F9FAFB;
   display: flex;
   flex-direction: column;
@@ -52,7 +53,7 @@
 .grid-overlay {
   position: absolute;
   inset: 0;
-  background-image: 
+  background-image:
     linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
   background-size: 40px 40px;
@@ -87,9 +88,17 @@
 }
 
 @keyframes floatBlobs {
-  0% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(50px, 40px) scale(1.1); }
-  100% { transform: translate(-30px, -20px) scale(0.95); }
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate(50px, 40px) scale(1.1);
+  }
+
+  100% {
+    transform: translate(-30px, -20px) scale(0.95);
+  }
 }
 
 /* Hero Section */
@@ -109,17 +118,7 @@
   max-width: 800px;
 }
 
-.social-proof-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 6px 14px;
-  border-radius: 999px;
-  margin-bottom: var(--spacing-sm);
-  backdrop-filter: blur(10px);
-}
+
 
 .social-proof-badge .stars {
   color: #F59E0B;
@@ -207,9 +206,17 @@
   border-radius: 50%;
 }
 
-.mockup-header .dot.red { background: #EF4444; }
-.mockup-header .dot.yellow { background: #F59E0B; }
-.mockup-header .dot.green { background: #10B981; }
+.mockup-header .dot.red {
+  background: #EF4444;
+}
+
+.mockup-header .dot.yellow {
+  background: #F59E0B;
+}
+
+.mockup-header .dot.green {
+  background: #10B981;
+}
 
 .mockup-tab {
   font-size: 0.75rem;
@@ -219,6 +226,10 @@
 
 .mockup-body {
   padding: var(--spacing-md);
+  width: 100%;
+  display: block;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
 }
 
 .mockup-grid {
@@ -680,7 +691,8 @@
     grid-template-columns: 1fr;
   }
 
-  .features-grid, .testimonials-grid {
+  .features-grid,
+  .testimonials-grid {
     grid-template-columns: 1fr;
   }
 }

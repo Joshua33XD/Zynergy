@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="common.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="chatbot-widget.css">
+    <!-- Chart.js CDN for premium charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Confetti CDN for achievements -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+</head>
+<!-- 2. LOGGED-IN APP SHELL -->
+<div id="app-shell" class="app-shell">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <h2 class="brand">ZYNERGY</h2>
+
+        <!-- Profile mini panel -->
+        <div class="profile-block">
+            <div class="login" id="login">
+                <button type="button" onclick="loginpage()" class="ux-primary-cta" style="width:100%;">Sign In</button>
+            </div>
+            <div class="profile hidden" id="profile" style="display:flex; align-items:center; gap: 10px;">
+                <img id="profile-pic" alt="Avatar" width="36" height="36"
+                    style="border-radius: 50%; border: 2px solid var(--primary-color);">
+                <span id="username" style="font-weight: 600; font-size: 0.9rem;">User</span>
+            </div>
+            <p class="profile-line" style="margin: 8px 0 0; font-size: 0.8rem;">
+                Rank: <strong id="statusRankLabel">—</strong> · XP: <strong id="statusXpLabel">0</strong>
+            </p>
+            <span class="hidden" id="statusRankChangeLabel"></span>
+        </div>
+
+        <nav class="side-nav">
+            <ul>
+                <li><a href="dashboard.html" aria-current="page">Dashboard</a></li>
+                <li><a href="workouts.html">Workout</a></li>
+                <li><a href="nutrition.html">Nutrition</a></li>
+                <li><a href="sleep.html">Sleep</a></li>
+                <li><a href="profile.html">Profile</a></li>
+            </ul>
+        </nav>
+
+        <button id="logout" type="button" class="ux-secondary-cta"
+            style="margin-top:auto; width: 100%; min-height: 40px; padding: 8px;">Logout</button>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="content">
+        <header>
+            <div class="ux-hero">
+                <h1 id="dashboardHeaderTitle">Dashboard</h1>
+                <p id="dashboardHeaderSubtitle">Consistency at a glance.</p>
+            </div>
+        </header>
+
+        <main>
+            <!-- Flagship Apple Health Inspired Widgets -->
+            <div class="dashboard-grid">
+
+                <!-- widget 1: Health Score -->
+                <section class="card col-4 widget-card score-widget">
+                    <div class="widget-header">
+                        <span class="widget-icon">⚡</span>
+                        <h3>Health Score</h3>
+                    </div>
+                    <div class="widget-body">
+                        <div class="score-radial-wrap">
+                            <span class="score-val" id="dashboardHealthScore">—</span>
+                            <span class="score-total">/100</span>
+                        </div>
+                        <p class="muted" id="dashboardHealthMeta">Log habits to boost score.</p>
+                    </div>
+                </section>
+
+                <!-- widget 2: Today's Workout -->
+                <section class="card col-8 widget-card plan-widget" id="dashboardPlanCard">
+                    <div class="widget-header">
+                        <span class="widget-icon">🏋️</span>
+                        <h3>Today's Workout</h3>
+                        <span id="dashboardPlanBadge" class="pill pill-primary" data-source="none">Rest</span>
+                    </div>
+                    <div class="widget-body">
+                        <p class="mvp-card-value" id="dashboardPlanLabel" style="font-size: 1.4rem; margin: 8px 0;">
+                            Loading…</p>
+                        <p class="muted" id="dashboardPlanMeta"></p>
+                    </div>
+                </section>
+
+                <!-- widget 3: Calories Tracker -->
+                <section class="card col-4 widget-card cal-widget">
+                    <div class="widget-header">
+                        <span class="widget-icon">🔥</span>
+                        <h3>Calorie Intake</h3>
+                    </div>
+                    <div class="widget-body">
+                        <div class="gauge-bar-wrapper">
+                            <div class="gauge-label"><span id="calorieLoggedVal">0</span> / 2200 kcal</div>
+                            <div class="meter"><span id="dashboardCalorieMeter" style="width: 0%"></span></div>
+                        </div>
+                        <p class="muted" style="margin-top: 8px;">Macro Fuel Tracker</p>
+                    </div>
+                </section>
+
+                <!-- widget 4: Nutrition log -->
+                <section class="card col-4 widget-card nutrition-widget">
+                    <div class="widget-header">
+                        <span class="widget-icon">🥗</span>
+                        <h3>Nutrition</h3>
+                    </div>
+                    <div class="widget-body">
+                        <p class="mvp-card-value" id="dashboardNutritionSummary"
+                            style="font-size: 1.1rem; margin: 8px 0;">Not
+                            logged today</p>
+                        <a class="pill pill-primary" href="nutrition.html" style="text-decoration:none;">Log meal</a>
+                    </div>
+                </section>
+
+                <!-- widget 5: Sleep Duration -->
+                <section class="card col-4 widget-card sleep-widget">
+                    <div class="widget-header">
+                        <span class="widget-icon">🌙</span>
+                        <h3>Sleep</h3>
+                    </div>
+                    <div class="widget-body">
+                        <p class="mvp-card-value" id="dashboardSleepSummary" style="font-size: 1.1rem; margin: 8px 0;">
+                            Not logged
+                            today</p>
+                        <a class="pill pill-primary" href="sleep.html" style="text-decoration:none;">Log sleep</a>
+                    </div>
+                </section>
+
+                <!-- widget 6: Heart Rate (Simulated live trend) -->
+                <section class="card col-4 widget-card heart-widget">
+                    <div class="widget-header">
+                        <span class="widget-icon" style="color:var(--danger-color)">❤️</span>
+                        <h3>Active Pulse</h3>
+                        <span class="trend status-success">▼ 68 bpm</span>
+                    </div>
+                    <div class="widget-body"
+                        style="display:flex; justify-content:space-between; align-items:center; padding-top: 10px;">
+                        <div>
+                            <span class="big-num">72</span>
+                            <span class="muted">bpm</span>
+                        </div>
+                        <!-- Mini SVG Sparkline -->
+                        <svg width="100" height="30" style="stroke: var(--danger-color); stroke-width: 2; fill: none;">
+                            <path
+                                d="M0,15 L10,15 L15,5 L22,25 L28,15 L45,15 L50,10 L55,20 L60,15 L80,15 L85,0 L92,30 L100,15">
+                            </path>
+                        </svg>
+                    </div>
+                </section>
+
+                <!-- widget 7: Water Intake -->
+                <section class="card col-4 widget-card water-widget">
+                    <div class="widget-header">
+                        <span class="widget-icon" style="color:var(--accent-color)">💧</span>
+                        <h3>Water Goal</h3>
+                        <span class="trend status-info" id="dashboardHydrationLabel">0%</span>
+                    </div>
+                    <div class="widget-body">
+                        <div class="meter" style="margin: 10px 0;"><span id="dashboardHydrationMeter"
+                                style="width: 0%"></span>
+                        </div>
+                        <button type="button" id="quickLogWaterBtn" class="pill pill-primary"
+                            style="border:none; cursor:pointer; min-height:30px; font-size:0.8rem; width:100%;">+ 250ml
+                            Glass</button>
+                    </div>
+                </section>
+
+                <!-- widget 8: Steps widget -->
+                <section class="card col-4 widget-card steps-widget">
+                    <div class="widget-header">
+                        <span class="widget-icon">👟</span>
+                        <h3>Steps Tracker</h3>
+                        <span class="trend status-success">▲ 8.4k</span>
+                    </div>
+                    <div class="widget-body" style="padding-top: 10px;">
+                        <span class="big-num">8,450</span> <span class="muted">/ 10,000 steps</span>
+                        <div class="meter" style="margin-top: 10px;"><span
+                                style="width: 84%; background: var(--accent-color);"></span></div>
+                    </div>
+                </section>
+
+                <!-- Charts Area -->
+                <section class="card col-12 weekly-charts-card">
+                    <div class="card-header-with-action"
+                        style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <div>
+                            <h2>Weekly Habit Compliance</h2>
+                            <p class="muted">Compliance score of exercises, diet plans, and recovery goals.</p>
+                        </div>
+                        <button id="refreshComplianceChartBtn" class="pill pill-primary"
+                            style="cursor:pointer; border:none; min-height:32px;">Update Graph</button>
+                    </div>
+                    <div class="chart-canvas-container" style="height: 320px; position: relative;">
+                        <canvas id="weeklyActivityChart"></canvas>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 ZYNERGY. All data secured.</p>
+        </footer>
+    </div>
+</div>
+
+<script type="module" src="script.js"></script>
+<script type="module" src="chatbot-widget.js"></script>
+</body>
+
+</html>

@@ -3992,7 +3992,7 @@ const login = document.getElementById("login");
 async function loginpage() {
   const { data } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: "https://zynergy.vercel.app/" },
+    options: { redirectTo: window.location.origin },
   });
   if (data.url) window.location.href = data.url;
 }
@@ -4000,16 +4000,40 @@ window.loginpage = loginpage;
 
 const { data: { session } } = await supabase.auth.getSession();
 
-if (session && profile && login) {
-  profile.classList.remove("hidden");
-  login.classList.add("hidden");
-  document.getElementById("profile-pic").src = session.user.user_metadata.avatar_url;
-  document.getElementById("username").textContent = "Welcome, " + session.user.user_metadata.full_name + "!";
-  loadWorkoutPlan();
-  loadMvpDashboard();
-} else if (profile && login) {
-  login.classList.remove("hidden");
-  profile.classList.add("hidden");
+const isLandingPage = document.getElementById("landing-container");
+const isDashboardPage = document.getElementById("app-shell");
+const isProtectedPage = isDashboardPage || 
+                        document.getElementById("wgerWorkoutCard") || 
+                        document.getElementById("wgerNutritionCard") || 
+                        document.getElementById("sleepSaveBtn") || 
+                        document.getElementById("avatarDisplay");
+
+if (session) {
+  if (isLandingPage) {
+    window.location.href = "dashboard.html";
+  } else {
+    if (profile && login) {
+      profile.classList.remove("hidden");
+      login.classList.add("hidden");
+      const profilePic = document.getElementById("profile-pic");
+      if (profilePic && session.user.user_metadata?.avatar_url) {
+        profilePic.src = session.user.user_metadata.avatar_url;
+      }
+      const usernameEl = document.getElementById("username");
+      if (usernameEl && session.user.user_metadata?.full_name) {
+        usernameEl.textContent = "Welcome, " + session.user.user_metadata.full_name + "!";
+      }
+    }
+  }
+} else {
+  if (isProtectedPage) {
+    window.location.href = "index.html";
+  } else {
+    if (profile && login) {
+      login.classList.remove("hidden");
+      profile.classList.add("hidden");
+    }
+  }
 }
 
 document.getElementById("logout")?.addEventListener("click", async () => {

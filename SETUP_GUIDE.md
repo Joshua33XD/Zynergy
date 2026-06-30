@@ -102,6 +102,32 @@ with check (auth.uid() = user_id);
 
 If policies with those names already exist, skip them or drop/recreate them in Supabase.
 
+## Profile & Sleep Table Schema Updates
+
+Run this in the Supabase SQL Editor to support profile picture, body details, friends, and detailed sleep logging:
+
+```sql
+-- Profile details migrations
+alter table public.user_profile
+add column if not exists avatar_url text,
+add column if not exists height numeric,
+add column if not exists weight numeric,
+add column if not exists age integer,
+add column if not exists goal text,
+add column if not exists activity_level text,
+add column if not exists friends text[];
+
+-- Sleep details migrations
+alter table public.daily_sleep
+add column if not exists start_time text,
+add column if not exists end_time text,
+add column if not exists wake_ups integer,
+add column if not exists naps boolean,
+add column if not exists caffeine boolean,
+add column if not exists workout boolean,
+add column if not exists subjective_rating text;
+```
+
 ## Verify Required Columns
 
 Check that these exist:

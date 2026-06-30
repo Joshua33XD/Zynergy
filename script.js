@@ -5,69 +5,76 @@ const supabase = createClient(
   "sb_publishable_X39Ew0pP1Dm8rLisK-1lIw_9xjldWfn"
 );
 
+// Helper function to get mock session in local development/testing
+async function getSessionHelper() {
+  let session = null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    session = data?.session;
+  } catch (e) {}
+
+  if (!session && localStorage.getItem("mock_session")) {
+    try {
+      session = JSON.parse(localStorage.getItem("mock_session"));
+    } catch (e) {}
+  }
+  return session;
+}
+
 // Helper function to get user info from session
 async function getUserInfo() {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const session = await getSessionHelper();
 
   if (!session || !session.user) return null;
 
-  return {
+  const info = {
     user_id: session.user.id,
     username:
       session.user.user_metadata?.full_name ||
       session.user.email?.split("@")[0] ||
       "User",
   };
+  window.zynergyUser = info;
+  return info;
 }
 
 // Helper function for upsert with fallback logic
 async function upsertWithFallback(tableName, data, conflictColumns) {
-  let { data: result, error } = await supabase.from(tableName).upsert(data);
+  const conflictCols = conflictColumns.split(",").map((col) =>
+    col.trim().replace(/"/g, "")
+  );
 
-  if (error && error.message?.includes("onConflict")) {
-    const retry = await supabase
-      .from(tableName)
-      .upsert(data, { onConflict: conflictColumns });
-    result = retry.data;
-    error = retry.error;
+  // Build check query
+  let query = supabase.from(tableName).select("id");
+  conflictCols.forEach((col) => {
+    const value = data[col] !== undefined ? data[col] : (data[col.toLowerCase()] !== undefined ? data[col.toLowerCase()] : data[col.toUpperCase()]);
+    query = query.eq(col, value);
+  });
+
+  let existing = null;
+  let selectError = null;
+  try {
+    const { data: res, error: err } = await query.maybeSingle();
+    existing = res;
+    selectError = err;
+  } catch (e) {
+    selectError = e;
   }
 
-  if (
-    error &&
-    (error.code === "23505" || error.message?.includes("duplicate"))
-  ) {
-    const conflictCols = conflictColumns.split(",").map((col) =>
-      col.trim().replace(/"/g, "")
-    );
-    const conflictConditions = conflictCols.map((col) => ({
-      column: col,
-      value: data[col] !== undefined ? data[col] : data[`"${col}"`],
-    }));
-
-    let query = supabase.from(tableName).select(conflictCols[0]);
-    conflictConditions.forEach(({ column, value }) => {
-      query = query.eq(column, value);
+  if (existing) {
+    // Record exists, UPDATE it
+    let updateQuery = supabase.from(tableName).update(data);
+    conflictCols.forEach((col) => {
+      const value = data[col] !== undefined ? data[col] : (data[col.toLowerCase()] !== undefined ? data[col.toLowerCase()] : data[col.toUpperCase()]);
+      updateQuery = updateQuery.eq(col, value);
     });
-    const { data: existing } = await query.single();
-
-    if (existing) {
-      let updateQuery = supabase.from(tableName).update(data);
-      conflictConditions.forEach(({ column, value }) => {
-        updateQuery = updateQuery.eq(column, value);
-      });
-      const updateResult = await updateQuery;
-      result = updateResult.data;
-      error = updateResult.error;
-    } else {
-      const insertResult = await supabase.from(tableName).insert(data);
-      result = insertResult.data;
-      error = insertResult.error;
-    }
+    const { data: updateRes, error: updateErr } = await updateQuery;
+    return { data: updateRes, error: updateErr };
+  } else {
+    // Record does not exist, INSERT it
+    const { data: insertRes, error: insertErr } = await supabase.from(tableName).insert(data);
+    return { data: insertRes, error: insertErr };
   }
-
-  return { data: result, error };
 }
 
 function handleError(error, tableName, user_id, date) {
@@ -2155,8 +2162,8 @@ const MUSCLE_IMAGES = {
   Legs: "https://images.pexels.com/photos/1552244/pexels-photo-1552244.jpeg?auto=compress&cs=tinysrgb&w=800",
   Back: "https://images.pexels.com/photos/949126/pexels-photo-949126.jpeg?auto=compress&cs=tinysrgb&w=800",
   Shoulders: "https://images.pexels.com/photos/414029/pexels-photo-414029.jpeg?auto=compress&cs=tinysrgb&w=800",
-  Biceps: "https://images.pexels.com/photos/1552106/pexels-photo-1552106.jpeg?auto=compress&cs=tinysrgb&w=800",
-  Triceps: "https://images.pexels.com/photos/1552106/pexels-photo-1552106.jpeg?auto=compress&cs=tinysrgb&w=800",
+  Biceps: "https://images.pexels.com/photos/1431283/pexels-photo-1431283.jpeg?auto=compress&cs=tinysrgb&w=800",
+  Triceps: "https://images.pexels.com/photos/3822901/pexels-photo-3822901.jpeg?auto=compress&cs=tinysrgb&w=800",
   default: "https://images.pexels.com/photos/416778/pexels-photo-416778.jpeg?auto=compress&cs=tinysrgb&w=800",
 };
 
@@ -2441,12 +2448,29 @@ function renderCalorieGaugeChart(loggedCalories) {
     calorieGaugeChartInstance.destroy();
   }
 
-  const limit = 2200;
+  const limit = window.zynergyCalorieTarget || 2200;
   const remaining = Math.max(0, limit - loggedCalories);
 
-  // Update gauge text
+  // Update gauge text and limit label
   const valText = document.getElementById("gaugeCalVal");
   if (valText) valText.textContent = String(loggedCalories);
+  
+  const limitText = canvas.nextElementSibling?.querySelector(".gauge-center-text span:last-child");
+  // Or check if there's a text container inside nutrition.html
+  // In nutrition.html, the limit label is inside gauge-center-text: / 2200 kcal
+  const limitLabelEl = document.querySelector(".gauge-center-text");
+  if (limitLabelEl) {
+    // Re-construct the inner HTML dynamically to keep layout exact
+    limitLabelEl.innerHTML = `
+      <span class="muted" style="font-size:0.75rem; text-transform:uppercase;">Logged</span><br>
+      <strong id="gaugeCalVal" style="font-size:1.6rem; font-weight:800;">${loggedCalories}</strong><br>
+      <span class="muted" style="font-size:0.75rem;">/ ${limit} kcal</span>
+    `;
+  }
+
+  const bodyStyles = getComputedStyle(document.body);
+  const chartActiveColor = bodyStyles.getPropertyValue("--accent-color").trim() || "#C5A880";
+  const chartTrackColor = bodyStyles.getPropertyValue("--surface-2").trim() || "#F5EFE6";
 
   calorieGaugeChartInstance = new Chart(canvas, {
     type: "doughnut",
@@ -2454,7 +2478,7 @@ function renderCalorieGaugeChart(loggedCalories) {
       labels: ["Logged", "Remaining"],
       datasets: [{
         data: [loggedCalories, remaining],
-        backgroundColor: ["#7C3AED", "rgba(255, 255, 255, 0.08)"],
+        backgroundColor: [chartActiveColor, chartTrackColor],
         borderWidth: 0,
         hoverOffset: 0
       }]
@@ -2534,9 +2558,11 @@ async function loadTodayNutritionEntry() {
 
   renderCalorieGaugeChart(totalCal);
 
-  const proteinGoalMet = data?.protein_goal_met === "Yes";
-  const proteinPct = proteinGoalMet ? 100 : totalProt >= 30 ? 75 : 40;
-  const caloriePct = totalCal >= 400 ? 75 : totalCal > 0 ? 50 : 30;
+  const protLimit = window.zynergyProteinTarget || 130;
+  const calLimit = window.zynergyCalorieTarget || 2200;
+
+  const proteinPct = Math.min(100, Math.round((totalProt / protLimit) * 100));
+  const caloriePct = Math.min(100, Math.round((totalCal / calLimit) * 100));
 
   animateMeterById("proteinMeter", proteinPct);
   animateMeterById("calorieMeter", caloriePct);
@@ -2547,6 +2573,18 @@ async function loadTodayNutritionEntry() {
   if (cPct) cPct.textContent = `${caloriePct}%`;
 }
 
+function formatAiNotes(text) {
+  if (!text) return "";
+  let html = text
+    .replace(/\*\*(Observations|Suggestions|Questions|Confidence)\*\*:/gi, '<p style="margin:4px 0;"><strong style="color:var(--accent-color); font-size:0.9rem; display:block; text-transform:uppercase; margin-bottom:2px;">$1</strong>')
+    .replace(/\*\*(Observations|Suggestions|Questions|Confidence)\*\*/gi, '<p style="margin:4px 0;"><strong style="color:var(--accent-color); font-size:0.9rem; display:block; text-transform:uppercase; margin-bottom:2px;">$1</strong>');
+  
+  return html.split("\n").filter(line => line.trim()).map(line => {
+    if (line.startsWith("<p")) return line;
+    return `<p style="margin: 2px 0;">${line}</p>`;
+  }).join("");
+}
+
 function setupAiCoachSuggestions() {
   document.getElementById("aiActionAcceptBtn")?.addEventListener("click", () => {
     showXpPop("+15 XP: Coach Tip Applied");
@@ -2554,26 +2592,83 @@ function setupAiCoachSuggestions() {
   });
 
   document.getElementById("aiActionGenerateBtn")?.addEventListener("click", async () => {
-    const tipContainer = document.querySelector(".ai-reasoning");
-    if (!tipContainer) return;
-    tipContainer.textContent = "AI Coach is calculating optimal intake adjustments...";
+    const parentContainer = document.getElementById("aiNutritionRecommendationContent");
+    if (!parentContainer) return;
+    
+    parentContainer.innerHTML = `
+      <div class="ai-suggestion-inner-card" style="text-align:center; padding: 20px;">
+        <p class="muted" style="margin:0;">Calculating dynamic nutrition patterns...</p>
+      </div>
+    `;
     setButtonBusy("aiActionGenerateBtn", true, "Generating...");
+
+    const userWeight = window.zynergyWeight || 70;
+    const userGoal = window.zynergyGoal || "maintain";
+    const calLimit = window.zynergyCalorieTarget || 2200;
+    const protLimit = window.zynergyProteinTarget || 140;
+
+    const messageText = `
+Generate one premium AI Nutrition Coach insight block in notes-only format:
+- User Weight: ${userWeight} kg
+- Fitness Goal: ${userGoal}
+- Calorie target: ${calLimit} kcal
+- Protein target: ${protLimit} g
+
+Please format your response strictly with these markdown sections (keep it short, under 150 words):
+**Observations**: (a brief note about targets and goals)
+**Suggestions**: (an actionable nutrition adjust tip)
+**Questions**: (a thought-provoking query about meals or consistency)
+**Confidence**: (estimated percentage based on profile, e.g. "90% Confidence")
+`;
 
     try {
       const response = await fetch("http://127.0.0.1:3000/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: "Give me one short premium fitness nutrition tip for muscle recovery under 150 characters." })
+        body: JSON.stringify({
+          messages: [
+            {
+              role: "system",
+              content: "You are ZYNERGY's AI Nutrition Coach. Provide concise, friendly nutrition advice using Observations, Suggestions, Questions, and Confidence sections. Do not use bold scores or correct/incorrect ratings."
+            },
+            { role: "user", content: messageText }
+          ]
+        })
       });
       if (response.ok) {
         const result = await response.json();
-        tipContainer.textContent = result.reply || "Increase water intake to assist glycogen storage.";
+        const content = result.reply;
+
+        parentContainer.innerHTML = `
+          <div class="ai-suggestion-inner-card" style="background:var(--surface-2); border:1px solid var(--line-color); border-radius:12px; padding:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid var(--line-color); padding-bottom:8px;">
+              <span class="ai-badge" style="font-weight:800; font-size:0.8rem; text-transform:uppercase;">🤖 Nutrition Advisor</span>
+              <span class="pill pill-primary" style="font-size:0.75rem;">AI Generated</span>
+            </div>
+            <div style="font-size:0.85rem; line-height:1.5; color:var(--text-color); display:flex; flex-direction:column; gap:8px;">
+              ${formatAiNotes(content)}
+            </div>
+          </div>
+        `;
         showXpPop("+5 XP: AI Insight Generated");
       } else {
-        tipContainer.textContent = "For high-performance muscle protein synthesis, consume 25g casein protein within 30 minutes before sleep.";
+        throw new Error("HTTP error");
       }
     } catch {
-      tipContainer.textContent = "For high-performance muscle protein synthesis, consume 25g casein protein within 30 minutes before sleep.";
+      parentContainer.innerHTML = `
+        <div class="ai-suggestion-inner-card" style="background:var(--surface-2); border:1px solid var(--line-color); border-radius:12px; padding:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid var(--line-color); padding-bottom:8px;">
+            <span class="ai-badge" style="font-weight:800; font-size:0.8rem; text-transform:uppercase;">🤖 Nutrition Advisor</span>
+            <span class="pill pill-primary" style="font-size:0.75rem;">Default Guide</span>
+          </div>
+          <div style="font-size:0.85rem; line-height:1.5; color:var(--text-color); display:flex; flex-direction:column; gap:8px;">
+            <p><strong>Observations</strong>: Your calorie target is ${calLimit} kcal and protein target is ${protLimit}g based on your fitness goals.</p>
+            <p><strong>Suggestions</strong>: Prioritize lean protein sources like eggs or tofu and complex carbohydrates for stable energy levels.</p>
+            <p><strong>Questions</strong>: How consistent are your meal timings day-to-day?</p>
+            <p><strong>Confidence</strong>: 80% Confidence</p>
+          </div>
+        </div>
+      `;
     } finally {
       setButtonBusy("aiActionGenerateBtn", false, "Ask AI Coach");
     }
@@ -2651,23 +2746,17 @@ function renderSleepScoreChart(hoursSlept) {
   const canvas = document.getElementById("sleepDoughnutChart");
   if (!canvas) return;
 
-  const score = Math.min(100, Math.round((hoursSlept / 8) * 100));
-  const remaining = Math.max(0, 100 - score);
+  // Let's assume 8 hours is the standard target for percentage display
+  const pct = Math.min(100, Math.round((hoursSlept / 8) * 100));
+  const remaining = Math.max(0, 100 - pct);
 
   const valEl = document.getElementById("sleepScoreValue");
-  if (valEl) valEl.textContent = String(score);
+  if (valEl) valEl.textContent = String(hoursSlept || "—");
 
   const descEl = document.getElementById("sleepQualityDesc");
   if (descEl) {
-    descEl.textContent =
-      score >= 85 ? "Excellent" :
-        score >= 70 ? "Good" :
-          score >= 50 ? "Fair" : "Poor";
-
-    descEl.className =
-      score >= 85 ? "status-success" :
-        score >= 70 ? "status-info" :
-          score >= 50 ? "status-warning" : "status-danger";
+    descEl.textContent = "hours";
+    descEl.className = "muted";
   }
 
   const ctx = canvas.getContext("2d");
@@ -2675,13 +2764,17 @@ function renderSleepScoreChart(hoursSlept) {
     sleepScoreChartInstance.destroy();
   }
 
+  const bodyStyles = getComputedStyle(document.body);
+  const chartActiveColor = bodyStyles.getPropertyValue("--accent-color").trim() || "#C5A880";
+  const chartTrackColor = bodyStyles.getPropertyValue("--surface-2").trim() || "#F5EFE6";
+
   sleepScoreChartInstance = new Chart(canvas, {
     type: "doughnut",
     data: {
-      labels: ["Score", "Remaining"],
+      labels: ["Slept", "Remaining"],
       datasets: [{
-        data: [score, remaining],
-        backgroundColor: ["#7C3AED", "rgba(255, 255, 255, 0.08)"],
+        data: [pct || 0, remaining || 100],
+        backgroundColor: [chartActiveColor, chartTrackColor],
         borderWidth: 0,
         hoverOffset: 0
       }]
@@ -2698,6 +2791,87 @@ function renderSleepScoreChart(hoursSlept) {
   });
 }
 
+async function generateSleepAiInsights(sleepRow) {
+  const container = document.getElementById("sleepAiInsightsContent");
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="ai-suggestion-inner-card" style="text-align:center; padding: 20px;">
+      <p class="muted" style="margin:0;">Calculating sleep patterns & AI Insights...</p>
+    </div>
+  `;
+
+  const messageText = `
+Analyze the following sleep data and output AI Coach Insights in notes-only format:
+- Hours Slept: ${sleepRow.hours_slept} hours
+- Sleep Start Time (Bedtime): ${sleepRow.start_time || "Not logged"}
+- Sleep End Time (Wake time): ${sleepRow.end_time || "Not logged"}
+- Wake-ups count: ${sleepRow.wake_ups || 0}
+- Took Naps: ${sleepRow.naps ? "Yes" : "No"}
+- Had Caffeine: ${sleepRow.caffeine ? "Yes" : "No"}
+- Worked Out: ${sleepRow.workout ? "Yes" : "No"}
+- Subjective wake-up rating: ${sleepRow.sleep_emoji || "Neutral"}
+
+Please format your response strictly with these markdown sections (keep it short, friendly, and actionable under 200 words total):
+**Observations**: (a brief summary of sleep duration, bedtime, naps, caffeine, workout, and wake-up feeling)
+**Suggestions**: (actionable recommendations for sleep habits, caffeine cutoff, wind-down timing)
+**Questions**: (thought-provoking prompts about screen time, stress, or environment)
+**Confidence**: (an estimation percentage based on the data completeness, e.g. "85% Confidence")
+`;
+
+  try {
+    const response = await fetch("http://127.0.0.1:3000/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: "system",
+            content: "You are ZYNERGY's AI Sleep Coach. Provide concise, friendly sleep advice using Observations, Suggestions, Questions, and Confidence sections. Do not use bold scores or correct/incorrect ratings."
+          },
+          { role: "user", content: messageText }
+        ]
+      })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      const content = result.reply;
+
+      container.innerHTML = `
+        <div class="ai-suggestion-inner-card" style="background:var(--surface-2); border:1px solid var(--line-color); border-radius:12px; padding:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid var(--line-color); padding-bottom:8px;">
+            <span class="ai-badge" style="font-weight:800; font-size:0.8rem; text-transform:uppercase;">🤖 Sleep Advisor</span>
+            <span class="pill pill-primary" style="font-size:0.75rem;">AI Generated</span>
+          </div>
+          <div style="font-size:0.85rem; line-height:1.5; color:var(--text-color); display:flex; flex-direction:column; gap:8px;">
+            ${formatAiNotes(content)}
+          </div>
+        </div>
+      `;
+      showXpPop("+5 XP: AI Sleep Insights");
+    } else {
+      throw new Error("HTTP error");
+    }
+  } catch (err) {
+    console.error("Failed to generate sleep insights:", err);
+    container.innerHTML = `
+      <div class="ai-suggestion-inner-card" style="background:var(--surface-2); border:1px solid var(--line-color); border-radius:12px; padding:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid var(--line-color); padding-bottom:8px;">
+          <span class="ai-badge" style="font-weight:800; font-size:0.8rem; text-transform:uppercase;">🤖 Sleep Advisor</span>
+          <span class="pill pill-primary" style="font-size:0.75rem;">Default Guide</span>
+        </div>
+        <div style="font-size:0.85rem; line-height:1.5; color:var(--text-color); display:flex; flex-direction:column; gap:8px;">
+          <p><strong>Observations</strong>: You logged ${sleepRow.hours_slept} hours of sleep, waking up feeling ${sleepRow.sleep_emoji || "neutral"}.</p>
+          <p><strong>Suggestions</strong>: Try keeping your bedtime start time regular and restrict caffeine intake after 2 PM.</p>
+          <p><strong>Questions</strong>: Did you look at a screen within 30 minutes of bedtime?</p>
+          <p><strong>Confidence</strong>: 70% Confidence (based on basic log fields)</p>
+        </div>
+      </div>
+    `;
+  }
+}
+
 async function loadTodaySleepEntry() {
   const userInfo = await getUserInfo();
   const statusEl = document.getElementById("sleepStatus");
@@ -2707,16 +2881,41 @@ async function loadTodaySleepEntry() {
   }
 
   const today = new Date().toISOString().split("T")[0];
-  const { data, error } = await supabase
-    .from("daily_sleep")
-    .select('"Date", hours_slept, sleep_emoji')
-    .eq("user_id", userInfo.user_id)
-    .eq("Date", today)
-    .maybeSingle();
+  let sleepRow = null;
+  
+  try {
+    const { data, error } = await supabase
+      .from("daily_sleep")
+      .select("*")
+      .eq("user_id", userInfo.user_id)
+      .eq("Date", today)
+      .maybeSingle();
 
-  if (error || !data) {
+    if (!error && data) {
+      sleepRow = data;
+    }
+  } catch (err) {
+    console.warn("Could not query daily_sleep from Supabase:", err);
+  }
+
+  // Fallback to localStorage
+  const localKey = `zynergy_sleep_${userInfo.user_id}_${today}`;
+  if (!sleepRow) {
+    const cached = localStorage.getItem(localKey);
+    if (cached) {
+      try {
+        sleepRow = JSON.parse(cached);
+      } catch (e) {}
+    }
+  }
+
+  if (!sleepRow) {
     if (statusEl) statusEl.textContent = "No sleep log yet today. Save to create one.";
     renderSleepScoreChart(0);
+    const container = document.getElementById("sleepAiInsightsContent");
+    if (container) {
+      container.innerHTML = `<p class="muted" style="text-align:center; padding:10px;">Log your sleep to see AI Coach analysis.</p>`;
+    }
     return;
   }
 
@@ -2729,13 +2928,32 @@ async function loadTodaySleepEntry() {
   };
   const sleepInput = document.getElementById("sleepInput");
   const emojiSelect = document.getElementById("emojiSelect");
-  if (sleepInput) sleepInput.value = String(data.hours_slept ?? "");
-  if (emojiSelect && data.sleep_emoji && emojiToSelect[data.sleep_emoji]) {
-    emojiSelect.value = emojiToSelect[data.sleep_emoji];
+  if (sleepInput) sleepInput.value = String(sleepRow.hours_slept ?? "");
+  if (emojiSelect && sleepRow.sleep_emoji && emojiToSelect[sleepRow.sleep_emoji]) {
+    emojiSelect.value = emojiToSelect[sleepRow.sleep_emoji];
   }
+
+  // Populate extended fields
+  const startTimeEl = document.getElementById("sleepStartTime");
+  const endTimeEl = document.getElementById("sleepEndTime");
+  const wakeUpsEl = document.getElementById("sleepWakeUps");
+  const napsEl = document.getElementById("sleepNaps");
+  const caffeineEl = document.getElementById("sleepCaffeine");
+  const workoutEl = document.getElementById("sleepWorkout");
+
+  if (startTimeEl) startTimeEl.value = sleepRow.start_time || "23:00";
+  if (endTimeEl) endTimeEl.value = sleepRow.end_time || "07:00";
+  if (wakeUpsEl) wakeUpsEl.value = sleepRow.wake_ups !== undefined && sleepRow.wake_ups !== null ? sleepRow.wake_ups : 0;
+  if (napsEl) napsEl.checked = !!sleepRow.naps;
+  if (caffeineEl) caffeineEl.checked = !!sleepRow.caffeine;
+  if (workoutEl) workoutEl.checked = !!sleepRow.workout;
+
   if (statusEl) statusEl.textContent = "Today's sleep log loaded. Edit and save to update.";
 
-  renderSleepScoreChart(data.hours_slept ?? 0);
+  renderSleepScoreChart(sleepRow.hours_slept ?? 0);
+  
+  // Trigger AI insights
+  generateSleepAiInsights(sleepRow);
 }
 
 async function saveSleepData() {
@@ -2771,14 +2989,51 @@ async function saveSleepData() {
   }
   const validEmojis = Object.values(emojiMap);
   if (!validEmojis.includes(sleep_emoji)) { showToast("Invalid sleep emoji.", "error"); return; }
+
+  const startTime = document.getElementById("sleepStartTime")?.value || "23:00";
+  const endTime = document.getElementById("sleepEndTime")?.value || "07:00";
+  const wake_ups = parseInt(document.getElementById("sleepWakeUps")?.value || "0", 10);
+  const naps = document.getElementById("sleepNaps")?.checked || false;
+  const caffeine = document.getElementById("sleepCaffeine")?.checked || false;
+  const workout = document.getElementById("sleepWorkout")?.checked || false;
+
+  const payload = {
+    user_id,
+    username,
+    Date: date,
+    hours_slept,
+    sleep_emoji,
+    start_time: startTime,
+    end_time: endTime,
+    wake_ups,
+    naps,
+    caffeine,
+    workout
+  };
+
+  // Cache to localStorage
+  const localKey = `zynergy_sleep_${user_id}_${date}`;
+  localStorage.setItem(localKey, JSON.stringify(payload));
+
   const { data, error } = await upsertWithFallback(
     "daily_sleep",
-    { user_id, username, Date: date, hours_slept, sleep_emoji },
+    payload,
     'user_id,"Date"'
   );
+
   if (error) {
-    if (statusEl) statusEl.textContent = "Sleep save failed. Try again.";
-    showToast(handleError(error, "daily_sleep", user_id, date), "error");
+    console.warn("daily_sleep upsert error:", error);
+    if (statusEl) statusEl.textContent = "Sleep log saved locally (Supabase migrations pending).";
+    showToast("Sleep log saved locally.", "info");
+    
+    // Confetti effect
+    if (typeof confetti === "function") {
+      confetti({ particleCount: 100, spread: 60, origin: { y: 0.6 } });
+    }
+
+    loadMvpDashboard();
+    renderSleepScoreChart(hours_slept);
+    generateSleepAiInsights(payload);
   }
   else {
     showToast("Powering down complete.", "success");
@@ -3064,7 +3319,7 @@ function setupThemeToggle() {
   const savedTheme = rawTheme === "ion" ? "ion" : "default";
   applyTheme(savedTheme);
   if (!themeBtn) return;
-  const labelMap = { default: "Theme: Black", ion: "Theme: Blue" };
+  const labelMap = { default: "Theme: Light", ion: "Theme: Dark" };
   themeBtn.textContent = labelMap[savedTheme] || labelMap.default;
   themeBtn.addEventListener("click", () => {
     const current = document.body.getAttribute("data-theme") || "default";
@@ -3280,13 +3535,18 @@ async function loadMvpDashboard() {
       loggedCalories = parseInt(calMatch[1], 10);
     }
   }
+  const limit = window.zynergyCalorieTarget || 2200;
   const calorieLoggedVal = document.getElementById("calorieLoggedVal");
   if (calorieLoggedVal) {
     calorieLoggedVal.textContent = String(loggedCalories);
   }
+  const calorieTargetVal = document.getElementById("calorieTargetVal");
+  if (calorieTargetVal) {
+    calorieTargetVal.textContent = String(limit);
+  }
   const dashboardCalorieMeter = document.getElementById("dashboardCalorieMeter");
   if (dashboardCalorieMeter) {
-    const pct = Math.min(100, Math.round((loggedCalories / 2200) * 100));
+    const pct = Math.min(100, Math.round((loggedCalories / limit) * 100));
     dashboardCalorieMeter.style.width = `${pct}%`;
   }
 
@@ -3302,6 +3562,60 @@ async function loadMvpDashboard() {
 
   // Render compliance graphs
   renderWeeklyComplianceChart();
+}
+
+// Sync custom or OAuth profile picture and name across pages
+async function syncProfileHeader(session) {
+  if (!session || !session.user) return;
+  const user_id = session.user.id;
+
+  let avatarUrl = "";
+  try {
+    const { data, error } = await supabase
+      .from("user_profile")
+      .select("avatar_url")
+      .eq("user_id", user_id)
+      .maybeSingle();
+    if (!error && data) {
+      avatarUrl = data.avatar_url;
+    }
+  } catch (e) {}
+
+  if (!avatarUrl) {
+    const cached = localStorage.getItem(`zynergy_profile_${user_id}`);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        avatarUrl = parsed.avatar_url;
+      } catch (e) {}
+    }
+  }
+
+  if (!avatarUrl) {
+    avatarUrl = session.user.user_metadata?.avatar_url || "";
+  }
+
+  const profilePic = document.getElementById("profile-pic");
+  if (profilePic) {
+    profilePic.src = avatarUrl || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150";
+  }
+
+  const avatarDisplay = document.getElementById("avatarDisplay");
+  if (avatarDisplay) {
+    avatarDisplay.src = avatarUrl || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150";
+  }
+
+  const usernameEl = document.getElementById("username");
+  if (usernameEl) {
+    const fullName = session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "User";
+    usernameEl.textContent = "Welcome, " + fullName + "!";
+  }
+  
+  const usernameDisplay = document.getElementById("usernameDisplay");
+  if (usernameDisplay) {
+    const fullName = session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "User";
+    usernameDisplay.textContent = fullName;
+  }
 }
 
 async function loadSidebarProfileStats() {
@@ -3350,7 +3664,20 @@ async function loadSidebarProfileStats() {
     .select("xp")
     .eq("user_id", user_id)
     .maybeSingle();
-  const xp = Number(profile?.xp || 0);
+    
+  let xp = 0;
+  if (profile && typeof profile.xp === "number") {
+    xp = profile.xp;
+  } else {
+    const cached = localStorage.getItem(`zynergy_profile_${user_id}`);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        xp = Number(parsed.xp || 0);
+      } catch (e) {}
+    }
+  }
+
   const statusXpLabel = document.getElementById("statusXpLabel");
   if (statusXpLabel) statusXpLabel.textContent = String(xp);
   const headerTitle = document.getElementById("dashboardHeaderTitle");
@@ -3367,15 +3694,10 @@ async function loadSidebarProfileStats() {
   const levelInfo = getLevelFromXp(xp);
   if (statusRankLabel) statusRankLabel.textContent = `Lvl ${levelInfo.level}`;
 
-  // Update profile page UI elements if they exist
-  const avatarDisplay = document.getElementById("avatarDisplay");
-  const { data: { session } } = await supabase.auth.getSession();
-  if (avatarDisplay && session?.user?.user_metadata?.avatar_url) {
-    avatarDisplay.src = session.user.user_metadata.avatar_url;
-  }
-  const usernameDisplay = document.getElementById("usernameDisplay");
-  if (usernameDisplay && session?.user?.user_metadata?.full_name) {
-    usernameDisplay.textContent = session.user.user_metadata.full_name;
+  // Update profile page UI elements and sidebar sync
+  const session = await getSessionHelper();
+  if (session) {
+    await syncProfileHeader(session);
   }
   const levelNameDisplay = document.getElementById("levelNameDisplay");
   if (levelNameDisplay) {
@@ -3534,6 +3856,317 @@ function historyRowsToCsv(rows) {
     return `${row.date},${row.type},${safeDetail}`;
   });
   return [header, ...lines].join("\n");
+}
+
+function getUserInfoSync() {
+  return window.zynergyUser || null;
+}
+
+function loadCachedNutrientTargets() {
+  const cached = localStorage.getItem("zynergy_current_targets");
+  if (cached) {
+    try {
+      const { calTarget, protTarget } = JSON.parse(cached);
+      window.zynergyCalorieTarget = calTarget;
+      window.zynergyProteinTarget = protTarget;
+    } catch (e) {}
+  }
+}
+
+function recalculateNutrients() {
+  const weight = parseFloat(window.zynergyWeight) || 70;
+  const height = parseFloat(window.zynergyHeight) || 175;
+  const age = parseInt(window.zynergyAge, 10) || 25;
+  const goal = window.zynergyGoal || "maintain";
+  const activity = window.zynergyActivity || "moderate";
+
+  // Mifflin-St Jeor BMR
+  const bmr = 10 * weight + 6.25 * height - 5 * age + 5;
+  
+  // TDEE multipliers
+  const mults = {
+    sedentary: 1.2,
+    light: 1.375,
+    moderate: 1.55,
+    active: 1.725
+  };
+  const activityMult = mults[activity] || 1.55;
+  const tdee = bmr * activityMult;
+
+  // Adjust calories based on goal
+  let calTarget = Math.round(tdee);
+  if (goal === "lose") {
+    calTarget = Math.round(tdee - 500);
+  } else if (goal === "gain") {
+    calTarget = Math.round(tdee + 300);
+  }
+
+  // Protein Target (2g per kg bodyweight)
+  const protTarget = Math.round(weight * 2);
+
+  window.zynergyCalorieTarget = calTarget;
+  window.zynergyProteinTarget = protTarget;
+
+  // Save to generic key for sync load
+  localStorage.setItem("zynergy_current_targets", JSON.stringify({ calTarget, protTarget }));
+
+  const userInfo = getUserInfoSync();
+  if (userInfo) {
+    localStorage.setItem(`zynergy_targets_${userInfo.user_id}`, JSON.stringify({ calTarget, protTarget }));
+  }
+}
+
+async function setupProfilePage() {
+  const saveBtn = document.getElementById("saveProfileBtn");
+  const avatarFileInput = document.getElementById("profileAvatarFile");
+  const avatarUrlInput = document.getElementById("profileAvatarUrl");
+  const avatarDisplay = document.getElementById("avatarDisplay");
+  const heightInput = document.getElementById("profileHeight");
+  const weightInput = document.getElementById("profileWeight");
+  const ageInput = document.getElementById("profileAge");
+  const goalSelect = document.getElementById("profileGoal");
+  const activitySelect = document.getElementById("profileActivity");
+  const addFriendBtn = document.getElementById("addFriendBtn");
+  const friendInput = document.getElementById("friendUsernameInput");
+  const friendsListContainer = document.getElementById("friendsList");
+
+  if (!saveBtn) return; // Not on profile page
+
+  const userInfo = await getUserInfo();
+  if (!userInfo) {
+    const statusEl = document.getElementById("profileSaveStatus");
+    if (statusEl) statusEl.textContent = "Please sign in to manage profile and friends.";
+    return;
+  }
+  const { user_id, username } = userInfo;
+
+  // Handle local image file upload -> Base64
+  avatarFileInput?.addEventListener("change", () => {
+    const file = avatarFileInput.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64 = e.target.result;
+        if (avatarUrlInput) avatarUrlInput.value = base64;
+        if (avatarDisplay) avatarDisplay.src = base64;
+        // Update sidebar too
+        const sidebarPic = document.getElementById("profile-pic");
+        if (sidebarPic) sidebarPic.src = base64;
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  // Handle avatar URL input change
+  avatarUrlInput?.addEventListener("input", () => {
+    if (avatarDisplay) avatarDisplay.src = avatarUrlInput.value || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150";
+  });
+
+  // Load current values
+  let profileData = null;
+  try {
+    const { data, error } = await supabase
+      .from("user_profile")
+      .select("*")
+      .eq("user_id", user_id)
+      .maybeSingle();
+
+    if (!error && data) {
+      profileData = data;
+    }
+  } catch (err) {
+    console.warn("Could not query user_profile from Supabase:", err);
+  }
+
+  // Fallback to localStorage
+  const localKey = `zynergy_profile_${user_id}`;
+  if (!profileData) {
+    const cached = localStorage.getItem(localKey);
+    if (cached) {
+      try {
+        profileData = JSON.parse(cached);
+      } catch (e) {
+        console.error("Local storage profile parse fail:", e);
+      }
+    }
+  }
+
+  // Populate UI
+  if (profileData) {
+    if (avatarUrlInput) avatarUrlInput.value = profileData.avatar_url || "";
+    if (avatarDisplay && profileData.avatar_url) avatarDisplay.src = profileData.avatar_url;
+    if (heightInput) heightInput.value = profileData.height || "";
+    if (weightInput) weightInput.value = profileData.weight || "";
+    if (ageInput) ageInput.value = profileData.age || "";
+    if (goalSelect) goalSelect.value = profileData.goal || "maintain";
+    if (activitySelect) activitySelect.value = profileData.activity_level || "moderate";
+
+    // Set globally for calorie calculations on this page load
+    window.zynergyWeight = profileData.weight;
+    window.zynergyHeight = profileData.height;
+    window.zynergyAge = profileData.age;
+    window.zynergyGoal = profileData.goal;
+    window.zynergyActivity = profileData.activity_level;
+  }
+
+  // Load & Render Friends
+  let friendsList = [];
+  if (profileData && Array.isArray(profileData.friends)) {
+    friendsList = profileData.friends;
+  } else {
+    const cachedFriends = localStorage.getItem(`zynergy_friends_${user_id}`);
+    if (cachedFriends) {
+      try {
+        friendsList = JSON.parse(cachedFriends);
+      } catch (e) {}
+    }
+  }
+
+  function renderFriends() {
+    if (!friendsListContainer) return;
+    friendsListContainer.replaceChildren();
+
+    if (!friendsList.length) {
+      const p = document.createElement("p");
+      p.className = "muted";
+      p.style.textAlign = "center";
+      p.style.padding = "20px";
+      p.textContent = "No friends added yet. Start building your squad!";
+      friendsListContainer.appendChild(p);
+      return;
+    }
+
+    friendsList.forEach((friend, idx) => {
+      const row = document.createElement("div");
+      row.style.display = "flex";
+      row.style.justifyContent = "space-between";
+      row.style.alignItems = "center";
+      row.style.padding = "10px 14px";
+      row.style.background = "var(--surface-2)";
+      row.style.border = "1px solid var(--line-color)";
+      row.style.borderRadius = "8px";
+
+      const nameSpan = document.createElement("span");
+      nameSpan.style.fontWeight = "600";
+      nameSpan.textContent = `👤 ${friend}`;
+
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "pill";
+      removeBtn.style.color = "var(--danger-color)";
+      removeBtn.style.border = "1px solid var(--danger-color)";
+      removeBtn.style.background = "transparent";
+      removeBtn.style.cursor = "pointer";
+      removeBtn.textContent = "Remove";
+      removeBtn.addEventListener("click", async () => {
+        friendsList.splice(idx, 1);
+        await saveProfileAndFriends(false);
+      });
+
+      row.appendChild(nameSpan);
+      row.appendChild(removeBtn);
+      friendsListContainer.appendChild(row);
+    });
+  }
+
+  renderFriends();
+
+  // Save Function
+  async function saveProfileAndFriends(showMsg = true) {
+    const statusEl = document.getElementById("profileSaveStatus");
+    if (statusEl && showMsg) statusEl.textContent = "Saving details...";
+
+    const avatar_url = avatarUrlInput?.value || "";
+    const height = parseFloat(heightInput?.value) || null;
+    const weight = parseFloat(weightInput?.value) || null;
+    const age = parseInt(ageInput?.value, 10) || null;
+    const goal = goalSelect?.value || "maintain";
+    const activity_level = activitySelect?.value || "moderate";
+
+    const payload = {
+      user_id,
+      username,
+      avatar_url,
+      height,
+      weight,
+      age,
+      goal,
+      activity_level,
+      friends: friendsList
+    };
+
+    // Save to local storage first
+    localStorage.setItem(localKey, JSON.stringify(payload));
+    localStorage.setItem(`zynergy_friends_${user_id}`, JSON.stringify(friendsList));
+
+    // Try to update Supabase
+    let saveError = null;
+    try {
+      const { error } = await supabase
+        .from("user_profile")
+        .upsert({
+          user_id,
+          username,
+          avatar_url,
+          height,
+          weight,
+          age,
+          goal,
+          activity_level,
+          friends: friendsList
+        });
+      if (error) saveError = error;
+    } catch (err) {
+      saveError = err;
+    }
+
+    if (saveError) {
+      console.warn("Supabase profile save failed, using local storage cache:", saveError);
+      if (statusEl && showMsg) statusEl.textContent = "Profile updated locally (Supabase columns pending migration).";
+      showToast("Profile saved locally.", "info");
+    } else {
+      if (statusEl && showMsg) statusEl.textContent = "Profile details synced with cloud.";
+      showToast("Profile secured.", "success");
+    }
+
+    // Set globally
+    window.zynergyWeight = weight;
+    window.zynergyHeight = height;
+    window.zynergyAge = age;
+    window.zynergyGoal = goal;
+    window.zynergyActivity = activity_level;
+
+    // Update avatar UI
+    if (avatarDisplay && avatar_url) avatarDisplay.src = avatar_url;
+    const sidebarPic = document.getElementById("profile-pic");
+    if (sidebarPic && avatar_url) sidebarPic.src = avatar_url;
+
+    renderFriends();
+    recalculateNutrients();
+  }
+
+  saveBtn.addEventListener("click", () => saveProfileAndFriends(true));
+
+  // Add Friend
+  addFriendBtn?.addEventListener("click", async () => {
+    const friendName = friendInput?.value?.trim();
+    if (!friendName) {
+      showToast("Enter a username.", "error");
+      return;
+    }
+    if (friendName.toLowerCase() === username.toLowerCase()) {
+      showToast("You cannot add yourself.", "error");
+      return;
+    }
+    if (friendsList.includes(friendName)) {
+      showToast("Already added.", "error");
+      return;
+    }
+    friendsList.push(friendName);
+    if (friendInput) friendInput.value = "";
+    await saveProfileAndFriends(false);
+    showToast(`${friendName} added to squad!`, "success");
+  });
 }
 
 function setupHistoryPage() {
@@ -3779,21 +4412,26 @@ async function renderWeeklyComplianceChart() {
   }
 
   const isDark = document.body.getAttribute("data-theme") === "ion";
+  const bodyStyles = getComputedStyle(document.body);
+  const primaryColor = bodyStyles.getPropertyValue("--text-color").trim() || (isDark ? "#FAF6EE" : "#000000");
+  const accentColor = bodyStyles.getPropertyValue("--accent-color").trim() || "#C5A880";
+  const successColor = bodyStyles.getPropertyValue("--success-color").trim() || "#16A34A";
+  
   const labelColor = isDark ? "#F9FAFB" : "#111827";
   const tickColor = isDark ? "#9CA3AF" : "#6B7280";
   const gridColor = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)";
 
   const gradWorkout = ctx.createLinearGradient(0, 0, 0, 300);
-  gradWorkout.addColorStop(0, "rgba(124, 58, 237, 0.25)");
-  gradWorkout.addColorStop(1, "rgba(124, 58, 237, 0.0)");
+  gradWorkout.addColorStop(0, "rgba(0, 0, 0, 0.12)");
+  gradWorkout.addColorStop(1, "rgba(0, 0, 0, 0.0)");
 
   const gradNutrition = ctx.createLinearGradient(0, 0, 0, 300);
-  gradNutrition.addColorStop(0, "rgba(16, 185, 129, 0.25)");
-  gradNutrition.addColorStop(1, "rgba(16, 185, 129, 0.0)");
+  gradNutrition.addColorStop(0, "rgba(22, 163, 74, 0.15)");
+  gradNutrition.addColorStop(1, "rgba(22, 163, 74, 0.0)");
 
   const gradSleep = ctx.createLinearGradient(0, 0, 0, 300);
-  gradSleep.addColorStop(0, "rgba(6, 182, 212, 0.25)");
-  gradSleep.addColorStop(1, "rgba(6, 182, 212, 0.0)");
+  gradSleep.addColorStop(0, "rgba(197, 168, 128, 0.15)");
+  gradSleep.addColorStop(1, "rgba(197, 168, 128, 0.0)");
 
   complianceChartInstance = new Chart(canvas, {
     type: "line",
@@ -3803,34 +4441,34 @@ async function renderWeeklyComplianceChart() {
         {
           label: "Workout Compliance (%)",
           data: workoutCounts,
-          borderColor: "#7C3AED",
+          borderColor: primaryColor,
           backgroundColor: gradWorkout,
           fill: true,
           tension: 0.4,
           borderWidth: 3,
-          pointBackgroundColor: "#7C3AED",
+          pointBackgroundColor: primaryColor,
           pointHoverRadius: 7,
         },
         {
           label: "Nutrition Compliance (%)",
           data: nutritionCounts,
-          borderColor: "#10B981",
+          borderColor: successColor,
           backgroundColor: gradNutrition,
           fill: true,
           tension: 0.4,
           borderWidth: 3,
-          pointBackgroundColor: "#10B981",
+          pointBackgroundColor: successColor,
           pointHoverRadius: 7,
         },
         {
           label: "Sleep Compliance (%)",
           data: sleepHours,
-          borderColor: "#06B6D4",
+          borderColor: accentColor,
           backgroundColor: gradSleep,
           fill: true,
           tension: 0.4,
           borderWidth: 3,
-          pointBackgroundColor: "#06B6D4",
+          pointBackgroundColor: accentColor,
           pointHoverRadius: 7,
         }
       ]
@@ -4047,8 +4685,10 @@ function initUI() {
   setupWgerFilters();
   setupWgerFeeds();
   setupHistoryPage();
+  setupProfilePage();
   setupDashboardInteractions();
   setupAiCoachSuggestions();
+  loadCachedNutrientTargets();
   loadTodayNutritionEntry();
   loadSidebarProfileStats();
   loadTodaySleepEntry();
@@ -4072,7 +4712,7 @@ async function loginpage() {
 }
 window.loginpage = loginpage;
 
-const { data: { session } } = await supabase.auth.getSession();
+const session = await getSessionHelper();
 
 const isLandingPage = document.getElementById("landing-container");
 const isDashboardPage = document.getElementById("app-shell");
@@ -4089,14 +4729,7 @@ if (session) {
     if (profile && login) {
       profile.classList.remove("hidden");
       login.classList.add("hidden");
-      const profilePic = document.getElementById("profile-pic");
-      if (profilePic && session.user.user_metadata?.avatar_url) {
-        profilePic.src = session.user.user_metadata.avatar_url;
-      }
-      const usernameEl = document.getElementById("username");
-      if (usernameEl && session.user.user_metadata?.full_name) {
-        usernameEl.textContent = "Welcome, " + session.user.user_metadata.full_name + "!";
-      }
+      await syncProfileHeader(session);
     }
   }
 } else {

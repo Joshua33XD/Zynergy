@@ -85,6 +85,35 @@
                 </select>
               </div>
 
+              <!-- Expanded sleep details inputs -->
+              <div class="dual-row" style="margin-top: 10px;">
+                <div class="form-row">
+                  <label for="sleepStartTime">Bedtime (Start)</label>
+                  <input type="time" id="sleepStartTime" value="23:00">
+                </div>
+                <div class="form-row">
+                  <label for="sleepEndTime">Wake Time (End)</label>
+                  <input type="time" id="sleepEndTime" value="07:00">
+                </div>
+              </div>
+
+              <div class="form-row" style="margin-top: 8px;">
+                <label for="sleepWakeUps">Wake-ups Count</label>
+                <input type="number" id="sleepWakeUps" min="0" max="20" placeholder="0" value="0">
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; gap:8px;">
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.82rem; font-weight:600; cursor:pointer;">
+                  <input type="checkbox" id="sleepNaps"> Took Nap
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.82rem; font-weight:600; cursor:pointer;">
+                  <input type="checkbox" id="sleepCaffeine"> Had Caffeine
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.82rem; font-weight:600; cursor:pointer;">
+                  <input type="checkbox" id="sleepWorkout"> Worked Out
+                </label>
+              </div>
+
               <div class="action-row" style="margin-top: var(--spacing-sm);">
                 <button id="sleepSaveBtn" type="button" class="ux-primary-cta">Save Sleep Log</button>
               </div>
@@ -98,21 +127,9 @@
             <!-- Card 2: Sleep Insights -->
             <section class="card" style="display:flex; flex-direction:column; gap:12px;">
               <h2>Sleep Insights</h2>
-              
-              <div class="insight-item-card">
-                <span class="icon">💡</span>
-                <div>
-                  <h4>Optimizing Deep Sleep</h4>
-                  <p class="muted" style="margin:2px 0 0; font-size:0.82rem;">Your deep sleep percentage was highest when logging hours slept before 11 PM. Try setting a reminder to wind down by 10:30 PM.</p>
-                </div>
-              </div>
-
-              <div class="insight-item-card">
-                <span class="icon">🧬</span>
-                <div>
-                  <h4>Circadian Alignment</h4>
-                  <p class="muted" style="margin:2px 0 0; font-size:0.82rem;">Consistency tier is <strong>High</strong>. Going to sleep at the same time daily strengthens your sleep quality metrics by up to 25%.</p>
-                </div>
+              <div id="sleepAiInsightsContent" style="display:flex; flex-direction:column; gap:10px;">
+                <!-- Dynamically populated AI Insights -->
+                <p class="muted" style="text-align:center; padding:10px;">Loading your sleep patterns...</p>
               </div>
             </section>
 
@@ -123,14 +140,14 @@
             
             <!-- Card 3: Large Sleep Score circular gauge -->
             <section class="card">
-              <h2>Recovery Score</h2>
+              <h2>Sleep Duration</h2>
               
               <div class="sleep-gauge-wrap" style="position:relative; height: 180px; margin: 10px 0; display:flex; justify-content:center;">
                 <canvas id="sleepDoughnutChart"></canvas>
                 <div class="gauge-center-text" style="position:absolute; top:52%; left:50%; transform:translate(-50%, -50%); text-align:center;">
-                  <span class="muted" style="font-size:0.75rem; text-transform:uppercase;">Sleep Score</span><br>
+                  <span class="muted" style="font-size:0.75rem; text-transform:uppercase;">Logged</span><br>
                   <strong id="sleepScoreValue" style="font-size:2rem; font-weight:800; color:var(--primary-color);">—</strong><br>
-                  <span id="sleepQualityDesc" class="muted" style="font-size:0.8rem; font-weight:600; color:var(--success-color);">Excellent</span>
+                  <span id="sleepQualityDesc" class="muted" style="font-size:0.8rem;">hours</span>
                 </div>
               </div>
 

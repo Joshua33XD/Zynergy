@@ -260,7 +260,7 @@
           <!-- Card 1: Account / Profile Details -->
           <section class="card col-12">
             <div class="profile-card-header">
-              <img id="avatarDisplay" class="large-avatar" src="https://images.pexels.com/photos/416778/pexels-photo-416778.jpeg?auto=compress&cs=tinysrgb&w=150" alt="Avatar">
+              <img id="avatarDisplay" class="large-avatar" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150" alt="Avatar">
               <div class="profile-info">
                 <h3 id="usernameDisplay">Sign In Required</h3>
                 <span class="level-badge" id="levelNameDisplay">Level 1 · Rookie</span>
@@ -303,6 +303,88 @@
                 <p class="muted" style="margin:4px 0 0; font-size:0.85rem;">Switch between light modes and dark modes.</p>
               </div>
               <button id="themeToggleBtn" type="button" class="ux-secondary-cta">Theme: Light</button>
+            </div>
+          </section>
+
+          <!-- Card 3.5: Edit Profile Details -->
+          <section class="card col-12" id="editProfileSection">
+            <h2>Edit Profile Details</h2>
+            <p class="muted">Set your profile picture and body metrics to personalize your experience and automatically calculate nutrition targets.</p>
+            
+            <p id="profileSaveStatus" class="muted" style="margin-bottom:12px; font-weight:600;"></p>
+
+            <div style="display:grid; gap:16px; margin-top:14px;">
+              <div class="dual-row">
+                <div class="form-row">
+                  <label for="profileAvatarUrl">Profile Picture URL</label>
+                  <input type="text" id="profileAvatarUrl" placeholder="https://example.com/avatar.jpg">
+                </div>
+                <div class="form-row">
+                  <label for="profileAvatarFile">Or Upload Local Image</label>
+                  <input type="file" id="profileAvatarFile" accept="image/*" style="padding:8px 0;">
+                </div>
+              </div>
+
+              <div class="dual-row">
+                <div class="form-row">
+                  <label for="profileHeight">Height (cm)</label>
+                  <input type="number" id="profileHeight" min="50" max="250" placeholder="175">
+                </div>
+                <div class="form-row">
+                  <label for="profileWeight">Weight (kg)</label>
+                  <input type="number" id="profileWeight" min="20" max="300" placeholder="70">
+                </div>
+              </div>
+
+              <div class="dual-row">
+                <div class="form-row">
+                  <label for="profileAge">Age (years)</label>
+                  <input type="number" id="profileAge" min="5" max="120" placeholder="25">
+                </div>
+                <div class="form-row">
+                  <label for="profileGoal">Fitness Goal</label>
+                  <select id="profileGoal">
+                    <option value="lose">Lose Weight</option>
+                    <option value="maintain" selected>Maintain Weight</option>
+                    <option value="gain">Gain Muscle / Weight</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <label for="profileActivity">Activity Level</label>
+                <select id="profileActivity">
+                  <option value="sedentary">Sedentary (Little/no exercise)</option>
+                  <option value="light">Lightly Active (Light exercise 1-3 days/wk)</option>
+                  <option value="moderate" selected>Moderately Active (Moderate exercise 3-5 days/wk)</option>
+                  <option value="active">Very Active (Hard exercise 6-7 days/wk)</option>
+                </select>
+              </div>
+
+              <div style="margin-top:8px;">
+                <button type="button" id="saveProfileBtn" class="ux-primary-cta" style="width:100%;">Save Profile Details</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Card 3.7: Friends Section -->
+          <section class="card col-12" id="friendsSection">
+            <h2>Friends</h2>
+            <p class="muted">Add training partners and keep track of your workout crew.</p>
+
+            <p id="friendStatus" class="muted" style="margin-bottom:12px; font-weight:600;"></p>
+
+            <div style="display:grid; gap:16px; margin-top:14px;">
+              <!-- Add Friend Input Form -->
+              <div style="display:flex; gap: 8px;">
+                <input type="text" id="friendUsernameInput" placeholder="Enter friend's username..." style="flex:1;">
+                <button type="button" id="addFriendBtn" class="ux-primary-cta" style="min-width:120px;">Add Friend</button>
+              </div>
+
+              <!-- Friends list container -->
+              <div id="friendsList" style="display:grid; gap:8px; margin-top:10px;">
+                <p class="muted" style="text-align:center; padding: 20px;">No friends added yet. Start building your squad!</p>
+              </div>
             </div>
           </section>
 

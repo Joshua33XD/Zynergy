@@ -45,7 +45,8 @@
                 <li><a href="dashboard.html" aria-current="page">Dashboard</a></li>
                 <li><a href="workouts.html">Workout</a></li>
                 <li><a href="nutrition.html">Nutrition</a></li>
-                <li><a href="sleep.html">Sleep</a></li>
+                <li><a href="recovery.html">Recovery</a></li>
+                <li><a href="history.html">History</a></li>
                 <li><a href="profile.html">Profile</a></li>
             </ul>
         </nav>
@@ -142,17 +143,28 @@
                     </div>
                 </section>
 
-                <!-- Charts Area (Weekly Recap) -->
-                <section class="card col-8 weekly-charts-card">
+                <!-- Weekly Insights (Weekly Recap) -->
+                <section class="card col-8 weekly-insights-card">
                     <div class="card-header-with-action" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                         <div>
-                            <h2>Weekly Recap</h2>
-                            <p class="muted">Consistency rate of workouts, nutrition logs, and sleep schedules.</p>
+                            <h2>Weekly Insights</h2>
+                            <p class="muted">Lifestyle and consistency patterns analyzed over the last 7 days.</p>
                         </div>
-                        <button id="refreshComplianceChartBtn" class="pill pill-primary" style="cursor:pointer; border:none; min-height:32px;">Update Graph</button>
+                        <button id="refreshInsightsBtn" class="pill pill-primary" style="cursor:pointer; border:none; min-height:32px;">Refresh Insights</button>
                     </div>
-                    <div class="chart-canvas-container" style="height: 320px; position: relative;">
-                        <canvas id="weeklyActivityChart"></canvas>
+                    <div class="widget-body" id="weeklyInsightsContent" style="display:flex; flex-direction:column; gap:12px;">
+                        <p class="muted">Calculating insights...</p>
+                    </div>
+                </section>
+
+                <!-- Coach Suggestions Widget -->
+                <section class="card col-4 coach-suggestions-card" id="dashboardCoachCard">
+                    <div class="widget-header" style="display:flex; align-items:center; gap:8px;">
+                        <span class="widget-icon">✨</span>
+                        <h3>AI Coach Suggestions</h3>
+                    </div>
+                    <div class="widget-body" id="dashboardCoachSuggestions" style="margin-top:10px;">
+                        <p class="muted">Loading coach tips...</p>
                     </div>
                 </section>
 

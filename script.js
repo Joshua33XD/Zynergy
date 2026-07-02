@@ -11,12 +11,12 @@ async function getSessionHelper() {
   try {
     const { data } = await supabase.auth.getSession();
     session = data?.session;
-  } catch (e) {}
+  } catch (e) { }
 
   if (!session && localStorage.getItem("mock_session")) {
     try {
       session = JSON.parse(localStorage.getItem("mock_session"));
-    } catch (e) {}
+    } catch (e) { }
   }
   return session;
 }
@@ -2454,7 +2454,7 @@ function renderCalorieGaugeChart(loggedCalories) {
   // Update gauge text and limit label
   const valText = document.getElementById("gaugeCalVal");
   if (valText) valText.textContent = String(loggedCalories);
-  
+
   const limitText = canvas.nextElementSibling?.querySelector(".gauge-center-text span:last-child");
   // Or check if there's a text container inside nutrition.html
   // In nutrition.html, the limit label is inside gauge-center-text: / 2200 kcal
@@ -2578,7 +2578,7 @@ function formatAiNotes(text) {
   let html = text
     .replace(/\*\*(Observations|Suggestions|Questions|Confidence)\*\*:/gi, '<p style="margin:4px 0;"><strong style="color:var(--accent-color); font-size:0.9rem; display:block; text-transform:uppercase; margin-bottom:2px;">$1</strong>')
     .replace(/\*\*(Observations|Suggestions|Questions|Confidence)\*\*/gi, '<p style="margin:4px 0;"><strong style="color:var(--accent-color); font-size:0.9rem; display:block; text-transform:uppercase; margin-bottom:2px;">$1</strong>');
-  
+
   return html.split("\n").filter(line => line.trim()).map(line => {
     if (line.startsWith("<p")) return line;
     return `<p style="margin: 2px 0;">${line}</p>`;
@@ -2594,7 +2594,7 @@ function setupAiCoachSuggestions() {
   document.getElementById("aiActionGenerateBtn")?.addEventListener("click", async () => {
     const parentContainer = document.getElementById("aiNutritionRecommendationContent");
     if (!parentContainer) return;
-    
+
     parentContainer.innerHTML = `
       <div class="ai-suggestion-inner-card" style="text-align:center; padding: 20px;">
         <p class="muted" style="margin:0;">Calculating dynamic nutrition patterns...</p>
@@ -2882,7 +2882,7 @@ async function loadTodaySleepEntry() {
 
   const today = new Date().toISOString().split("T")[0];
   let sleepRow = null;
-  
+
   try {
     const { data, error } = await supabase
       .from("daily_sleep")
@@ -2905,7 +2905,7 @@ async function loadTodaySleepEntry() {
     if (cached) {
       try {
         sleepRow = JSON.parse(cached);
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -2951,7 +2951,7 @@ async function loadTodaySleepEntry() {
   if (statusEl) statusEl.textContent = "Today's sleep log loaded. Edit and save to update.";
 
   renderSleepScoreChart(sleepRow.hours_slept ?? 0);
-  
+
   // Trigger AI insights
   generateSleepAiInsights(sleepRow);
 }
@@ -3025,7 +3025,7 @@ async function saveSleepData() {
     console.warn("daily_sleep upsert error:", error);
     if (statusEl) statusEl.textContent = "Sleep log saved locally (Supabase migrations pending).";
     showToast("Sleep log saved locally.", "info");
-    
+
     // Confetti effect
     if (typeof confetti === "function") {
       confetti({ particleCount: 100, spread: 60, origin: { y: 0.6 } });
@@ -3579,7 +3579,7 @@ async function syncProfileHeader(session) {
     if (!error && data) {
       avatarUrl = data.avatar_url;
     }
-  } catch (e) {}
+  } catch (e) { }
 
   if (!avatarUrl) {
     const cached = localStorage.getItem(`zynergy_profile_${user_id}`);
@@ -3587,7 +3587,7 @@ async function syncProfileHeader(session) {
       try {
         const parsed = JSON.parse(cached);
         avatarUrl = parsed.avatar_url;
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -3610,7 +3610,7 @@ async function syncProfileHeader(session) {
     const fullName = session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "User";
     usernameEl.textContent = "Welcome, " + fullName + "!";
   }
-  
+
   const usernameDisplay = document.getElementById("usernameDisplay");
   if (usernameDisplay) {
     const fullName = session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "User";
@@ -3664,7 +3664,7 @@ async function loadSidebarProfileStats() {
     .select("xp")
     .eq("user_id", user_id)
     .maybeSingle();
-    
+
   let xp = 0;
   if (profile && typeof profile.xp === "number") {
     xp = profile.xp;
@@ -3674,7 +3674,7 @@ async function loadSidebarProfileStats() {
       try {
         const parsed = JSON.parse(cached);
         xp = Number(parsed.xp || 0);
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -3869,7 +3869,7 @@ function loadCachedNutrientTargets() {
       const { calTarget, protTarget } = JSON.parse(cached);
       window.zynergyCalorieTarget = calTarget;
       window.zynergyProteinTarget = protTarget;
-    } catch (e) {}
+    } catch (e) { }
   }
 }
 
@@ -3882,7 +3882,7 @@ function recalculateNutrients() {
 
   // Mifflin-St Jeor BMR
   const bmr = 10 * weight + 6.25 * height - 5 * age + 5;
-  
+
   // TDEE multipliers
   const mults = {
     sedentary: 1.2,
@@ -4018,7 +4018,7 @@ async function setupProfilePage() {
     if (cachedFriends) {
       try {
         friendsList = JSON.parse(cachedFriends);
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -4416,7 +4416,7 @@ async function renderWeeklyComplianceChart() {
   const primaryColor = bodyStyles.getPropertyValue("--text-color").trim() || (isDark ? "#FAF6EE" : "#000000");
   const accentColor = bodyStyles.getPropertyValue("--accent-color").trim() || "#C5A880";
   const successColor = bodyStyles.getPropertyValue("--success-color").trim() || "#16A34A";
-  
+
   const labelColor = isDark ? "#F9FAFB" : "#111827";
   const tickColor = isDark ? "#9CA3AF" : "#6B7280";
   const gridColor = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)";
@@ -4748,3 +4748,113 @@ document.getElementById("logout")?.addEventListener("click", async () => {
   if (error) { console.error("Logout error:", error.message); }
   else { showToast("You have been logged out!", "success"); setTimeout(() => window.location.reload(), 1500); }
 });
+async function renderWeeklyInsightsAndSuggestions() {
+  const userInfo = await
+    getUserInfo();
+  if (!userInfo) return;
+  const { user_id } = userInfo;
+  const weekstart = daysAgoLocal(6);
+  const today = toLocalDateString(new Date());
+  const [{ data: workouts }, { data: nutrition }, { data: sleep }] = await Promise.all([
+    supabase.from("workout_daily").select("date").eq('user_id', user_id).gte('date', weekstart).lte("date", today),
+    supabase.from("daily_nutrition").select("entry_date,protein_goal_met").eq("user_id", user_id).gte('entry_date', weekstart).lte('entry_date', today),
+    supabase.from("daily_sleep").select('"date","hours_slept"').eq("user_id", user_id).gte("Date", weekstart).lte("Date", today)]);
+
+  const workoutcount = workouts ? workouts.length : 0;
+  const nutritioGoalMetCount = nutrition ? nutrition.filter(row => row.protein_goal_met === "Yes").length : 0;
+  const totalNutritionLogs = nutrition ? nutrition.length : 0;
+  let sleepAvg = 0;
+  if (sleep && sleep.length > 0) {
+    const totalHours = sleep.reduce((sum, row) => sum + Number(row.hours_slept || 0), 0);
+    sleepAvg = totalHours / sleep.length;
+  }
+  const insightsContainer = document.getElementById("weeklyInsightsContent");
+  if (!insightsContainer) return;
+
+  const warnings = [];
+
+  if (workoutcount === 0) {
+    warnings.push("Prioritize getting back in the gym—even a 20-minute session builds momentum.");
+  }
+  if (sleepAvg < 7) {
+    warnings.push("Your sleep is averaging under 7 hours; try setting a wind-down alarm to protect your recovery.");
+  }
+  if (nutritioGoalMetCount < 3) {
+    warnings.push("Protein compliance is low; consider a quick protein shake to close the gap.");
+  }
+
+  let summaryHtml = "";
+  if (warnings.length === 0) {
+    summaryHtml = `<p class="weekly-insights-summary">Incredible consistency! You are hitting all targets and training regularly. Keep driving forward.</p>`;
+  } else {
+    summaryHtml = `
+      <p class="weekly-insights-list-title">Priority Focus Areas:</p>
+      <ul class="weekly-insights-list">
+        ${warnings.map(w => `<li>${w}</li>`).join("")}
+      </ul>
+    `;
+  }
+
+  insightsContainer.innerHTML = `
+    <div class="weekly-insights-stats">
+      <p>🏋️ <strong>Workouts:</strong> ${workoutcount} logged</p>
+      <p>🥗 <strong>Nutrition:</strong> ${nutritioGoalMetCount} / ${totalNutritionLogs} protein goals met</p>
+      <p>🌙 <strong>Sleep:</strong> ${sleepAvg.toFixed(1)} hrs average</p>
+    </div>
+    ${summaryHtml}
+  `;
+
+  // ---  AI Coach Suggestions ---
+  const coachContainer = document.getElementById("dashboardCoachSuggestions");
+  if (coachContainer) {
+    coachContainer.innerHTML = `<p class="muted">Analyzing weekly patterns...</p>`;
+
+    const userWeight = window.zynergyWeight || 70;
+    const userGoal = window.zynergyGoal || "maintain";
+
+    const messageText = `
+Generate one premium AI Weekly Insights suggestions block in notes-only format:
+- Weekly Workouts: ${workoutcount} logged
+- Weekly Protein Goals Met: ${nutritioGoalMetCount} / ${totalNutritionLogs} days
+- Weekly Sleep Average: ${sleepAvg.toFixed(1)} hours/night
+- User Weight: ${userWeight} kg
+- Fitness Goal: ${userGoal}
+Please format your response strictly with these markdown sections (keep it short, under 150 words):
+**Observations**: (a brief note about weekly metrics)
+**Suggestions**: (actionable adjustments based on the stats)
+**Questions**: (a reflective question for the user)
+**Confidence**: (estimated percentage based on routine, e.g. "85% Confidence")
+`;
+    try {
+      const response = await fetch("http://127.0.0.1:3000/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: "system",
+              content: "You are ZYNERGY's AI Weekly Coach. Analyze weekly stats and return notes-only format with Observations, Suggestions, Questions, and Confidence sections. Do not use bold scores or correct/incorrect ratings."
+            },
+            { role: "user", content: messageText }
+          ]
+        })
+      });
+      if (response.ok) {
+        const result = await response.json();
+        coachContainer.innerHTML = renderMarkdownToHtml(result.reply);
+      } else {
+        coachContainer.innerHTML = `<p class="muted">Could not load coach suggestions at this time.</p>`;
+      }
+    } catch (e) {
+      coachContainer.innerHTML = `<p class="muted">Coach offline. Run backend server.</p>`;
+    }
+  }
+
+
+
+
+
+
+
+
+}

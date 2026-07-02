@@ -3560,8 +3560,9 @@ async function loadMvpDashboard() {
     }
   }
 
-  // Render compliance graphs
-  renderWeeklyComplianceChart();
+  // Render weekdly insights and suggestions
+  renderWeeklyInsightsAndSuggestions();
+
 }
 
 // Sync custom or OAuth profile picture and name across pages
